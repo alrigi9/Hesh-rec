@@ -29,6 +29,7 @@ from cloud_pipeline import (
     save_session_record,
     delete_session_record,
     rename_session_record,
+    update_session_action_items,
     auth_sign_in,
     auth_sign_up,
     auth_sign_out,
@@ -1279,26 +1280,29 @@ def render_meeting_detail_view(session_id: str):
 
     st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin-bottom: 16px;'>", unsafe_allow_html=True)
 
-    # 4 Dedicated Tabs
-    tab_report, tab_mindmap, tab_transcript, tab_chat = st.tabs([
-        "📊 Executive Summary & Actions",
+    # 5 Dedicated Tabs
+    tab_summary, tab_actions, tab_mindmap, tab_transcript, tab_chat = st.tabs([
+        "📊 Executive Summary",
+        "📋 Action Items Tracker",
         "🧠 Interactive Mind Map",
         "🗣️ Diarized Transcript & Synced Player",
-        "💬 Chat with this Audio"
+        "💬 Chat with Hesh Rec Bot"
     ])
 
+    user_id = get_current_user_id()
+
     # -------------------------------------------------------------------------
-    # TAB 1: EXECUTIVE SUMMARY & ACTIONS (CLEAN DENSITY)
+    # TAB 1: EXECUTIVE SUMMARY & PILLARS (CLEAN DENSITY)
     # -------------------------------------------------------------------------
-    with tab_report:
-        col_left, col_right = st.columns([1.1, 0.9], gap="large")
+    with tab_summary:
+        col_left, col_right = st.columns([1.05, 0.95], gap="large")
 
         with col_left:
             # 1. Executive Brief (Crisp bullet cards)
             exec_brief = data.get("executive_brief", [])
             if exec_brief:
-                points_html = "".join([f"<div style='font-size: 13px; color: var(--hesh-text-secondary); margin-bottom: 8px; line-height: 1.55; display:flex; align-items:flex-start; gap:6px;'><span style='color:var(--hesh-accent); font-weight:bold;'>•</span><span>{p.lstrip('•*- ').strip()}</span></div>" for p in exec_brief])
-                st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px; display:flex; align-items:center; gap:6px;">⚡ Executive Summary</div>{points_html}</div>""")
+                points_html = "".join([f"<div style='font-size: 13px; color: var(--hesh-text-secondary); margin-bottom: 8px; line-height: 1.55; display:flex; align-items:flex-start; gap:8px;'><span style='color:var(--hesh-accent); font-weight:bold; font-size:16px;'>•</span><span>{p.lstrip('•*- ').strip()}</span></div>" for p in exec_brief])
+                st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px; display:flex; align-items:center; gap:6px;">⚡ Executive Summary Brief</div>{points_html}</div>""")
 
             # 2. Discussion Pillars
             pillars = data.get("discussion_pillars", [])
@@ -1312,63 +1316,173 @@ def render_meeting_detail_view(session_id: str):
                     pillars_html.append(f"""<details style="background: var(--hesh-surface-hover); border: 1px solid var(--hesh-border); border-radius: 8px; margin-bottom: 8px; overflow: hidden;" {open_attr}><summary style="padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer;"><span style="background: var(--hesh-accent-subtle); color: var(--hesh-accent); padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 8px;">{p_time}</span> <span>{p_title}</span></summary><div style="padding: 10px 14px; font-size: 12.5px; color: var(--hesh-text-secondary); border-top: 1px solid var(--hesh-border); line-height: 1.55;">{p_details}</div></details>""")
                 st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">🏛️ Key Discussion Pillars</div>{''.join(pillars_html)}</div>""")
 
+        with col_right:
             # 3. Decisions & Reversals
             decisions = data.get("decisions", [])
             reversals = data.get("reversals", [])
             if decisions or reversals:
                 dec_html = []
                 if decisions:
-                    dec_html.append("<div style='font-size: 12px; font-weight: 700; color: #10B981; margin-bottom: 6px;'>✅ Approved Decisions</div>")
+                    dec_html.append("<div style='font-size: 12.5px; font-weight: 700; color: #10B981; margin-bottom: 8px;'>✅ Approved Decisions & Consensus</div>")
                     for dec in decisions:
-                        dec_html.append(f"<div style='font-size: 12.5px; color: var(--hesh-text-secondary); margin-bottom: 5px; line-height: 1.45;'>• {dec}</div>")
+                        dec_html.append(f"<div style='font-size: 12.5px; color: var(--hesh-text-secondary); margin-bottom: 6px; line-height: 1.45; display:flex; align-items:flex-start; gap:6px;'><span style='color:#10B981;'>✔</span><span>{dec}</span></div>")
                 if reversals:
-                    dec_html.append("<div style='font-size: 12px; font-weight: 700; color: #F43F5E; margin-top: 10px; margin-bottom: 6px;'>🔄 Rejected Proposals & Reversals</div>")
+                    dec_html.append("<div style='font-size: 12.5px; font-weight: 700; color: #F43F5E; margin-top: 14px; margin-bottom: 8px;'>🔄 Overturned Proposals & Reversals</div>")
                     for rev in reversals:
-                        dec_html.append(f"<div style='font-size: 12.5px; color: var(--hesh-text-secondary); margin-bottom: 5px; line-height: 1.45;'>• {rev}</div>")
-                st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">⚖️ Decisions Approved & Reversals</div>{''.join(dec_html)}</div>""")
-
-        with col_right:
-            # 4. Action Items Matrix (Guaranteed non-empty with on-the-fly extraction)
-            action_items = data.get("action_items", [])
-            if not action_items and raw_md:
-                # Fallback scan for action rows in raw_md
-                for line in raw_md.splitlines():
-                    if ("|" in line and ("p0" in line.lower() or "high" in line.lower() or "med" in line.lower() or "due" in line.lower())) or line.strip().startswith("- [ ]"):
-                        clean_item = re.sub(r"^[-*|\d\.\s\[\]]+", "", line).strip()
-                        if len(clean_item) > 5 and not clean_item.startswith("Task Deliverable"):
-                            action_items.append({
-                                "number": len(action_items) + 1,
-                                "description": clean_item,
-                                "assignee": "Team",
-                                "priority": "HIGH" if "high" in clean_item.lower() else "MED",
-                                "due_date": "Next Sprint",
-                                "notes": "—"
-                            })
-
-            if action_items:
-                rows_html = []
-                for item in action_items:
-                    deliverable = item.get("description") or item.get("task") or "Action deliverable"
-                    owner = item.get("assignee") or item.get("owner") or "Team"
-                    prio = (item.get("priority") or "MED").upper()
-                    due = item.get("due_date") or "Next Sprint"
-                    notes = item.get("notes") or item.get("acceptance_criteria") or "—"
-
-                    prio_class = "priority-med"
-                    if "HIGH" in prio:
-                        prio_class = "priority-high"
-                    elif "LOW" in prio:
-                        prio_class = "priority-low"
-
-                    rows_html.append(f"""<tr><td style="font-weight: 600; color: var(--hesh-text-primary);">{deliverable}</td><td style="color: var(--hesh-accent); font-weight: 600;">{owner}</td><td><span class="{prio_class}">{prio}</span></td><td style="color: var(--hesh-text-muted); font-size: 11.5px;">{due}</td><td style="color: var(--hesh-text-secondary); font-size: 11.5px;">{notes}</td></tr>""")
-
-                table_html = f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">📋 Action Items Matrix</div><table class="action-table"><thead><tr><th style="width: 38%;">Task Deliverable</th><th style="width: 16%;">Owner</th><th style="width: 12%;">Priority</th><th style="width: 14%;">Due Date</th><th style="width: 20%;">Acceptance Notes</th></tr></thead><tbody>{''.join(rows_html)}</tbody></table></div>"""
-                st.html(table_html)
-            else:
-                st.html("""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 8px;">📋 Action Items Matrix</div><div style="font-size: 12.5px; color: var(--hesh-text-muted);">No urgent action deliverables captured for this discussion.</div></div>""")
+                        dec_html.append(f"<div style='font-size: 12.5px; color: var(--hesh-text-secondary); margin-bottom: 6px; line-height: 1.45; display:flex; align-items:flex-start; gap:6px;'><span style='color:#F43F5E;'>✖</span><span>{rev}</span></div>")
+                st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">⚖️ Decisions & Governance</div>{''.join(dec_html)}</div>""")
 
     # -------------------------------------------------------------------------
-    # TAB 2: INTERACTIVE MIND MAP (WORLD-CLASS CDN PAN/ZOOM RENDERER)
+    # TAB 2: INTERACTIVE ACTION ITEMS TRACKER (FULL MANAGEMENT SUITE)
+    # -------------------------------------------------------------------------
+    with tab_actions:
+        action_items = data.get("action_items", [])
+        
+        # Fallback scan if empty
+        if not action_items and raw_md:
+            for line in raw_md.splitlines():
+                if ("|" in line and ("p0" in line.lower() or "high" in line.lower() or "med" in line.lower() or "due" in line.lower())) or line.strip().startswith("- [ ]"):
+                    clean_item = re.sub(r"^[-*|\d\.\s\[\]]+", "", line).strip()
+                    if len(clean_item) > 5 and not clean_item.startswith("Task Deliverable"):
+                        action_items.append({
+                            "number": len(action_items) + 1,
+                            "description": clean_item,
+                            "assignee": "Team",
+                            "priority": "HIGH" if "high" in clean_item.lower() else "MED",
+                            "due_date": "Next Sprint",
+                            "status": "pending",
+                            "notes": "—"
+                        })
+
+        # Ensure all items have a status
+        for idx, item in enumerate(action_items):
+            if "status" not in item:
+                item["status"] = "pending"
+            if "number" not in item:
+                item["number"] = idx + 1
+
+        total_cnt = len(action_items)
+        comp_cnt = len([a for a in action_items if a.get("status") == "completed"])
+        pend_cnt = total_cnt - comp_cnt
+        comp_percent = int((comp_cnt / total_cnt) * 100) if total_cnt > 0 else 0
+
+        # Header metrics & progress bar
+        col_act_head, col_act_prog = st.columns([1.5, 1.5])
+        with col_act_head:
+            st.markdown(f"""
+            <div>
+                <h3 style="font-size: 18px; margin-bottom: 2px;">📋 Action Items & Deliverables Manager</h3>
+                <div style="font-size: 12px; color: var(--hesh-text-muted);">Track completion, assign owners, and synchronize action items to cloud</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_act_prog:
+            st.markdown(f"<div style='display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--hesh-text-primary); margin-bottom:4px;'><span>Task Completion: {comp_cnt}/{total_cnt} Done</span><span>{comp_percent}%</span></div>", unsafe_allow_html=True)
+            st.progress(comp_percent / 100.0)
+
+        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
+        col_filter, col_add_btn = st.columns([2.0, 1.0])
+        with col_filter:
+            action_filter = st.radio(
+                "Filter Tasks",
+                [f"All ({total_cnt})", f"⏳ Pending ({pend_cnt})", f"✅ Completed ({comp_cnt})"],
+                horizontal=True,
+                label_visibility="collapsed"
+            )
+
+        # Filter items list
+        display_items = []
+        for a in action_items:
+            if "Pending" in action_filter and a.get("status") == "completed":
+                continue
+            if "Completed" in action_filter and a.get("status") != "completed":
+                continue
+            display_items.append(a)
+
+        # Render Task Cards
+        if not display_items:
+            st.info("No action items match the selected filter.")
+        else:
+            for item in display_items:
+                orig_idx = action_items.index(item)
+                is_done = item.get("status") == "completed"
+                prio = (item.get("priority") or "MED").upper()
+                prio_badge = "🔴 HIGH" if "HIGH" in prio else ("🟢 LOW" if "LOW" in prio else "🟡 MED")
+                owner = item.get("assignee") or item.get("owner") or "Team"
+                due = item.get("due_date") or "Next Sprint"
+                desc = item.get("description") or item.get("task") or "Deliverable"
+
+                desc_style = "text-decoration: line-through; opacity: 0.6;" if is_done else "font-weight: 600;"
+
+                with st.container():
+                    col_chk, col_txt, col_meta, col_del = st.columns([0.3, 2.2, 1.1, 0.4])
+                    with col_chk:
+                        chk_val = st.checkbox("", value=is_done, key=f"chk_act_{session_id}_{orig_idx}")
+                        if chk_val != is_done:
+                            action_items[orig_idx]["status"] = "completed" if chk_val else "pending"
+                            data["action_items"] = action_items
+                            update_session_action_items(session_id, action_items, user_id=user_id)
+                            st.toast("✅ Task status saved to Cloud!", icon="💾")
+                            time.sleep(0.2)
+                            st.rerun()
+
+                    with col_txt:
+                        st.markdown(f"<div style='font-size: 13.5px; color: var(--hesh-text-primary); padding-top: 2px; {desc_style}'>{desc}</div>", unsafe_allow_html=True)
+
+                    with col_meta:
+                        st.markdown(f"""
+                        <div style="display:flex; gap:6px; align-items:center; font-size:11px; padding-top:2px;">
+                            <span class="saas-badge" style="font-weight:700;">{prio_badge}</span>
+                            <span style="color:var(--hesh-accent); font-weight:600;">👤 {owner}</span>
+                            <span style="color:var(--hesh-text-muted);">📅 {due}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    with col_del:
+                        if st.button("🗑️", key=f"del_task_{session_id}_{orig_idx}", help="Delete Task"):
+                            action_items.pop(orig_idx)
+                            data["action_items"] = action_items
+                            update_session_action_items(session_id, action_items, user_id=user_id)
+                            st.toast("Task removed.", icon="🗑️")
+                            time.sleep(0.2)
+                            st.rerun()
+
+                    st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin: 6px 0;'>", unsafe_allow_html=True)
+
+        # Expandable Add New Task Form
+        with st.expander("➕ Add New Action Item"):
+            with st.form(key=f"form_add_action_{session_id}"):
+                new_task_desc = st.text_input("Task Deliverable", placeholder="e.g. Finalize Q3 Cloud migration roadmap")
+                col_f1, col_f2, col_f3 = st.columns(3)
+                with col_f1:
+                    new_task_owner = st.text_input("Assignee / Owner", value="Team")
+                with col_f2:
+                    new_task_prio = st.selectbox("Priority", ["HIGH", "MED", "LOW"], index=1)
+                with col_f3:
+                    new_task_due = st.text_input("Due Date / Deadline", value="Next Sprint")
+                
+                submitted = st.form_submit_button("Save Deliverable", type="primary", use_container_width=True)
+                if submitted:
+                    if new_task_desc.strip():
+                        action_items.append({
+                            "number": len(action_items) + 1,
+                            "description": new_task_desc.strip(),
+                            "assignee": new_task_owner.strip() or "Team",
+                            "priority": new_task_prio,
+                            "due_date": new_task_due.strip() or "Next Sprint",
+                            "status": "pending",
+                            "notes": "Manually added"
+                        })
+                        data["action_items"] = action_items
+                        update_session_action_items(session_id, action_items, user_id=user_id)
+                        st.toast("🎉 New Action Item saved to Cloud!", icon="✅")
+                        time.sleep(0.3)
+                        st.rerun()
+                    else:
+                        st.warning("Please provide a task description.")
+
+    # -------------------------------------------------------------------------
+    # TAB 3: INTERACTIVE MIND MAP (WORLD-CLASS CDN PAN/ZOOM RENDERER)
     # -------------------------------------------------------------------------
     with tab_mindmap:
         raw_mindmap = data.get("mermaid_mindmap", "").strip()

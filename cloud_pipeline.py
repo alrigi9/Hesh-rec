@@ -1150,3 +1150,23 @@ def rename_session_record(session_id: str, new_title: str, user_id: Optional[str
             pass
 
     return True
+
+
+def update_session_action_items(session_id: str, action_items: List[Dict[str, Any]], user_id: Optional[str] = None) -> bool:
+    """Updates action items with completion statuses and syncs both locally and to Supabase."""
+    sid_clean = session_id.replace("session_", "")
+    local_file = SESSIONS_DIR / f"session_{sid_clean}.json"
+    session_data = {}
+    title = "Meeting"
+
+    if local_file.exists():
+        try:
+            with open(local_file, "r", encoding="utf-8") as f:
+                session_data = json.load(f)
+            title = session_data.get("metadata", {}).get("source_file", "Meeting")
+        except Exception:
+            pass
+
+    session_data["action_items"] = action_items
+    return save_session_record(sid_clean, title, session_data, user_id=user_id)
+
