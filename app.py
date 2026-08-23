@@ -375,61 +375,33 @@ def get_current_user_id() -> str | None:
     return None
 
 
-def render_mermaid(code: str, height: int = 500):
-    """Bulletproof Mermaid.js ESM component renderer with character sanitization."""
-    if not code:
+def render_mindmap_diagram(mermaid_code: str):
+    """Guaranteed SVG renderer using mermaid.ink with base64 encoding."""
+    if not mermaid_code:
         return
-    # Strip any accidental markdown fences
-    clean_code = code.replace("```mermaid", "").replace("```", "").strip()
-    # Sanitize common Mermaid breaks (& -> and)
+    clean_code = mermaid_code.replace("```mermaid", "").replace("```", "").strip()
     clean_code = clean_code.replace("&", "and")
-    # Ensure starting diagram type
     if not clean_code.startswith("mindmap") and not clean_code.startswith("graph"):
         clean_code = "mindmap\n  " + clean_code
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({{ 
-            startOnLoad: true, 
-            theme: 'dark',
-            securityLevel: 'loose'
-        }});
-      </script>
-      <style>
-        body {{ 
-            background-color: transparent; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            margin: 0; 
-            padding: 16px;
-            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
-        }}
-        .mermaid {{ 
-            width: 100%; 
-            text-align: center; 
-            display: flex; 
-            justify-content: center; 
-        }}
-        svg {{ 
-            max-width: 100% !important; 
-            height: auto !important; 
-        }}
-      </style>
-    </head>
-    <body>
-      <pre class="mermaid">
-{clean_code}
-      </pre>
-    </body>
-    </html>
-    """
-    components.html(html_content, height=height, scrolling=True)
+    # Generate direct base64 encoded URL for mermaid.ink
+    try:
+        encoded_bytes = base64.b64encode(clean_code.encode("utf-8"))
+        encoded_str = encoded_bytes.decode("utf-8")
+        mermaid_url = f"https://mermaid.ink/svg/{encoded_str}?bgColor=!18191c"
+
+        # Render clean dark responsive SVG container
+        st.markdown(
+            f"""
+            <div style="background-color: #12141a; border-radius: 12px; border: 1px solid #232734; padding: 24px; text-align: center; overflow-x: auto; min-height: 400px; display: flex; align-items: center; justify-content: center;">
+                <img src="{mermaid_url}" alt="Mind Map" style="max-width: 100%; height: auto; filter: drop-shadow(0px 4px 20px rgba(0,0,0,0.5));" />
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    except Exception as e:
+        st.error(f"Error rendering mind map: {e}")
+        st.code(clean_code, language="mermaid")
 
 
 
@@ -1616,7 +1588,7 @@ def render_meeting_detail_view(session_id: str):
                         st.warning("Please provide a task description.")
 
     # -------------------------------------------------------------------------
-    # TAB 3: INTERACTIVE MIND MAP (MERMAID ESM COMPONENT RENDERER)
+    # TAB 3: INTERACTIVE MIND MAP (SVG / MERMAID.INK RENDERER)
     # -------------------------------------------------------------------------
     with tab_mindmap:
         raw_mindmap = data.get("mermaid_mindmap", "").strip()
@@ -1646,15 +1618,15 @@ def render_meeting_detail_view(session_id: str):
 
         col_mm_view, col_mm_side = st.columns([3.0, 1.0])
         with col_mm_view:
-            render_mermaid(raw_mindmap, height=520)
+            render_mindmap_diagram(raw_mindmap)
 
         with col_mm_side:
             st.markdown("""
             <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
                 <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 6px;">💡 Mind Map Controls</div>
                 <div style="font-size: 11.5px; color: var(--hesh-text-secondary); line-height: 1.5;">
-                    • Clean hierarchical layout<br>
-                    • Auto-rendered with Mermaid 10 ESM<br>
+                    • Guaranteed Vector SVG Display<br>
+                    • Rendered via mermaid.ink engine<br>
                     • Copy raw Mermaid code for wikis
                 </div>
             </div>
