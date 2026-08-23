@@ -259,7 +259,7 @@ def apply_saas_theme(theme: str):
             border-radius: 6px;
             letter-spacing: 0.3px;
         }}
-        .pro-vip-badge {
+        .pro-vip-badge {{
             display: inline-block;
             background: linear-gradient(135deg, #F59E0B 0%, #D97706 50%, #FBBF24 100%);
             color: #000000 !important;
@@ -270,8 +270,8 @@ def apply_saas_theme(theme: str):
             letter-spacing: 0.5px;
             text-transform: uppercase;
             box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
-        }
-        .pro-badge {
+        }}
+        .pro-badge {{
             display: inline-block;
             background: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
             color: #FFFFFF;
@@ -281,7 +281,7 @@ def apply_saas_theme(theme: str):
             border-radius: 100px;
             letter-spacing: 0.5px;
             text-transform: uppercase;
-        }
+        }}
         .free-badge {{
             display: inline-block;
             background: var(--hesh-surface-hover);
