@@ -1270,14 +1270,21 @@ def render_meeting_detail_view(session_id: str):
 
     st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin-bottom: 16px;'>", unsafe_allow_html=True)
 
-    # Tabs: Executive Report / Interactive Chat with this Audio
-    tab_report, tab_chat = st.tabs(["📊 Executive Intelligence Report", "💬 Chat with this Audio (Copilot Q&A)"])
+    # -------------------------------------------------------------------------
+    # WORKSPACE TABS: 4 DEDICATED SECTIONS
+    # -------------------------------------------------------------------------
+    tab_report, tab_mindmap, tab_transcript, tab_chat = st.tabs([
+        "📊 Executive Summary & Actions",
+        "🧠 Interactive Mind Map",
+        "🗣️ Diarized Transcript & Synced Player",
+        "💬 Chat with this Audio"
+    ])
 
     # -------------------------------------------------------------------------
-    # TAB 1: EXECUTIVE INTELLIGENCE REPORT
+    # TAB 1: EXECUTIVE SUMMARY & ACTIONS
     # -------------------------------------------------------------------------
     with tab_report:
-        col_left, col_right = st.columns([1.15, 0.85], gap="large")
+        col_left, col_right = st.columns([1.1, 0.9], gap="large")
 
         with col_left:
             # 1. Executive Brief
@@ -1313,6 +1320,7 @@ def render_meeting_detail_view(session_id: str):
                         dec_html.append(f"<div style='font-size: 12.5px; color: var(--hesh-text-secondary); margin-bottom: 5px; line-height: 1.45;'>• {rev}</div>")
                 st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">⚖️ Decisions Approved & Reversals</div>{''.join(dec_html)}</div>""")
 
+        with col_right:
             # 4. Action Items Matrix
             action_items = data.get("action_items", [])
             if action_items:
@@ -1334,115 +1342,240 @@ def render_meeting_detail_view(session_id: str):
 
                 table_html = f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">📋 Action Items Matrix</div><table class="action-table"><thead><tr><th style="width: 38%;">Task Deliverable</th><th style="width: 16%;">Owner</th><th style="width: 12%;">Priority</th><th style="width: 14%;">Due Date</th><th style="width: 20%;">Acceptance Criteria & Notes</th></tr></thead><tbody>{''.join(rows_html)}</tbody></table></div>"""
                 st.html(table_html)
-
-            # 5. Mermaid Architecture Mindmap
-            mindmap = data.get("mermaid_mindmap", "")
-            if mindmap and "mindmap" in mindmap:
-                st.markdown("""
-                <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;">
-                    <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">🗺️ Visual Meeting Mindmap</div>
-                """, unsafe_allow_html=True)
-                try:
-                    st_mermaid(mindmap, height="320px")
-                except Exception:
-                    st.code(mindmap, language="mermaid")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-        with col_right:
-            # Diarized Transcript & Synced Audio Player
-            found_audio = None
-            source_path = meta.get("source_file", "")
-            if source_path and Path(source_path).exists() and is_supported_media(Path(source_path)):
-                found_audio = Path(source_path)
             else:
-                for ext in [".mp3", ".wav", ".m4a", ".mp4"]:
-                    cand = INPUTS_DIR / f"{session_id}{ext}"
-                    if cand.exists():
-                        found_audio = cand
-                        break
-
-            transcript_turns = []
-            if "transcript_segments" in data and data["transcript_segments"]:
-                for seg in data["transcript_segments"]:
-                    transcript_turns.append({
-                        "time": seg.get("timestamp", "00:00"),
-                        "speaker": seg.get("speaker", "Speaker"),
-                        "text": seg.get("text", ""),
-                        "seconds": seg.get("start", 0.0)
-                    })
-            else:
-                transcript_turns = parse_transcript_turns(data.get("raw_markdown", ""))
-
-            st.html("""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">🗣️ Synced Audio & Diarized Transcript</div></div>""")
-
-            audio_b64 = ""
-            audio_mime = "audio/mp3"
-            if found_audio:
-                try:
-                    with open(found_audio, "rb") as af:
-                        audio_b64 = base64.b64encode(af.read()).decode("utf-8")
-                    if found_audio.suffix.lower() == ".wav":
-                        audio_mime = "audio/wav"
-                except Exception:
-                    pass
-
-            theme_mode = st.session_state.theme
-            bg_bubble = "#182238" if theme_mode == "dark" else "#F1F5F9"
-            border_col = "#232E48" if theme_mode == "dark" else "#E2E8F0"
-            text_pri = "#F8FAFC" if theme_mode == "dark" else "#0F172A"
-            text_sec = "#94A3B8" if theme_mode == "dark" else "#475569"
-            accent_col = "#38BDF8" if theme_mode == "dark" else "#0284C7"
-
-            transcript_cards_html = []
-            for turn in transcript_turns:
-                transcript_cards_html.append(f"""
-                <div class="turn-card" data-seek="{turn['seconds']}" onclick="seekToAudio({turn['seconds']}, this)" style="background: {bg_bubble}; border: 1px solid {border_col}; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="font-size: 12px; font-weight: 700; color: {accent_col};">{turn['speaker']}</span>
-                        <span style="font-size: 10.5px; font-weight: 700; color: {text_sec}; background: rgba(125, 125, 125, 0.1); padding: 2px 6px; border-radius: 4px;">{turn['time']}</span>
-                    </div>
-                    <div style="font-size: 12.5px; color: {text_pri}; line-height: 1.5;">{turn['text']}</div>
-                </div>
-                """)
-
-            interactive_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <style>
-                    * {{ box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
-                    body {{ margin: 0; padding: 0; background: transparent; color: {text_pri}; }}
-                    .transcript-list {{ max-height: 540px; overflow-y: auto; padding-right: 4px; }}
-                    .transcript-list::-webkit-scrollbar {{ width: 5px; }}
-                    .transcript-list::-webkit-scrollbar-thumb {{ background: {border_col}; border-radius: 4px; }}
-                    .turn-card.active {{ border-left: 4px solid {accent_col} !important; }}
-                </style>
-            </head>
-            <body>
-                {'<div style="margin-bottom:12px;"><audio id="plaud-audio" controls style="width:100%; height:36px;" src="data:' + audio_mime + ';base64,' + audio_b64 + '"></audio></div>' if audio_b64 else ''}
-                <div class="transcript-list" id="transcriptList">
-                    {''.join(transcript_cards_html) if transcript_cards_html else '<div style="font-size:12.5px; color:' + text_sec + '; padding:10px;">Transcript not available in turn format.</div>'}
-                </div>
-                <script>
-                    function seekToAudio(seconds, element) {{
-                        const audio = document.getElementById('plaud-audio');
-                        if (audio) {{
-                            audio.currentTime = seconds;
-                            audio.play();
-                        }}
-                        document.querySelectorAll('.turn-card').forEach(c => c.classList.remove('active'));
-                        if (element) {{
-                            element.classList.add('active');
-                        }}
-                    }}
-                </script>
-            </body>
-            </html>
-            """
-            components.html(interactive_html, height=600, scrolling=False)
+                st.info("No actionable deliverables detected in this session.")
 
     # -------------------------------------------------------------------------
-    # TAB 2: INTERACTIVE "CHAT WITH THIS AUDIO" ASSISTANT
+    # TAB 2: INTERACTIVE MIND MAP (DEDICATED VISUAL CANVAS)
+    # -------------------------------------------------------------------------
+    with tab_mindmap:
+        mindmap = data.get("mermaid_mindmap", "")
+        if not mindmap:
+            mindmap = f"""mindmap
+  root(({title}))
+    Executive Summary
+      Key Consensus
+      Primary Milestone
+    Discussion Pillars
+      Theme 1
+      Theme 2
+    Action Plan
+      Deliverable Alpha
+      Deliverable Beta"""
+
+        st.markdown("""
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+            <div>
+                <h3 style="font-size: 18px; margin: 0;">🧠 Interactive Visual Mind Map</h3>
+                <div style="font-size: 12px; color: var(--hesh-text-muted);">Explore topic hierarchies, strategic taxonomy, and decision flows</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_mm_view, col_mm_side = st.columns([3.0, 1.0])
+        with col_mm_view:
+            st.markdown("""
+            <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 20px; min-height: 480px; display: flex; align-items: center; justify-content: center;">
+            """, unsafe_allow_html=True)
+            try:
+                st_mermaid(mindmap, height="480px")
+            except Exception:
+                st.code(mindmap, language="mermaid")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_mm_side:
+            st.markdown("""
+            <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 6px;">💡 Mind Map Controls</div>
+                <div style="font-size: 11.5px; color: var(--hesh-text-secondary); line-height: 1.5;">
+                    • Zoom in/out via browser controls<br>
+                    • Inspect hierarchical branches<br>
+                    • Copy raw Mermaid code for documentation or GitHub wikis
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.download_button(
+                "📥 Download Mermaid Code",
+                data=mindmap,
+                file_name=f"{session_id}_mindmap.mmd",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+            with st.expander("🔍 View Mermaid Syntax"):
+                st.code(mindmap, language="mermaid")
+
+    # -------------------------------------------------------------------------
+    # TAB 3: DIARIZED TRANSCRIPT & SYNCED AUDIO PLAYER
+    # -------------------------------------------------------------------------
+    with tab_transcript:
+        found_audio = None
+        source_path = meta.get("source_file", "")
+        if source_path and Path(source_path).exists() and is_supported_media(Path(source_path)):
+            found_audio = Path(source_path)
+        else:
+            for ext in [".mp3", ".wav", ".m4a", ".mp4"]:
+                cand = INPUTS_DIR / f"{session_id}{ext}"
+                if cand.exists():
+                    found_audio = cand
+                    break
+
+        transcript_turns = []
+        if "transcript_segments" in data and data["transcript_segments"]:
+            for seg in data["transcript_segments"]:
+                transcript_turns.append({
+                    "time": seg.get("timestamp", "00:00"),
+                    "speaker": seg.get("speaker", "Speaker 1"),
+                    "text": seg.get("text", ""),
+                    "seconds": seg.get("start", 0.0)
+                })
+        else:
+            transcript_turns = parse_transcript_turns(data.get("raw_markdown", ""))
+
+        audio_b64 = ""
+        audio_mime = "audio/mp3"
+        if found_audio:
+            try:
+                with open(found_audio, "rb") as af:
+                    audio_b64 = base64.b64encode(af.read()).decode("utf-8")
+                if found_audio.suffix.lower() == ".wav":
+                    audio_mime = "audio/wav"
+            except Exception:
+                pass
+
+        theme_mode = st.session_state.theme
+        bg_surface = "#111726" if theme_mode == "dark" else "#FFFFFF"
+        bg_bubble = "#182238" if theme_mode == "dark" else "#F8FAFC"
+        bg_bubble_hover = "#212E4A" if theme_mode == "dark" else "#F1F5F9"
+        border_col = "#232E48" if theme_mode == "dark" else "#E2E8F0"
+        text_pri = "#F8FAFC" if theme_mode == "dark" else "#0F172A"
+        text_sec = "#94A3B8" if theme_mode == "dark" else "#475569"
+        accent_col = "#38BDF8" if theme_mode == "dark" else "#0284C7"
+
+        speaker_colors = {
+            "Speaker 1": "#38BDF8",
+            "Speaker 2": "#A855F7",
+            "Speaker 3": "#10B981",
+            "Speaker 4": "#F59E0B"
+        }
+
+        transcript_cards_html = []
+        for idx, turn in enumerate(transcript_turns):
+            spk_color = speaker_colors.get(turn["speaker"], accent_col)
+            transcript_cards_html.append(f"""
+            <div class="turn-card" data-seek="{turn['seconds']}" id="turn_{idx}" style="background: {bg_bubble}; border: 1px solid {border_col}; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; transition: all 0.15s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12px; font-weight: 800; color: {spk_color}; background: rgba(56, 189, 248, 0.08); padding: 2px 8px; border-radius: 6px;">🗣️ {turn['speaker']}</span>
+                        <span style="font-size: 11px; font-weight: 700; color: {text_sec}; background: rgba(125, 125, 125, 0.1); padding: 2px 6px; border-radius: 4px;">⏱️ {turn['time']}</span>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="seekToAudio({turn['seconds']}, this)" style="background: var(--hesh-surface, #111726); border: 1px solid {border_col}; color: {accent_col}; border-radius: 6px; font-size: 11px; font-weight: 700; padding: 3px 8px; cursor: pointer;">▶ Play from here</button>
+                        <button onclick="copyTurnText('txt_{idx}', this)" style="background: var(--hesh-surface, #111726); border: 1px solid {border_col}; color: {text_sec}; border-radius: 6px; font-size: 11px; font-weight: 600; padding: 3px 8px; cursor: pointer;">📋 Copy</button>
+                    </div>
+                </div>
+                <div id="txt_{idx}" style="font-size: 13px; color: {text_pri}; line-height: 1.6;">{turn['text']}</div>
+            </div>
+            """)
+
+        interactive_player_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                * {{ box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
+                body {{ margin: 0; padding: 0; background: transparent; color: {text_pri}; }}
+                .player-header {{
+                    background: {bg_surface};
+                    border: 1px solid {border_col};
+                    border-radius: 12px;
+                    padding: 14px 18px;
+                    margin-bottom: 14px;
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                }}
+                audio {{ flex: 1; height: 38px; outline: none; }}
+                .turn-card.active {{
+                    border-left: 4px solid {accent_col} !important;
+                    background: {bg_bubble_hover} !important;
+                }}
+                .transcript-stream {{
+                    max-height: 560px;
+                    overflow-y: auto;
+                    padding-right: 6px;
+                }}
+                .transcript-stream::-webkit-scrollbar {{ width: 5px; }}
+                .transcript-stream::-webkit-scrollbar-thumb {{ background: {border_col}; border-radius: 4px; }}
+            </style>
+        </head>
+        <body>
+            {'<div class="player-header"><b>🎙️ Audio Sync:</b> <audio id="plaud-audio" controls src="data:' + audio_mime + ';base64,' + audio_b64 + '"></audio></div>' if audio_b64 else '<div style="font-size:12px; color:' + text_sec + '; margin-bottom:10px;">💡 Click "▶ Play from here" or timestamps to synchronize text with audio.</div>'}
+            
+            <div class="transcript-stream" id="transcriptStream">
+                {''.join(transcript_cards_html) if transcript_cards_html else '<div style="padding:20px; text-align:center; color:' + text_sec + ';">Transcript turns will appear here.</div>'}
+            </div>
+
+            <script>
+                function seekToAudio(seconds, btn) {{
+                    const audio = document.getElementById('plaud-audio');
+                    if (audio) {{
+                        audio.currentTime = seconds;
+                        audio.play();
+                    }}
+                    const card = btn ? btn.closest('.turn-card') : null;
+                    document.querySelectorAll('.turn-card').forEach(c => c.classList.remove('active'));
+                    if (card) {{
+                        card.classList.add('active');
+                    }}
+                }}
+
+                function copyTurnText(elementId, btn) {{
+                    const el = document.getElementById(elementId);
+                    if (el) {{
+                        navigator.clipboard.writeText(el.innerText).then(() => {{
+                            const orig = btn.innerText;
+                            btn.innerText = '✅ Copied!';
+                            setTimeout(() => {{ btn.innerText = orig; }}, 1500);
+                        }});
+                    }}
+                }}
+
+                const audio = document.getElementById('plaud-audio');
+                if (audio) {{
+                    const cards = Array.from(document.querySelectorAll('.turn-card'));
+                    audio.addEventListener('timeupdate', () => {{
+                        const cur = audio.currentTime;
+                        let activeIdx = -1;
+                        for (let i = 0; i < cards.length; i++) {{
+                            const sec = parseFloat(cards[i].getAttribute('data-seek') || 0);
+                            if (cur >= sec) {{
+                                activeIdx = i;
+                            }} else {{
+                                break;
+                            }}
+                        }}
+                        cards.forEach((c, idx) => {{
+                            if (idx === activeIdx) {{
+                                if (!c.classList.contains('active')) {{
+                                    c.classList.add('active');
+                                    c.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+                                }}
+                            }} else {{
+                                c.classList.remove('active');
+                            }}
+                        }});
+                    }});
+                }}
+            </script>
+        </body>
+        </html>
+        """
+        components.html(interactive_player_html, height=640, scrolling=False)
+
+    # -------------------------------------------------------------------------
+    # TAB 4: INTERACTIVE "CHAT WITH THIS AUDIO" ASSISTANT
     # -------------------------------------------------------------------------
     with tab_chat:
         st.markdown("""
