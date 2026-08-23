@@ -249,18 +249,23 @@ Provide a structured table of important academic terms, formulas, and study deli
 
 ## 🗺️ Visual Architecture (Mermaid Mindmap)
 
+CRITICAL RULES FOR MERMAID:
+- Format EVERY node safely with double quotes: root["Topic"], ["Subtopic"], ["Item"].
+- NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
+- Strictly adhere to valid Mermaid mindmap indentation.
+
 ```mermaid
 mindmap
-  root((Lecture Topic))
-    Core Thesis
-      Foundational Concept
-      Primary Principle
-    Theoretical Pillars
-      Concept A
-      Concept B
-    Exam Focus
-      Key Definition
-      Review Questions
+  root["Academic Lecture Intelligence"]
+    ["Core Thesis"]
+      ["Foundational Concept"]
+      ["Primary Principle"]
+    ["Theoretical Pillars"]
+      ["Concept Alpha"]
+      ["Concept Beta"]
+    ["Exam Focus"]
+      ["Key Definition"]
+      ["Review Questions"]
 ```
 """
 
@@ -315,18 +320,23 @@ Analyze the brainstorming and ideation session thoroughly and generate the repor
 
 ## 🗺️ Visual Architecture (Mermaid Mindmap)
 
+CRITICAL RULES FOR MERMAID:
+- Format EVERY node safely with double quotes: root["Topic"], ["Subtopic"], ["Item"].
+- NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
+- Strictly adhere to valid Mermaid mindmap indentation.
+
 ```mermaid
 mindmap
-  root((Brainstorm Topic))
-    Core Challenge
-      User Need
-      Opportunity
-    Idea Tracks
-      Concept 1
-      Concept 2
-    Next Experiments
-      Prototype Alpha
-      Validation Test
+  root["Brainstorming & Ideation"]
+    ["Core Challenge"]
+      ["User Need"]
+      ["Opportunity"]
+    ["Idea Tracks"]
+      ["Concept One"]
+      ["Concept Two"]
+    ["Next Experiments"]
+      ["Prototype Alpha"]
+      ["Validation Test"]
 ```
 """
 
@@ -386,20 +396,20 @@ In the "Task Deliverable" column, write concrete, actionable descriptions.
 
 ## 🗺️ Visual Architecture (Mermaid Mindmap)
 
-CRITICAL INSTRUCTION FOR MERMAID: Write clean, valid Mermaid syntax. Do not use parentheses `()` or curly braces `{}` inside node labels. Use double quotes for the root node.
+CRITICAL RULES FOR MERMAID:
+- Format EVERY node safely with double quotes: root["Topic"], ["Subtopic"], ["Item"].
+- NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
+- Strictly adhere to valid Mermaid mindmap indentation.
 
 ```mermaid
 mindmap
-  root["Meeting Overview"]
-    Executive Summary
-      Core Objective
-      Consensus Reached
-    Discussion Pillars
-      Topic Alpha
-      Topic Beta
-    Decisions & Actions
-      Agreed Decisions
-      Key Deliverables
+  root["Executive Summary"]
+    ["Strategic Direction"]
+      ["Key Milestone"]
+    ["Discussion Pillars"]
+      ["Consensus Reached"]
+    ["Decisions and Actions"]
+      ["Agreed Deliverables"]
 ```
 """
 

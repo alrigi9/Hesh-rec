@@ -375,6 +375,64 @@ def get_current_user_id() -> str | None:
     return None
 
 
+def render_mermaid(code: str, height: int = 500):
+    """Bulletproof Mermaid.js ESM component renderer with character sanitization."""
+    if not code:
+        return
+    # Strip any accidental markdown fences
+    clean_code = code.replace("```mermaid", "").replace("```", "").strip()
+    # Sanitize common Mermaid breaks (& -> and)
+    clean_code = clean_code.replace("&", "and")
+    # Ensure starting diagram type
+    if not clean_code.startswith("mindmap") and not clean_code.startswith("graph"):
+        clean_code = "mindmap\n  " + clean_code
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({{ 
+            startOnLoad: true, 
+            theme: 'dark',
+            securityLevel: 'loose'
+        }});
+      </script>
+      <style>
+        body {{ 
+            background-color: transparent; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            margin: 0; 
+            padding: 16px;
+            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+        }}
+        .mermaid {{ 
+            width: 100%; 
+            text-align: center; 
+            display: flex; 
+            justify-content: center; 
+        }}
+        svg {{ 
+            max-width: 100% !important; 
+            height: auto !important; 
+        }}
+      </style>
+    </head>
+    <body>
+      <pre class="mermaid">
+{clean_code}
+      </pre>
+    </body>
+    </html>
+    """
+    components.html(html_content, height=height, scrolling=True)
+
+
+
 def extract_smart_tags(title: str, session_data: dict) -> list[str]:
     tags = []
     text_corpus = (title + " " + json.dumps(session_data)).lower()
@@ -1558,27 +1616,24 @@ def render_meeting_detail_view(session_id: str):
                         st.warning("Please provide a task description.")
 
     # -------------------------------------------------------------------------
-    # TAB 3: INTERACTIVE MIND MAP (MERMAID CDN RENDERER)
+    # TAB 3: INTERACTIVE MIND MAP (MERMAID ESM COMPONENT RENDERER)
     # -------------------------------------------------------------------------
     with tab_mindmap:
         raw_mindmap = data.get("mermaid_mindmap", "").strip()
-        # Clean markdown fence backticks
-        raw_mindmap = re.sub(r"^```mermaid\s*", "", raw_mindmap, flags=re.IGNORECASE)
-        raw_mindmap = re.sub(r"```$", "", raw_mindmap).strip()
+        # Clean markdown fence backticks and common character issues
+        raw_mindmap = raw_mindmap.replace("```mermaid", "").replace("```", "").strip()
+        raw_mindmap = raw_mindmap.replace("&", "and")
 
         if not raw_mindmap or len(raw_mindmap) < 15:
-            clean_t = re.sub(r"[\(\)\[\]\"\{\}]", "", title).strip() or "Meeting Overview"
+            clean_t = re.sub(r"[\(\)\[\]\"\{\}]", "", title).strip() or "Executive Summary"
             raw_mindmap = f"""mindmap
   root["{clean_t}"]
-    Executive Brief
-      Core Purpose
-      Key Decisions
-    Discussion Pillars
-      Primary Topics
-      Detailed Analysis
-    Action Plan
-      High Priority Tasks
-      Target Deadlines"""
+    ["Strategic Direction"]
+      ["Key Milestone"]
+    ["Discussion Pillars"]
+      ["Consensus Reached"]
+    ["Decisions and Actions"]
+      ["Agreed Deliverables"]"""
 
         st.markdown("""
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
@@ -1591,55 +1646,7 @@ def render_meeting_detail_view(session_id: str):
 
         col_mm_view, col_mm_side = st.columns([3.0, 1.0])
         with col_mm_view:
-            # Standalone Interactive HTML Canvas with Mermaid.js CDN
-            theme_mode = st.session_state.theme
-            bg_canvas = "#0B0F19" if theme_mode == "dark" else "#F8FAFC"
-            border_canvas = "#232E48" if theme_mode == "dark" else "#E2E8F0"
-
-            mindmap_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-                <style>
-                    * {{ box-sizing: border-box; }}
-                    body {{
-                        margin: 0; padding: 16px; background: {bg_canvas};
-                        font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
-                        display: flex; justify-content: center; align-items: center; min-height: 480px;
-                        border: 1px solid {border_canvas}; border-radius: 12px;
-                    }}
-                    .mermaid {{
-                        width: 100%; display: flex; justify-content: center;
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="mermaid">
-{raw_mindmap}
-                </div>
-                <script>
-                    mermaid.initialize({{
-                        startOnLoad: true,
-                        theme: '{'dark' if theme_mode == 'dark' else 'default'}',
-                        themeVariables: {{
-                            darkMode: {'true' if theme_mode == 'dark' else 'false'},
-                            background: '{bg_canvas}',
-                            primaryColor: '#38BDF8',
-                            primaryTextColor: '#FFFFFF',
-                            primaryBorderColor: '#0284C7',
-                            lineColor: '#38BDF8',
-                            secondaryColor: '#A855F7',
-                            tertiaryColor: '#10B981'
-                        }},
-                        securityLevel: 'loose'
-                    }});
-                </script>
-            </body>
-            </html>
-            """
-            components.html(mindmap_html, height=520, scrolling=True)
+            render_mermaid(raw_mindmap, height=520)
 
         with col_mm_side:
             st.markdown("""
@@ -1647,7 +1654,7 @@ def render_meeting_detail_view(session_id: str):
                 <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 6px;">💡 Mind Map Controls</div>
                 <div style="font-size: 11.5px; color: var(--hesh-text-secondary); line-height: 1.5;">
                     • Clean hierarchical layout<br>
-                    • Auto-rendered with Mermaid 10 CDN<br>
+                    • Auto-rendered with Mermaid 10 ESM<br>
                     • Copy raw Mermaid code for wikis
                 </div>
             </div>
