@@ -44,7 +44,7 @@ OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 INPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # =============================================================================
-# STREAMLIT CONFIGURATION
+# STREAMLIT APPLICATION CONFIGURATION
 # =============================================================================
 st.set_page_config(
     page_title="Hesh-rec | AI Meeting & Speech Intelligence Platform",
@@ -82,7 +82,7 @@ if "chat_messages" not in st.session_state:
 # =============================================================================
 # PRODUCTION-GRADE SAAS DARK/LIGHT THEME SYSTEM
 # =============================================================================
-def apply_saas_theme(theme: str):
+def apply_saas_theme(theme: str = "dark"):
     if theme == "dark":
         css_vars = """
         :root {
@@ -341,7 +341,7 @@ def apply_saas_theme(theme: str):
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-apply_saas_theme(st.session_state.theme)
+apply_saas_theme(st.session_state.get("theme", "dark"))
 
 
 # =============================================================================
@@ -374,19 +374,28 @@ def extract_smart_tags(title: str, session_data: dict) -> list[str]:
 
 def parse_transcript_turns(raw_markdown: str) -> list[dict]:
     turns = []
-    t_match = re.search(r"## 🗣️ Full Spoken Transcript.*?\n(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
-    if t_match:
-        lines = t_match.group(1).splitlines()
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            m = re.match(r"^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.*?):\s*(.*)$", line)
-            if m:
-                ts = m.group(1).strip()
-                spk = m.group(2).strip().strip("*_:")
-                txt = m.group(3).strip()
-                turns.append({"time": ts, "speaker": spk, "text": txt, "seconds": 0.0})
+    t_match = re.search(r"## 🗣️.*?(?:\n)(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+    content = t_match.group(1) if t_match else raw_markdown
+
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        m = re.match(r"^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.*?):\s*(.*)$", line)
+        if m:
+            ts = m.group(1).strip()
+            spk = m.group(2).strip().strip("*_:")
+            txt = m.group(3).strip()
+            sec = 0.0
+            try:
+                parts = [float(p) for p in ts.split(":")]
+                if len(parts) == 3:
+                    sec = parts[0] * 3600 + parts[1] * 60 + parts[2]
+                elif len(parts) == 2:
+                    sec = parts[0] * 60 + parts[1]
+            except Exception:
+                pass
+            turns.append({"time": ts, "speaker": spk, "text": txt, "seconds": sec})
     return turns
 
 
@@ -1211,7 +1220,7 @@ def render_export_center_view():
 
 
 # =============================================================================
-# VIEW 5: MEETING DETAIL WORKSPACE (EXECUTIVE REPORT + CHAT WITH AUDIO)
+# VIEW 5: MEETING DETAIL WORKSPACE (4 DEDICATED SECTIONS)
 # =============================================================================
 def render_meeting_detail_view(session_id: str):
     sessions = load_user_sessions()
@@ -1270,9 +1279,7 @@ def render_meeting_detail_view(session_id: str):
 
     st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin-bottom: 16px;'>", unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # WORKSPACE TABS: 4 DEDICATED SECTIONS
-    # -------------------------------------------------------------------------
+    # 4 Dedicated Tabs
     tab_report, tab_mindmap, tab_transcript, tab_chat = st.tabs([
         "📊 Executive Summary & Actions",
         "🧠 Interactive Mind Map",
@@ -1281,17 +1288,17 @@ def render_meeting_detail_view(session_id: str):
     ])
 
     # -------------------------------------------------------------------------
-    # TAB 1: EXECUTIVE SUMMARY & ACTIONS
+    # TAB 1: EXECUTIVE SUMMARY & ACTIONS (CLEAN DENSITY)
     # -------------------------------------------------------------------------
     with tab_report:
         col_left, col_right = st.columns([1.1, 0.9], gap="large")
 
         with col_left:
-            # 1. Executive Brief
+            # 1. Executive Brief (Crisp bullet cards)
             exec_brief = data.get("executive_brief", [])
             if exec_brief:
-                points_html = "".join([f"<div style='font-size: 13px; color: var(--hesh-text-secondary); margin-bottom: 6px; line-height: 1.5;'>• {p.lstrip('•*- ').strip()}</div>" for p in exec_brief])
-                st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">⚡ Executive Summary</div>{points_html}</div>""")
+                points_html = "".join([f"<div style='font-size: 13px; color: var(--hesh-text-secondary); margin-bottom: 8px; line-height: 1.55; display:flex; align-items:flex-start; gap:6px;'><span style='color:var(--hesh-accent); font-weight:bold;'>•</span><span>{p.lstrip('•*- ').strip()}</span></div>" for p in exec_brief])
+                st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px; display:flex; align-items:center; gap:6px;">⚡ Executive Summary</div>{points_html}</div>""")
 
             # 2. Discussion Pillars
             pillars = data.get("discussion_pillars", [])
@@ -1321,8 +1328,23 @@ def render_meeting_detail_view(session_id: str):
                 st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">⚖️ Decisions Approved & Reversals</div>{''.join(dec_html)}</div>""")
 
         with col_right:
-            # 4. Action Items Matrix
+            # 4. Action Items Matrix (Guaranteed non-empty with on-the-fly extraction)
             action_items = data.get("action_items", [])
+            if not action_items and raw_md:
+                # Fallback scan for action rows in raw_md
+                for line in raw_md.splitlines():
+                    if ("|" in line and ("p0" in line.lower() or "high" in line.lower() or "med" in line.lower() or "due" in line.lower())) or line.strip().startswith("- [ ]"):
+                        clean_item = re.sub(r"^[-*|\d\.\s\[\]]+", "", line).strip()
+                        if len(clean_item) > 5 and not clean_item.startswith("Task Deliverable"):
+                            action_items.append({
+                                "number": len(action_items) + 1,
+                                "description": clean_item,
+                                "assignee": "Team",
+                                "priority": "HIGH" if "high" in clean_item.lower() else "MED",
+                                "due_date": "Next Sprint",
+                                "notes": "—"
+                            })
+
             if action_items:
                 rows_html = []
                 for item in action_items:
@@ -1340,71 +1362,139 @@ def render_meeting_detail_view(session_id: str):
 
                     rows_html.append(f"""<tr><td style="font-weight: 600; color: var(--hesh-text-primary);">{deliverable}</td><td style="color: var(--hesh-accent); font-weight: 600;">{owner}</td><td><span class="{prio_class}">{prio}</span></td><td style="color: var(--hesh-text-muted); font-size: 11.5px;">{due}</td><td style="color: var(--hesh-text-secondary); font-size: 11.5px;">{notes}</td></tr>""")
 
-                table_html = f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">📋 Action Items Matrix</div><table class="action-table"><thead><tr><th style="width: 38%;">Task Deliverable</th><th style="width: 16%;">Owner</th><th style="width: 12%;">Priority</th><th style="width: 14%;">Due Date</th><th style="width: 20%;">Acceptance Criteria & Notes</th></tr></thead><tbody>{''.join(rows_html)}</tbody></table></div>"""
+                table_html = f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">📋 Action Items Matrix</div><table class="action-table"><thead><tr><th style="width: 38%;">Task Deliverable</th><th style="width: 16%;">Owner</th><th style="width: 12%;">Priority</th><th style="width: 14%;">Due Date</th><th style="width: 20%;">Acceptance Notes</th></tr></thead><tbody>{''.join(rows_html)}</tbody></table></div>"""
                 st.html(table_html)
             else:
-                st.info("No actionable deliverables detected in this session.")
+                st.html("""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 8px;">📋 Action Items Matrix</div><div style="font-size: 12.5px; color: var(--hesh-text-muted);">No urgent action deliverables captured for this discussion.</div></div>""")
 
     # -------------------------------------------------------------------------
-    # TAB 2: INTERACTIVE MIND MAP (DEDICATED VISUAL CANVAS)
+    # TAB 2: INTERACTIVE MIND MAP (WORLD-CLASS CDN PAN/ZOOM RENDERER)
     # -------------------------------------------------------------------------
     with tab_mindmap:
-        mindmap = data.get("mermaid_mindmap", "")
-        if not mindmap:
-            mindmap = f"""mindmap
-  root(({title}))
-    Executive Summary
-      Key Consensus
-      Primary Milestone
+        raw_mindmap = data.get("mermaid_mindmap", "").strip()
+        if not raw_mindmap or len(raw_mindmap) < 15:
+            clean_t = re.sub(r"[\(\)\[\]\"\{\}]", "", title).strip() or "Meeting Intelligence"
+            raw_mindmap = f"""mindmap
+  root["{clean_t}"]
+    Executive Brief
+      Strategic Direction
+      Consensus Milestones
     Discussion Pillars
-      Theme 1
-      Theme 2
+      Primary Topics
+      Detailed Analysis
     Action Plan
-      Deliverable Alpha
-      Deliverable Beta"""
+      High Priority Tasks
+      Target Deadlines"""
 
         st.markdown("""
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
             <div>
                 <h3 style="font-size: 18px; margin: 0;">🧠 Interactive Visual Mind Map</h3>
-                <div style="font-size: 12px; color: var(--hesh-text-muted);">Explore topic hierarchies, strategic taxonomy, and decision flows</div>
+                <div style="font-size: 12px; color: var(--hesh-text-muted);">Explore topic hierarchies, zoom, pan, and inspect decision flows</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
         col_mm_view, col_mm_side = st.columns([3.0, 1.0])
         with col_mm_view:
-            st.markdown("""
-            <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 20px; min-height: 480px; display: flex; align-items: center; justify-content: center;">
-            """, unsafe_allow_html=True)
-            try:
-                st_mermaid(mindmap, height="480px")
-            except Exception:
-                st.code(mindmap, language="mermaid")
-            st.markdown("</div>", unsafe_allow_html=True)
+            # Standalone Interactive HTML Canvas with Mermaid.js & SVG PanZoom
+            theme_mode = st.session_state.theme
+            bg_canvas = "#0B0F19" if theme_mode == "dark" else "#F8FAFC"
+            border_canvas = "#232E48" if theme_mode == "dark" else "#E2E8F0"
+
+            # Escape backticks and quotes for HTML embedding
+            escaped_mm = raw_mindmap.replace("`", "'").replace("\n", "\\n").replace('"', '\\"')
+
+            mindmap_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+                <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+                <style>
+                    * {{ box-sizing: border-box; }}
+                    body {{
+                        margin: 0; padding: 0; background: {bg_canvas}; overflow: hidden;
+                        font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+                    }}
+                    .controls {{
+                        position: absolute; top: 12px; right: 12px; z-index: 100;
+                        display: flex; gap: 6px;
+                    }}
+                    .ctrl-btn {{
+                        background: rgba(30, 41, 59, 0.85); color: #F8FAFC; border: 1px solid #334155;
+                        border-radius: 6px; padding: 6px 10px; font-size: 13px; font-weight: bold;
+                        cursor: pointer; transition: all 0.15s ease;
+                    }}
+                    .ctrl-btn:hover {{ background: #0284C7; border-color: #38BDF8; }}
+                    #mm-container {{
+                        width: 100%; height: 500px; display: flex; align-items: center; justify-content: center;
+                    }}
+                    svg {{ width: 100% !important; height: 100% !important; }}
+                </style>
+            </head>
+            <body>
+                <div class="controls">
+                    <button class="ctrl-btn" onclick="panZoom.zoomIn()">➕ Zoom In</button>
+                    <button class="ctrl-btn" onclick="panZoom.zoomOut()">➖ Zoom Out</button>
+                    <button class="ctrl-btn" onclick="panZoom.reset()">⟲ Reset</button>
+                </div>
+                <div id="mm-container">
+                    <pre class="mermaid">
+{raw_mindmap}
+                    </pre>
+                </div>
+                <script>
+                    mermaid.initialize({{
+                        startOnLoad: true,
+                        theme: '{'dark' if theme_mode == 'dark' else 'default'}',
+                        securityLevel: 'loose'
+                    }});
+
+                    let panZoom;
+                    window.addEventListener('load', () => {{
+                        setTimeout(() => {{
+                            const svgEl = document.querySelector('#mm-container svg');
+                            if (svgEl) {{
+                                panZoom = svgPanZoom(svgEl, {{
+                                    zoomEnabled: true,
+                                    controlIconsEnabled: false,
+                                    fit: true,
+                                    center: true,
+                                    minZoom: 0.4,
+                                    maxZoom: 6.0
+                                }});
+                            }}
+                        }}, 400);
+                    }});
+                </script>
+            </body>
+            </html>
+            """
+            components.html(mindmap_html, height=520, scrolling=False)
 
         with col_mm_side:
             st.markdown("""
             <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
                 <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 6px;">💡 Mind Map Controls</div>
                 <div style="font-size: 11.5px; color: var(--hesh-text-secondary); line-height: 1.5;">
-                    • Zoom in/out via browser controls<br>
-                    • Inspect hierarchical branches<br>
-                    • Copy raw Mermaid code for documentation or GitHub wikis
+                    • Drag canvas to pan<br>
+                    • Mouse wheel or buttons to zoom<br>
+                    • Double click to center
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
             st.download_button(
                 "📥 Download Mermaid Code",
-                data=mindmap,
+                data=raw_mindmap,
                 file_name=f"{session_id}_mindmap.mmd",
                 mime="text/plain",
                 use_container_width=True
             )
 
             with st.expander("🔍 View Mermaid Syntax"):
-                st.code(mindmap, language="mermaid")
+                st.code(raw_mindmap, language="mermaid")
 
     # -------------------------------------------------------------------------
     # TAB 3: DIARIZED TRANSCRIPT & SYNCED AUDIO PLAYER
@@ -1419,6 +1509,10 @@ def render_meeting_detail_view(session_id: str):
                 cand = INPUTS_DIR / f"{session_id}{ext}"
                 if cand.exists():
                     found_audio = cand
+                    break
+                cand_sess = INPUTS_DIR / f"session_{session_id}{ext}"
+                if cand_sess.exists():
+                    found_audio = cand_sess
                     break
 
         transcript_turns = []
@@ -1441,6 +1535,8 @@ def render_meeting_detail_view(session_id: str):
                     audio_b64 = base64.b64encode(af.read()).decode("utf-8")
                 if found_audio.suffix.lower() == ".wav":
                     audio_mime = "audio/wav"
+                elif found_audio.suffix.lower() == ".m4a":
+                    audio_mime = "audio/mp4"
             except Exception:
                 pass
 
@@ -1484,17 +1580,13 @@ def render_meeting_detail_view(session_id: str):
         <html>
         <head>
             <style>
-                * {{ box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
-                body {{ margin: 0; padding: 0; background: transparent; color: {text_pri}; }}
+                * {{ box-sizing: border-box; }}
+                body {{ margin: 0; padding: 0; background: transparent; color: {text_pri}; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }}
                 .player-header {{
-                    background: {bg_surface};
-                    border: 1px solid {border_col};
-                    border-radius: 12px;
-                    padding: 14px 18px;
-                    margin-bottom: 14px;
-                    display: flex;
-                    align-items: center;
-                    gap: 16px;
+                    position: sticky; top: 0; z-index: 100;
+                    background: {bg_surface}; border: 1px solid {border_col};
+                    border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;
+                    display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
                 }}
                 audio {{ flex: 1; height: 38px; outline: none; }}
                 .turn-card.active {{
@@ -1502,16 +1594,14 @@ def render_meeting_detail_view(session_id: str):
                     background: {bg_bubble_hover} !important;
                 }}
                 .transcript-stream {{
-                    max-height: 560px;
-                    overflow-y: auto;
-                    padding-right: 6px;
+                    max-height: 560px; overflow-y: auto; padding-right: 6px;
                 }}
                 .transcript-stream::-webkit-scrollbar {{ width: 5px; }}
                 .transcript-stream::-webkit-scrollbar-thumb {{ background: {border_col}; border-radius: 4px; }}
             </style>
         </head>
         <body>
-            {'<div class="player-header"><b>🎙️ Audio Sync:</b> <audio id="plaud-audio" controls src="data:' + audio_mime + ';base64,' + audio_b64 + '"></audio></div>' if audio_b64 else '<div style="font-size:12px; color:' + text_sec + '; margin-bottom:10px;">💡 Click "▶ Play from here" or timestamps to synchronize text with audio.</div>'}
+            {'<div class="player-header"><b>🎙️ Synced Player:</b> <audio id="hesh-audio" controls src="data:' + audio_mime + ';base64,' + audio_b64 + '"></audio></div>' if audio_b64 else '<div style="font-size:12px; color:' + text_sec + '; margin-bottom:10px;">💡 Click "▶ Play from here" or timestamps to jump through transcript turns.</div>'}
             
             <div class="transcript-stream" id="transcriptStream">
                 {''.join(transcript_cards_html) if transcript_cards_html else '<div style="padding:20px; text-align:center; color:' + text_sec + ';">Transcript turns will appear here.</div>'}
@@ -1519,7 +1609,7 @@ def render_meeting_detail_view(session_id: str):
 
             <script>
                 function seekToAudio(seconds, btn) {{
-                    const audio = document.getElementById('plaud-audio');
+                    const audio = document.getElementById('hesh-audio');
                     if (audio) {{
                         audio.currentTime = seconds;
                         audio.play();
@@ -1542,7 +1632,7 @@ def render_meeting_detail_view(session_id: str):
                     }}
                 }}
 
-                const audio = document.getElementById('plaud-audio');
+                const audio = document.getElementById('hesh-audio');
                 if (audio) {{
                     const cards = Array.from(document.querySelectorAll('.turn-card'));
                     audio.addEventListener('timeupdate', () => {{
@@ -1575,33 +1665,33 @@ def render_meeting_detail_view(session_id: str):
         components.html(interactive_player_html, height=640, scrolling=False)
 
     # -------------------------------------------------------------------------
-    # TAB 4: INTERACTIVE "CHAT WITH THIS AUDIO" ASSISTANT
+    # TAB 4: INTERACTIVE "CHAT WITH THIS AUDIO" (HESH REC BOT)
     # -------------------------------------------------------------------------
     with tab_chat:
         st.markdown("""
         <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-            <div style="font-size: 14px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 2px;">💬 Hesh-rec Copilot (Chat with this Audio)</div>
-            <div style="font-size: 12px; color: var(--hesh-text-muted);">Ask questions, clarify points, or request specific summaries grounded directly in this recording's transcript.</div>
+            <div style="font-size: 14px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 2px;">💬 Hesh Rec Bot (هشام ريك بوت)</div>
+            <div style="font-size: 12px; color: var(--hesh-text-muted);">Ask questions, clarify points, or request specific summaries grounded directly in this recording.</div>
         </div>
         """, unsafe_allow_html=True)
 
         if session_id not in st.session_state.chat_messages:
             st.session_state.chat_messages[session_id] = [
-                {"role": "assistant", "content": f"Hello! I am your AI Copilot for **{title}**. Ask me any question about the discussion, decisions, or action items."}
+                {"role": "assistant", "content": "Hello! I am **Hesh Rec Bot**. Ask me any question about this recording, decisions, or action items."}
             ]
 
         for msg in st.session_state.chat_messages[session_id]:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        user_q = st.chat_input("Ask a question about this meeting or lecture...")
+        user_q = st.chat_input("Ask Hesh Rec Bot a question about this recording...")
         if user_q:
             st.session_state.chat_messages[session_id].append({"role": "user", "content": user_q})
             with st.chat_message("user"):
                 st.markdown(user_q)
 
             with st.chat_message("assistant"):
-                with st.spinner("Analyzing transcript context..."):
+                with st.spinner("Hesh Rec Bot is thinking..."):
                     answer = chat_with_session(
                         session_data=data,
                         user_query=user_q,
@@ -1628,7 +1718,7 @@ def main():
         render_landing_page()
         return
 
-    # Route 3: Authenticated Workspace
+    # Route 3: Authenticated Workspace Navigation
     if st.session_state.current_nav == "dashboard":
         render_dashboard_view()
     elif st.session_state.current_nav == "recents":

@@ -512,36 +512,87 @@ def parse_markdown_to_session_dict(
                 "details": details.strip()
             })
 
-    # 3. Action Items Matrix
+    # 3. Action Items Matrix (Multi-Strategy Robust Parsing)
     action_items = []
-    table_match = re.search(r"\|(?:\s*#\s*\|\s*Task Deliverable.*?\n)(.*?)(?=\n\n|---|##|\Z)", raw_markdown, re.DOTALL)
+    
+    # Strategy A: Standard Action Items Table
+    table_match = re.search(r"## 📋 Action Items Matrix.*?\n(\|.*?\n\|[-:\s|]+\n)(.*?)(?=\n\n\S|---|##|\Z)", raw_markdown, re.DOTALL)
+    if not table_match:
+        table_match = re.search(r"(\|(?:\s*#\s*\|\s*Task Deliverable.*?\n)(.*?)(?=\n\n\S|---|##|\Z))", raw_markdown, re.DOTALL)
+
     if table_match:
-        rows = [r.strip() for r in table_match.group(1).splitlines() if r.strip() and not r.strip().startswith("|---")]
+        content_to_parse = table_match.group(2) if len(table_match.groups()) >= 2 else table_match.group(0)
+        rows = [r.strip() for r in content_to_parse.splitlines() if r.strip() and "|" in r and not re.match(r"^\|[\s\-:|]+\|$", r.strip())]
         for r in rows:
             cols = [c.strip() for c in r.split("|")[1:-1]]
-            if len(cols) >= 6:
-                try:
-                    num = int(cols[0])
-                except Exception:
-                    num = len(action_items) + 1
-                action_items.append({
-                    "number": num,
-                    "description": cols[1],
-                    "assignee": cols[2],
-                    "priority": cols[3].upper(),
-                    "due_date": cols[4],
-                    "notes": cols[5]
-                })
+            if len(cols) >= 3:
+                num = len(action_items) + 1
+                desc = cols[1] if len(cols) > 1 and cols[0].isdigit() else cols[0]
+                assignee = cols[2] if len(cols) > 2 and cols[0].isdigit() else (cols[1] if len(cols) > 1 else "Team")
+                prio = cols[3].upper() if len(cols) > 3 and cols[0].isdigit() else "MED"
+                due = cols[4] if len(cols) > 4 and cols[0].isdigit() else (cols[2] if len(cols) > 2 else "Next Sprint")
+                notes = cols[5] if len(cols) > 5 and cols[0].isdigit() else "—"
+
+                # Filter out header row if accidentally caught
+                if "task" in desc.lower() and "deliverable" in desc.lower():
+                    continue
+
+                if desc and len(desc) > 3:
+                    action_items.append({
+                        "number": num,
+                        "description": desc,
+                        "assignee": assignee or "Team",
+                        "priority": "HIGH" if "HIGH" in prio else ("LOW" if "LOW" in prio else "MED"),
+                        "due_date": due or "Next Sprint",
+                        "notes": notes or "—"
+                    })
+
+    # Strategy B: Fallback to Bulleted / Numbered Action Lists
+    if not action_items:
+        act_section = re.search(r"## 📋 Action Items.*?\n(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+        if act_section:
+            for line in act_section.group(1).splitlines():
+                line = line.strip()
+                if not line or line.startswith("|"):
+                    continue
+                # Matches: 1. [Task] - Owner: X or - [ ] Task
+                clean_line = re.sub(r"^\d+\.\s*|-\s*\[[\sxX]?\]\s*|-\s*", "", line).strip()
+                if clean_line and len(clean_line) > 5:
+                    owner = "Team"
+                    owner_m = re.search(r"(?:Owner|Assignee|Lead):\s*([^,;\(\)]+)", clean_line, re.IGNORECASE)
+                    if owner_m:
+                        owner = owner_m.group(1).strip()
+                    due = "Next Sprint"
+                    due_m = re.search(r"(?:Due|Deadline|Target):\s*([^,;\(\)]+)", clean_line, re.IGNORECASE)
+                    if due_m:
+                        due = due_m.group(1).strip()
+                    
+                    prio = "MED"
+                    if any(k in clean_line.lower() for k in ["high", "urgent", "critical", "p0", "p1"]):
+                        prio = "HIGH"
+                    elif any(k in clean_line.lower() for k in ["low", "p3", "optional"]):
+                        prio = "LOW"
+
+                    action_items.append({
+                        "number": len(action_items) + 1,
+                        "description": clean_line,
+                        "assignee": owner,
+                        "priority": prio,
+                        "due_date": due,
+                        "notes": "—"
+                    })
 
     # 4. Decisions & Reversals
     decisions = []
     dec_match = re.search(r"### ✅ Final Decisions Approved\s*(.*?)(?=### 🔄|## |\Z)", raw_markdown, re.DOTALL)
+    if not dec_match:
+        dec_match = re.search(r"## ⚖️ Decisions.*?\n(.*?)(?=### 🔄|## |\Z)", raw_markdown, re.DOTALL)
     if dec_match:
         for line in dec_match.group(1).splitlines():
             line = line.strip()
             if re.match(r"^\d+\.", line) or line.startswith("-"):
                 clean = re.sub(r"^\d+\.\s*|-\s*", "", line).strip()
-                if clean:
+                if clean and not clean.startswith("###"):
                     decisions.append(clean)
 
     reversals = []
@@ -554,11 +605,26 @@ def parse_markdown_to_session_dict(
                 if clean:
                     reversals.append(clean)
 
-    # 5. Mermaid Mindmap
+    # 5. Mermaid Mindmap Sanitization
     mindmap = ""
-    mm_match = re.search(r"```mermaid\s*(mindmap.*?)```", raw_markdown, re.DOTALL)
+    mm_match = re.search(r"```mermaid\s*(.*?)```", raw_markdown, re.DOTALL)
     if mm_match:
         mindmap = mm_match.group(1).strip()
+    
+    if not mindmap or len(mindmap) < 20:
+        # Build clean valid Mermaid mindmap
+        clean_topic = re.sub(r"[\(\)\[\]\"\{\}]", "", model_name).strip() or "Meeting Intelligence"
+        mindmap = f"""mindmap
+  root["{clean_topic}"]
+    Executive Brief
+      Strategic Direction
+      Key Milestone
+    Discussion Pillars
+      Theme Analysis
+      Consensus Reached
+    Decisions & Actions
+      Agreed Milestones
+      Task Deliverables"""
 
     return {
         "template_type": template_type,
@@ -574,7 +640,7 @@ def parse_markdown_to_session_dict(
 
 
 # =============================================================================
-# 3. INTERACTIVE CHAT WITH AUDIO ASSISTANT (GEMINI + GROQ)
+# 3. INTERACTIVE CHAT WITH AUDIO ASSISTANT (HESH REC BOT)
 # =============================================================================
 def chat_with_session(
     session_data: Dict[str, Any],
@@ -592,7 +658,7 @@ def chat_with_session(
     exec_summary = "\n".join(session_data.get("executive_brief", []))
     decisions = "\n".join([f"- {d}" for d in session_data.get("decisions", [])])
 
-    system_context = f"""You are Hesh-rec Copilot, an elite AI assistant for this specific recorded meeting.
+    system_context = f"""You are Hesh Rec Bot (هشام ريك بوت), an elite AI meeting and lecture intelligence copilot.
 Meeting Title: {title}
 Executive Summary:
 {exec_summary}
@@ -605,7 +671,7 @@ Full Spoken Transcript:
 {full_transcript}
 \"\"\"
 
-Answer the user's question accurately, concisely, and cite specific timestamps or quotes when relevant.
+Answer the user's questions clearly, concisely, and accurately in the user's language (English or Arabic). Cite specific timestamps, quotes, and decisions when relevant.
 """
 
     messages_payload = [{"role": "system", "content": system_context}]
@@ -644,7 +710,7 @@ Answer the user's question accurately, concisely, and cite specific timestamps o
         except Exception as ge:
             print(f"[!] Groq Chat Error: {ge}", flush=True)
 
-    return "I'm sorry, I was unable to connect to the AI model to analyze this audio. Please check your API credentials."
+    return "I'm sorry, I was unable to connect to the AI model to analyze this audio. Please check your credentials."
 
 
 # =============================================================================
