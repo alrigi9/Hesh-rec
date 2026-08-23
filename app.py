@@ -1345,14 +1345,40 @@ def render_meeting_detail_view(session_id: str):
     # TAB 1: EXECUTIVE SUMMARY & PILLARS (CLEAN DENSITY)
     # -------------------------------------------------------------------------
     with tab_summary:
-        col_left, col_right = st.columns([1.05, 0.95], gap="large")
+        col_left, col_right = st.columns([1.1, 0.9], gap="large")
 
         with col_left:
-            # 1. Executive Brief (Crisp bullet cards)
+            # 1. Executive Brief (Structured Cards: Purpose, Decisions, Highlights)
             exec_brief = data.get("executive_brief", [])
             if exec_brief:
-                points_html = "".join([f"<div style='font-size: 13px; color: var(--hesh-text-secondary); margin-bottom: 8px; line-height: 1.55; display:flex; align-items:flex-start; gap:8px;'><span style='color:var(--hesh-accent); font-weight:bold; font-size:16px;'>•</span><span>{p.lstrip('•*- ').strip()}</span></div>" for p in exec_brief])
-                st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px; display:flex; align-items:center; gap:6px;">⚡ Executive Summary Brief</div>{points_html}</div>""")
+                points_html = []
+                for p in exec_brief:
+                    clean_p = p.lstrip("•*- ").strip()
+                    icon = "⚡"
+                    if "purpose" in clean_p.lower() or "🎯" in clean_p:
+                        icon = "🎯"
+                    elif "decision" in clean_p.lower() or "🔑" in clean_p:
+                        icon = "🔑"
+                    elif "highlight" in clean_p.lower() or "breakthrough" in clean_p.lower():
+                        icon = "⚡"
+
+                    points_html.append(f"""
+                    <div style="background: var(--hesh-surface-hover); border: 1px solid var(--hesh-border); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;">
+                        <div style="font-size: 13px; color: var(--hesh-text-primary); line-height: 1.55; display: flex; gap: 8px; align-items: flex-start;">
+                            <span style="font-size: 15px;">{icon}</span>
+                            <span>{clean_p}</span>
+                        </div>
+                    </div>
+                    """)
+
+                st.html(f"""
+                <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;">
+                    <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                        🎯 Executive Summary & Purpose
+                    </div>
+                    {''.join(points_html)}
+                </div>
+                """)
 
             # 2. Discussion Pillars
             pillars = data.get("discussion_pillars", [])
@@ -1363,7 +1389,7 @@ def render_meeting_detail_view(session_id: str):
                     p_time = pillar.get("timestamp", "00:00:00")
                     p_details = pillar.get("details", "").replace("\n", "<br>")
                     open_attr = "open" if idx == 0 else ""
-                    pillars_html.append(f"""<details style="background: var(--hesh-surface-hover); border: 1px solid var(--hesh-border); border-radius: 8px; margin-bottom: 8px; overflow: hidden;" {open_attr}><summary style="padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer;"><span style="background: var(--hesh-accent-subtle); color: var(--hesh-accent); padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 8px;">{p_time}</span> <span>{p_title}</span></summary><div style="padding: 10px 14px; font-size: 12.5px; color: var(--hesh-text-secondary); border-top: 1px solid var(--hesh-border); line-height: 1.55;">{p_details}</div></details>""")
+                    pillars_html.append(f"""<details style="background: var(--hesh-surface-hover); border: 1px solid var(--hesh-border); border-radius: 8px; margin-bottom: 8px; overflow: hidden;" {open_attr}><summary style="padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer;"><span style="background: var(--hesh-accent-subtle); color: var(--hesh-accent); padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 8px;">⏱️ {p_time}</span> <span>{p_title}</span></summary><div style="padding: 10px 14px; font-size: 12.5px; color: var(--hesh-text-secondary); border-top: 1px solid var(--hesh-border); line-height: 1.55;">{p_details}</div></details>""")
                 st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">🏛️ Key Discussion Pillars</div>{''.join(pillars_html)}</div>""")
 
         with col_right:
@@ -1532,17 +1558,21 @@ def render_meeting_detail_view(session_id: str):
                         st.warning("Please provide a task description.")
 
     # -------------------------------------------------------------------------
-    # TAB 3: INTERACTIVE MIND MAP (WORLD-CLASS CDN PAN/ZOOM RENDERER)
+    # TAB 3: INTERACTIVE MIND MAP (MERMAID CDN RENDERER)
     # -------------------------------------------------------------------------
     with tab_mindmap:
         raw_mindmap = data.get("mermaid_mindmap", "").strip()
+        # Clean markdown fence backticks
+        raw_mindmap = re.sub(r"^```mermaid\s*", "", raw_mindmap, flags=re.IGNORECASE)
+        raw_mindmap = re.sub(r"```$", "", raw_mindmap).strip()
+
         if not raw_mindmap or len(raw_mindmap) < 15:
-            clean_t = re.sub(r"[\(\)\[\]\"\{\}]", "", title).strip() or "Meeting Intelligence"
+            clean_t = re.sub(r"[\(\)\[\]\"\{\}]", "", title).strip() or "Meeting Overview"
             raw_mindmap = f"""mindmap
   root["{clean_t}"]
     Executive Brief
-      Strategic Direction
-      Consensus Milestones
+      Core Purpose
+      Key Decisions
     Discussion Pillars
       Primary Topics
       Detailed Analysis
@@ -1554,97 +1584,71 @@ def render_meeting_detail_view(session_id: str):
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
             <div>
                 <h3 style="font-size: 18px; margin: 0;">🧠 Interactive Visual Mind Map</h3>
-                <div style="font-size: 12px; color: var(--hesh-text-muted);">Explore topic hierarchies, zoom, pan, and inspect decision flows</div>
+                <div style="font-size: 12px; color: var(--hesh-text-muted);">Explore topic hierarchies, decision flows, and strategic taxonomy</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
         col_mm_view, col_mm_side = st.columns([3.0, 1.0])
         with col_mm_view:
-            # Standalone Interactive HTML Canvas with Mermaid.js & SVG PanZoom
+            # Standalone Interactive HTML Canvas with Mermaid.js CDN
             theme_mode = st.session_state.theme
             bg_canvas = "#0B0F19" if theme_mode == "dark" else "#F8FAFC"
             border_canvas = "#232E48" if theme_mode == "dark" else "#E2E8F0"
-
-            # Escape backticks and quotes for HTML embedding
-            escaped_mm = raw_mindmap.replace("`", "'").replace("\n", "\\n").replace('"', '\\"')
 
             mindmap_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
+                <meta charset="utf-8">
                 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-                <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
                 <style>
                     * {{ box-sizing: border-box; }}
                     body {{
-                        margin: 0; padding: 0; background: {bg_canvas}; overflow: hidden;
+                        margin: 0; padding: 16px; background: {bg_canvas};
                         font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+                        display: flex; justify-content: center; align-items: center; min-height: 480px;
+                        border: 1px solid {border_canvas}; border-radius: 12px;
                     }}
-                    .controls {{
-                        position: absolute; top: 12px; right: 12px; z-index: 100;
-                        display: flex; gap: 6px;
+                    .mermaid {{
+                        width: 100%; display: flex; justify-content: center;
                     }}
-                    .ctrl-btn {{
-                        background: rgba(30, 41, 59, 0.85); color: #F8FAFC; border: 1px solid #334155;
-                        border-radius: 6px; padding: 6px 10px; font-size: 13px; font-weight: bold;
-                        cursor: pointer; transition: all 0.15s ease;
-                    }}
-                    .ctrl-btn:hover {{ background: #0284C7; border-color: #38BDF8; }}
-                    #mm-container {{
-                        width: 100%; height: 500px; display: flex; align-items: center; justify-content: center;
-                    }}
-                    svg {{ width: 100% !important; height: 100% !important; }}
                 </style>
             </head>
             <body>
-                <div class="controls">
-                    <button class="ctrl-btn" onclick="panZoom.zoomIn()">➕ Zoom In</button>
-                    <button class="ctrl-btn" onclick="panZoom.zoomOut()">➖ Zoom Out</button>
-                    <button class="ctrl-btn" onclick="panZoom.reset()">⟲ Reset</button>
-                </div>
-                <div id="mm-container">
-                    <pre class="mermaid">
+                <div class="mermaid">
 {raw_mindmap}
-                    </pre>
                 </div>
                 <script>
                     mermaid.initialize({{
                         startOnLoad: true,
                         theme: '{'dark' if theme_mode == 'dark' else 'default'}',
+                        themeVariables: {{
+                            darkMode: {'true' if theme_mode == 'dark' else 'false'},
+                            background: '{bg_canvas}',
+                            primaryColor: '#38BDF8',
+                            primaryTextColor: '#FFFFFF',
+                            primaryBorderColor: '#0284C7',
+                            lineColor: '#38BDF8',
+                            secondaryColor: '#A855F7',
+                            tertiaryColor: '#10B981'
+                        }},
                         securityLevel: 'loose'
-                    }});
-
-                    let panZoom;
-                    window.addEventListener('load', () => {{
-                        setTimeout(() => {{
-                            const svgEl = document.querySelector('#mm-container svg');
-                            if (svgEl) {{
-                                panZoom = svgPanZoom(svgEl, {{
-                                    zoomEnabled: true,
-                                    controlIconsEnabled: false,
-                                    fit: true,
-                                    center: true,
-                                    minZoom: 0.4,
-                                    maxZoom: 6.0
-                                }});
-                            }}
-                        }}, 400);
                     }});
                 </script>
             </body>
             </html>
             """
-            components.html(mindmap_html, height=520, scrolling=False)
+            components.html(mindmap_html, height=520, scrolling=True)
 
         with col_mm_side:
             st.markdown("""
             <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
                 <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 6px;">💡 Mind Map Controls</div>
                 <div style="font-size: 11.5px; color: var(--hesh-text-secondary); line-height: 1.5;">
-                    • Drag canvas to pan<br>
-                    • Mouse wheel or buttons to zoom<br>
-                    • Double click to center
+                    • Clean hierarchical layout<br>
+                    • Auto-rendered with Mermaid 10 CDN<br>
+                    • Copy raw Mermaid code for wikis
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1661,7 +1665,7 @@ def render_meeting_detail_view(session_id: str):
                 st.code(raw_mindmap, language="mermaid")
 
     # -------------------------------------------------------------------------
-    # TAB 3: DIARIZED TRANSCRIPT & SYNCED AUDIO PLAYER
+    # TAB 4: DIARIZED TRANSCRIPT & SYNCED AUDIO PLAYER
     # -------------------------------------------------------------------------
     with tab_transcript:
         found_audio = None
@@ -1678,6 +1682,19 @@ def render_meeting_detail_view(session_id: str):
                 if cand_sess.exists():
                     found_audio = cand_sess
                     break
+                # Scan inputs for session stem or source file
+                for p in INPUTS_DIR.glob(f"*{ext}"):
+                    if session_id in p.stem or (source_path and p.name == source_path):
+                        found_audio = p
+                        break
+
+        # Top Audio Player Widget
+        if found_audio and found_audio.exists():
+            st.markdown("<div style='font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 6px;'>🎙️ Audio Waveform Player</div>", unsafe_allow_html=True)
+            with open(found_audio, "rb") as af:
+                audio_bytes = af.read()
+            st.audio(audio_bytes, format="audio/mp3")
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
         transcript_turns = []
         if "transcript_segments" in data and data["transcript_segments"]:
@@ -1693,7 +1710,7 @@ def render_meeting_detail_view(session_id: str):
 
         audio_b64 = ""
         audio_mime = "audio/mp3"
-        if found_audio:
+        if found_audio and found_audio.exists():
             try:
                 with open(found_audio, "rb") as af:
                     audio_b64 = base64.b64encode(af.read()).decode("utf-8")
@@ -1746,13 +1763,6 @@ def render_meeting_detail_view(session_id: str):
             <style>
                 * {{ box-sizing: border-box; }}
                 body {{ margin: 0; padding: 0; background: transparent; color: {text_pri}; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }}
-                .player-header {{
-                    position: sticky; top: 0; z-index: 100;
-                    background: {bg_surface}; border: 1px solid {border_col};
-                    border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;
-                    display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                }}
-                audio {{ flex: 1; height: 38px; outline: none; }}
                 .turn-card.active {{
                     border-left: 4px solid {accent_col} !important;
                     background: {bg_bubble_hover} !important;
@@ -1765,15 +1775,13 @@ def render_meeting_detail_view(session_id: str):
             </style>
         </head>
         <body>
-            {'<div class="player-header"><b>🎙️ Synced Player:</b> <audio id="hesh-audio" controls src="data:' + audio_mime + ';base64,' + audio_b64 + '"></audio></div>' if audio_b64 else '<div style="font-size:12px; color:' + text_sec + '; margin-bottom:10px;">💡 Click "▶ Play from here" or timestamps to jump through transcript turns.</div>'}
-            
             <div class="transcript-stream" id="transcriptStream">
                 {''.join(transcript_cards_html) if transcript_cards_html else '<div style="padding:20px; text-align:center; color:' + text_sec + ';">Transcript turns will appear here.</div>'}
             </div>
 
             <script>
                 function seekToAudio(seconds, btn) {{
-                    const audio = document.getElementById('hesh-audio');
+                    const audio = window.parent.document.querySelector('audio');
                     if (audio) {{
                         audio.currentTime = seconds;
                         audio.play();
@@ -1795,38 +1803,11 @@ def render_meeting_detail_view(session_id: str):
                         }});
                     }}
                 }}
-
-                const audio = document.getElementById('hesh-audio');
-                if (audio) {{
-                    const cards = Array.from(document.querySelectorAll('.turn-card'));
-                    audio.addEventListener('timeupdate', () => {{
-                        const cur = audio.currentTime;
-                        let activeIdx = -1;
-                        for (let i = 0; i < cards.length; i++) {{
-                            const sec = parseFloat(cards[i].getAttribute('data-seek') || 0);
-                            if (cur >= sec) {{
-                                activeIdx = i;
-                            }} else {{
-                                break;
-                            }}
-                        }}
-                        cards.forEach((c, idx) => {{
-                            if (idx === activeIdx) {{
-                                if (!c.classList.contains('active')) {{
-                                    c.classList.add('active');
-                                    c.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
-                                }}
-                            }} else {{
-                                c.classList.remove('active');
-                            }}
-                        }});
-                    }});
-                }}
             </script>
         </body>
         </html>
         """
-        components.html(interactive_player_html, height=640, scrolling=False)
+        components.html(interactive_player_html, height=580, scrolling=False)
 
     # -------------------------------------------------------------------------
     # TAB 4: INTERACTIVE "CHAT WITH THIS AUDIO" (HESH REC BOT)

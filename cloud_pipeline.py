@@ -333,7 +333,7 @@ mindmap
     else:
         # Default: Executive Meeting Template
         return base_header + """
-Analyze the meeting transcript thoroughly and generate the report adhering STRICTLY to this Markdown structure:
+Analyze the meeting transcript thoroughly and generate the report adhering STRICTLY to this Markdown structure with ZERO fluff:
 
 # 🎙️ Meeting Intelligence Report: {topic}
 
@@ -343,73 +343,63 @@ Analyze the meeting transcript thoroughly and generate the report adhering STRIC
 ---
 
 ## ⚡ Executive Brief
-> • **Strategic Purpose:** [1 sentence summarizing the core objective and purpose of this session]
-> • **Key Breakthrough & Consensus:** [1 sentence highlighting the major agreement, breakthrough, or conclusion]
-> • **Immediate Next Step:** [1 sentence summarizing the most urgent action or critical milestone]
+> • 🎯 **Meeting Purpose:** [Exactly 1 crisp sentence summarizing why this meeting occurred and the core objective]
+> • 🔑 **Key Decisions Taken:** [1-2 concise bullet points with bold highlights summarizing major decisions agreed upon]
+> • ⚡ **Critical Highlights:** [2-3 short, high-impact bullet points with 1-2 sentence insights on key takeaways]
 
 ---
 
 ## 🏛️ Key Discussion Pillars
 
 ### 1. [00:00:00] [Pillar 1 Title]
-- **Context & Objective:** [Summary of why this topic was brought up]
-- **Key Arguments & Perspectives:**
-  - **Speaker A:** [Key perspective/points]
-  - **Speaker B:** [Counterpoint or supporting points]
-- **Consensus & Outcome:** [What was agreed or concluded on this pillar]
+- **Core Topic & Focus:** [1-2 sentences on what was discussed]
+- **Key Takeaways & Points:**
+  - **Speaker Perspective:** [Concise insight]
+- **Consensus & Outcome:** [Clear 1-sentence agreed direction]
 
 ### 2. [00:05:00] [Pillar 2 Title]
-- **Context & Objective:** [Summary]
-- **Key Arguments & Perspectives:**
-  - **Speaker A:** [Details]
-- **Consensus & Outcome:** [Outcome]
+- **Core Topic & Focus:** [1-2 sentences on what was discussed]
+- **Consensus & Outcome:** [Clear 1-sentence outcome]
 
 ---
 
 ## 📋 Action Items Matrix
 
 Provide a complete, actionable markdown table capturing all commitments, deliverables, owners, urgency, and deadlines mentioned.
-CRITICAL RULE: In the "Task Deliverable" column, NEVER write brief generic phrases like "Keep it simple" or "Follow up". You MUST specify the EXACT complete deliverable, context, and expected outcome (e.g., "Design and build a 5-question quiz for SOC 2 awareness training and distribute to all staff" or "Draft security questionnaire response for enterprise vendor review").
+In the "Task Deliverable" column, write concrete, actionable descriptions.
 
 | # | Task Deliverable | Owner | Priority | Due Date | Acceptance Criteria & Notes |
 |---|------------------|-------|----------|----------|-----------------------------|
-| 1 | [Comprehensive, concrete task deliverable description] | [Specific Person or Role] | [HIGH / MED / LOW] | [YYYY-MM-DD or timeframe] | [Clear acceptance criteria or dependencies] |
+| 1 | [Concrete task deliverable description] | [Specific Person or Team] | [HIGH / MED / LOW] | [YYYY-MM-DD or timeframe] | [Clear notes or criteria] |
 
 ---
 
 ## ⚖️ Decisions & Reversals
 
 ### ✅ Final Decisions Approved
-1. **[00:00:00] [Decision Title]:** [Detailed explanation of the agreed decision and owner]
+1. **[Decision Title]:** [Crisp 1-sentence explanation of agreed decision and owner]
 
 ### 🔄 Rejected & Overturned Ideas (Reversals)
-1. **[00:00:00] [Rejected Proposal Title]:** [What idea was proposed, why the group rejected or reversed course, and what alternative was adopted instead]
+1. **[Overturned Proposal]:** [What idea was rejected or reversed, and what alternative was adopted instead]
 
 ---
 
 ## 🗺️ Visual Architecture (Mermaid Mindmap)
 
+CRITICAL INSTRUCTION FOR MERMAID: Write clean, valid Mermaid syntax. Do not use parentheses `()` or curly braces `{}` inside node labels. Use double quotes for the root node.
+
 ```mermaid
 mindmap
-  root((Meeting Topic))
-    Executive Brief
-      Strategic Direction
-      Key Milestone
+  root["Meeting Overview"]
+    Executive Summary
+      Core Objective
+      Consensus Reached
     Discussion Pillars
-      Pillar 1
-        Point A
-        Point B
-      Pillar 2
-        Point A
-        Point B
-    Decisions
-      Approved Decision 1
-      Approved Decision 2
-    Action Items
-      High Priority
-        Task 1
-      Medium Priority
-        Task 2
+      Topic Alpha
+      Topic Beta
+    Decisions & Actions
+      Agreed Decisions
+      Key Deliverables
 ```
 """
 
