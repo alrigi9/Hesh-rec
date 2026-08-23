@@ -5,7 +5,6 @@ import io
 import json
 import time
 import base64
-import subprocess
 from pathlib import Path
 from datetime import datetime
 
@@ -23,16 +22,18 @@ import pandas as pd
 from streamlit_mermaid import st_mermaid
 from audio_recorder_streamlit import audio_recorder
 
-from core.config import BASE_DIR, INPUTS_DIR, OUTPUTS_DIR, DEFAULT_MODEL, get_api_key, is_supported_media
+from core.config import BASE_DIR, INPUTS_DIR, OUTPUTS_DIR, DEFAULT_MODEL, is_supported_media
 from cloud_pipeline import (
     process_meeting_file_cloud,
     fetch_all_sessions,
     save_session_record,
     delete_session_record,
     rename_session_record,
-    get_groq_client,
-    get_supabase_client,
-    get_gemini_client
+    auth_sign_in,
+    auth_sign_up,
+    auth_sign_out,
+    get_user_usage,
+    get_secret
 )
 
 SESSIONS_DIR = BASE_DIR / "sessions"
@@ -41,128 +42,145 @@ OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 INPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # =============================================================================
-# STREAMLIT CONFIGURATION
+# STREAMLIT APPLICATION CONFIGURATION
 # =============================================================================
 st.set_page_config(
-    page_title="Plaud Studio | Cloud Meeting Intelligence",
+    page_title="Hesh-rec | Commercial AI Meeting Studio",
     page_icon="🎙️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Initialize Session State
 if "theme" not in st.session_state:
-    st.session_state.theme = "light"
+    st.session_state.theme = "dark"
 if "active_session_id" not in st.session_state:
     st.session_state.active_session_id = None
+if "current_nav" not in st.session_state:
+    st.session_state.current_nav = "dashboard"
 if "search_query" not in st.session_state:
     st.session_state.search_query = ""
 if "model_choice" not in st.session_state:
     st.session_state.model_choice = "gemini-2.5-flash"
 if "rename_target" not in st.session_state:
     st.session_state.rename_target = None
+if "user" not in st.session_state:
+    st.session_state.user = None
+if "user_email" not in st.session_state:
+    st.session_state.user_email = "guest@heshrec.ai"
+if "plan_tier" not in st.session_state:
+    st.session_state.plan_tier = "free"
+if "task_status_map" not in st.session_state:
+    st.session_state.task_status_map = {}
 
 # =============================================================================
-# DYNAMIC THEME SYSTEM & CSS VARIABLES
+# HIGH-END SAAS DARK/LIGHT THEME SYSTEM
 # =============================================================================
-def apply_theme_css(theme: str):
+def apply_saas_theme(theme: str):
     if theme == "dark":
         css_vars = """
         :root {
-            --plaud-bg: #0D1117;
-            --plaud-card-bg: #161B22;
-            --plaud-card-hover: #1C2128;
-            --plaud-border: #30363D;
-            --plaud-border-hover: #58A6FF;
-            --plaud-text-primary: #F0F6FC;
-            --plaud-text-secondary: #8B949E;
-            --plaud-text-muted: #6E7681;
-            --plaud-blue: #38BDF8;
-            --plaud-blue-hover: #7DD3FC;
-            --plaud-blue-subtle: rgba(56, 189, 248, 0.12);
-            --plaud-pill-bg: #21262D;
-            --plaud-bubble-bg: #161B22;
-            --plaud-bubble-border: #30363D;
-            --plaud-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-            --plaud-table-stripe: #1C2128;
+            --hesh-bg: #090D16;
+            --hesh-surface: #111726;
+            --hesh-surface-hover: #182238;
+            --hesh-border: #232E48;
+            --hesh-border-hover: #38BDF8;
+            --hesh-text-primary: #F8FAFC;
+            --hesh-text-secondary: #94A3B8;
+            --hesh-text-muted: #64748B;
+            --hesh-accent: #38BDF8;
+            --hesh-accent-hover: #7DD3FC;
+            --hesh-accent-subtle: rgba(56, 189, 248, 0.12);
+            --hesh-purple: #A855F7;
+            --hesh-purple-subtle: rgba(168, 85, 247, 0.15);
+            --hesh-emerald: #10B981;
+            --hesh-emerald-subtle: rgba(16, 185, 129, 0.15);
+            --hesh-rose: #F43F5E;
+            --hesh-rose-subtle: rgba(244, 63, 94, 0.15);
+            --hesh-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            --hesh-sidebar-bg: #0B0F19;
         }
         """
     else:
         css_vars = """
         :root {
-            --plaud-bg: #F8F9FA;
-            --plaud-card-bg: #FFFFFF;
-            --plaud-card-hover: #F8FAFC;
-            --plaud-border: #E5E7EB;
-            --plaud-border-hover: #CBD5E1;
-            --plaud-text-primary: #111827;
-            --plaud-text-secondary: #4B5563;
-            --plaud-text-muted: #9CA3AF;
-            --plaud-blue: #2563EB;
-            --plaud-blue-hover: #1D4ED8;
-            --plaud-blue-subtle: #EFF6FF;
-            --plaud-pill-bg: #F3F4F6;
-            --plaud-bubble-bg: #F9FAFB;
-            --plaud-bubble-border: #F3F4F6;
-            --plaud-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-            --plaud-table-stripe: #F9FAFB;
+            --hesh-bg: #F8FAFC;
+            --hesh-surface: #FFFFFF;
+            --hesh-surface-hover: #F1F5F9;
+            --hesh-border: #E2E8F0;
+            --hesh-border-hover: #0284C7;
+            --hesh-text-primary: #0F172A;
+            --hesh-text-secondary: #475569;
+            --hesh-text-muted: #94A3B8;
+            --hesh-accent: #0284C7;
+            --hesh-accent-hover: #0369A1;
+            --hesh-accent-subtle: #E0F2FE;
+            --hesh-purple: #7E22CE;
+            --hesh-purple-subtle: #F3E8FF;
+            --hesh-emerald: #059669;
+            --hesh-emerald-subtle: #D1FAE5;
+            --hesh-rose: #E11D48;
+            --hesh-rose-subtle: #FFE4E6;
+            --hesh-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            --hesh-sidebar-bg: #FFFFFF;
         }
         """
 
-    full_css = f"""
+    custom_css = f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
         {css_vars}
 
         * {{
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
         }}
 
         .stApp {{
-            background-color: var(--plaud-bg) !important;
-            color: var(--plaud-text-primary) !important;
+            background-color: var(--hesh-bg) !important;
+            color: var(--hesh-text-primary) !important;
         }}
 
-        header[data-testid="stHeader"] {{
-            background: transparent !important;
+        /* Sidebar Styling */
+        section[data-testid="stSidebar"] {{
+            background-color: var(--hesh-sidebar-bg) !important;
+            border-right: 1px solid var(--hesh-border) !important;
         }}
 
-        footer {{
-            display: none !important;
-        }}
-
-        #MainMenu {{
-            visibility: hidden;
-        }}
-
-        .block-container {{
+        section[data-testid="stSidebar"] .block-container {{
             padding-top: 1.5rem !important;
-            padding-bottom: 2rem !important;
-            max-width: 1440px !important;
+            padding-left: 1.2rem !important;
+            padding-right: 1.2rem !important;
+        }}
+
+        /* Headings & Text */
+        h1, h2, h3, h4 {{
+            color: var(--hesh-text-primary) !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.02em !important;
         }}
 
         /* Buttons Styling */
         button[kind="primary"] {{
-            background: var(--plaud-blue) !important;
+            background: linear-gradient(135deg, #0284C7 0%, #38BDF8 100%) !important;
             color: #FFFFFF !important;
             border: none !important;
             border-radius: 8px !important;
             font-weight: 600 !important;
-            font-size: 13px !important;
+            font-size: 13.5px !important;
             padding: 8px 18px !important;
-            transition: all 0.2s ease !important;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            box-shadow: 0 2px 10px rgba(56, 189, 248, 0.25) !important;
         }}
         button[kind="primary"]:hover {{
-            background: var(--plaud-blue-hover) !important;
             transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4) !important;
         }}
 
         button[kind="secondary"] {{
-            background: var(--plaud-card-bg) !important;
-            color: var(--plaud-text-primary) !important;
-            border: 1px solid var(--plaud-border) !important;
+            background: var(--hesh-surface) !important;
+            color: var(--hesh-text-primary) !important;
+            border: 1px solid var(--hesh-border) !important;
             border-radius: 8px !important;
             font-weight: 500 !important;
             font-size: 13px !important;
@@ -170,218 +188,147 @@ def apply_theme_css(theme: str):
             transition: all 0.15s ease !important;
         }}
         button[kind="secondary"]:hover {{
-            background: var(--plaud-card-hover) !important;
-            border-color: var(--plaud-border-hover) !important;
+            background: var(--hesh-surface-hover) !important;
+            border-color: var(--hesh-border-hover) !important;
         }}
 
         /* Input Controls */
         div[data-baseweb="input"] {{
-            background-color: var(--plaud-card-bg) !important;
-            border: 1px solid var(--plaud-border) !important;
+            background-color: var(--hesh-surface) !important;
+            border: 1px solid var(--hesh-border) !important;
             border-radius: 8px !important;
         }}
         div[data-baseweb="input"]:focus-within {{
-            border-color: var(--plaud-blue) !important;
-            box-shadow: 0 0 0 2px var(--plaud-blue-subtle) !important;
-        }}
-        input.st-bc {{
-            color: var(--plaud-text-primary) !important;
+            border-color: var(--hesh-accent) !important;
+            box-shadow: 0 0 0 2px var(--hesh-accent-subtle) !important;
         }}
 
-        /* Cards & Section Containers */
-        .plaud-card {{
-            background: var(--plaud-card-bg);
-            border: 1px solid var(--plaud-border);
+        /* Metric Cards */
+        .metric-card {{
+            background: var(--hesh-surface);
+            border: 1px solid var(--hesh-border);
             border-radius: 12px;
             padding: 16px 20px;
             margin-bottom: 12px;
+            box-shadow: var(--hesh-card-shadow);
             transition: all 0.2s ease;
-            box-shadow: var(--plaud-shadow);
         }}
-        .plaud-card:hover {{
-            border-color: var(--plaud-border-hover);
-            transform: translateY(-1px);
-            background: var(--plaud-card-hover);
+        .metric-card:hover {{
+            border-color: var(--hesh-border-hover);
+            transform: translateY(-2px);
         }}
-
-        .section-header {{
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 18px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--plaud-border);
+        .metric-val {{
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--hesh-text-primary);
+            line-height: 1.2;
+            margin-top: 4px;
         }}
-        .section-title {{
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--plaud-text-primary);
-            letter-spacing: -0.4px;
-            margin: 0;
-        }}
-        .section-count {{
-            font-size: 13px;
-            color: var(--plaud-text-muted);
-            font-weight: 500;
-        }}
-
-        /* Table & Lists */
-        .file-title {{
-            font-size: 14.5px;
-            font-weight: 600;
-            color: var(--plaud-text-primary);
-            margin-bottom: 4px;
-            cursor: pointer;
-        }}
-        .file-meta {{
-            display: flex;
-            align-items: center;
-            gap: 12px;
+        .metric-label {{
             font-size: 12px;
-            color: var(--plaud-text-muted);
-        }}
-        .tag-pill {{
-            background: var(--plaud-pill-bg);
-            color: var(--plaud-text-secondary);
-            border-radius: 100px;
-            padding: 2px 8px;
-            font-size: 11px;
             font-weight: 600;
-            letter-spacing: 0.2px;
-        }}
-
-        /* Detail Workspace Boxes */
-        .detail-box {{
-            background: var(--plaud-card-bg);
-            border: 1px solid var(--plaud-border);
-            border-radius: 12px;
-            padding: 18px 20px;
-            margin-bottom: 16px;
-            box-shadow: var(--plaud-shadow);
-        }}
-        .box-title {{
-            font-size: 13.5px;
-            font-weight: 700;
+            color: var(--hesh-text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: var(--plaud-blue);
-            margin-bottom: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
         }}
 
-        /* Clean Timestamp Badges */
-        .time-badge {{
+        /* SaaS Badge & Tags */
+        .saas-badge {{
             display: inline-block;
-            background: var(--plaud-blue-subtle);
-            color: var(--plaud-blue);
+            background: var(--hesh-accent-subtle);
+            color: var(--hesh-accent);
             font-size: 11px;
             font-weight: 700;
             padding: 2px 8px;
-            border-radius: 4px;
-            margin-right: 8px;
+            border-radius: 6px;
             letter-spacing: 0.3px;
         }}
-
-        /* Clean Pillar Accordion */
-        details.pillar-card {{
-            background: var(--plaud-bubble-bg);
-            border: 1px solid var(--plaud-border);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            overflow: hidden;
-            transition: border-color 0.2s ease;
+        .pro-badge {{
+            display: inline-block;
+            background: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
+            color: #FFFFFF;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 100px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }}
-        details.pillar-card[open] {{
-            border-color: var(--plaud-border-hover);
-        }}
-        summary {{
-            padding: 10px 14px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--plaud-text-primary);
-            cursor: pointer;
-            list-style: none;
-            display: flex;
-            align-items: center;
-            user-select: none;
-        }}
-        summary::-webkit-details-marker {{
-            display: none;
-        }}
-        .pillar-body {{
-            padding: 10px 14px 14px 14px;
-            font-size: 12.5px;
-            color: var(--plaud-text-secondary);
-            line-height: 1.55;
-            border-top: 1px solid var(--plaud-border);
+        .free-badge {{
+            display: inline-block;
+            background: var(--hesh-surface-hover);
+            color: var(--hesh-text-secondary);
+            border: 1px solid var(--hesh-border);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 100px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }}
 
-        /* Action Items Table */
+        /* Clean Pro Pricing Box */
+        .pricing-card {{
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+        }}
+
+        /* Table Styling */
         .action-table {{
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
             font-size: 12.5px;
-            border: 1px solid var(--plaud-border);
+            border: 1px solid var(--hesh-border);
             border-radius: 8px;
             overflow: hidden;
         }}
         .action-table th {{
-            background: var(--plaud-bubble-bg);
-            color: var(--plaud-text-muted);
+            background: var(--hesh-surface-hover);
+            color: var(--hesh-text-muted);
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
             padding: 10px 12px;
             text-align: left;
-            border-bottom: 1px solid var(--plaud-border);
+            border-bottom: 1px solid var(--hesh-border);
         }}
         .action-table td {{
             padding: 10px 12px;
-            border-bottom: 1px solid var(--plaud-border);
-            color: var(--plaud-text-primary);
+            border-bottom: 1px solid var(--hesh-border);
+            color: var(--hesh-text-primary);
             line-height: 1.45;
         }}
-        .action-table tr:last-child td {{
-            border-bottom: none;
-        }}
         .action-table tr:hover td {{
-            background: var(--plaud-card-hover);
+            background: var(--hesh-surface-hover);
         }}
+
         .priority-high {{
-            color: #EF4444; font-weight: 700; background: rgba(239, 68, 68, 0.12); padding: 2px 6px; border-radius: 4px; font-size: 10.5px;
+            color: #F43F5E; font-weight: 700; background: var(--hesh-rose-subtle); padding: 2px 6px; border-radius: 4px; font-size: 10.5px;
         }}
         .priority-med {{
             color: #F59E0B; font-weight: 700; background: rgba(245, 158, 11, 0.12); padding: 2px 6px; border-radius: 4px; font-size: 10.5px;
         }}
         .priority-low {{
-            color: #10B981; font-weight: 700; background: rgba(16, 185, 129, 0.12); padding: 2px 6px; border-radius: 4px; font-size: 10.5px;
-        }}
-
-        .plaud-badge {{
-            background: var(--plaud-blue-subtle);
-            color: var(--plaud-blue);
-            font-weight: 700;
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 4px;
+            color: #10B981; font-weight: 700; background: var(--hesh-emerald-subtle); padding: 2px 6px; border-radius: 4px; font-size: 10.5px;
         }}
     </style>
     """
-    st.markdown(full_css, unsafe_allow_html=True)
+    st.markdown(custom_css, unsafe_allow_html=True)
 
-apply_theme_css(st.session_state.theme)
+apply_saas_theme(st.session_state.theme)
 
 
 # =============================================================================
-# HELPER PARSERS & TAG GENERATION
+# HELPER FUNCTIONS & DATA RETRIEVAL
 # =============================================================================
 def extract_smart_tags(title: str, session_data: dict) -> list[str]:
     tags = []
     text_corpus = (title + " " + json.dumps(session_data)).lower()
-    
     if any(k in text_corpus for k in ["soc 2", "compliance", "security", "audit", "policy"]):
         tags.append("#Compliance")
     if any(k in text_corpus for k in ["sprint", "roadmap", "engineering", "deploy", "server", "azure", "docker"]):
@@ -431,9 +378,16 @@ def parse_transcript_turns(raw_markdown: str) -> list[dict]:
     return turns
 
 
-def load_all_sessions() -> list[dict]:
-    """Loads all structured session objects from Supabase Cloud and local sessions/."""
-    raw_sessions = fetch_all_sessions()
+def get_current_user_id() -> str | None:
+    if st.session_state.user:
+        return str(getattr(st.session_state.user, "id", ""))
+    return None
+
+
+def load_user_sessions() -> list[dict]:
+    """Loads all sessions strictly belonging to the active user (or demo for guests)."""
+    user_id = get_current_user_id()
+    raw_sessions = fetch_all_sessions(user_id=user_id)
     sessions = []
     seen_keys = set()
 
@@ -464,7 +418,7 @@ def load_all_sessions() -> list[dict]:
             "action_count": len(action_items),
             "decision_count": len(decisions),
             "pillar_count": len(pillars),
-            "source": s.get("source", "Cloud/Local"),
+            "source": s.get("source", "Cloud"),
             "data": data
         })
 
@@ -472,16 +426,247 @@ def load_all_sessions() -> list[dict]:
 
 
 # =============================================================================
-# MODALS & DIALOGS (st.dialog)
+# SIDEBAR: AUTHENTICATION, TIER LIMITS & NAVIGATION
 # =============================================================================
-@st.dialog("⚡ New Meeting Recording / Upload")
-def new_recording_dialog():
-    tab_upload, tab_record = st.tabs(["📤 Upload Audio/Video (Groq + Gemini)", "🎙️ Record Live Meeting / HUD"])
+def render_sidebar():
+    with st.sidebar:
+        # App Branding Header
+        st.markdown("""
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <span style="font-size: 26px;">🎙️</span>
+            <div>
+                <div style="font-weight: 800; font-size: 18px; color: var(--hesh-text-primary); letter-spacing: -0.5px;">Hesh-rec</div>
+                <div style="font-size: 11px; color: var(--hesh-text-muted); font-weight: 500;">Commercial AI Meeting Studio</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with tab_upload:
+        # ---------------------------------------------------------------------
+        # 1. USER AUTHENTICATION & MULTI-TENANCY PANEL
+        # ---------------------------------------------------------------------
+        if st.session_state.user:
+            user_email = st.session_state.user.email if hasattr(st.session_state.user, "email") else st.session_state.user_email
+            plan_badge = '<span class="pro-badge">PRO PLAN</span>' if st.session_state.plan_tier == "pro" else '<span class="free-badge">FREE PLAN</span>'
+            
+            st.markdown(f"""
+            <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 10px; padding: 12px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 12.5px; font-weight: 700; color: var(--hesh-text-primary);">👤 {user_email[:20]}</span>
+                    {plan_badge}
+                </div>
+                <div style="font-size: 11px; color: var(--hesh-text-muted);">Tenant Cloud Isolated</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if st.button("🚪 Sign Out", key="btn_signout", type="secondary", use_container_width=True):
+                auth_sign_out()
+                st.session_state.user = None
+                st.session_state.user_email = "guest@heshrec.ai"
+                st.session_state.plan_tier = "free"
+                st.session_state.active_session_id = None
+                st.toast("Signed out successfully.", icon="👋")
+                time.sleep(0.3)
+                st.rerun()
+
+        else:
+            # Login / Sign Up Tabs in Sidebar
+            st.markdown("<div style='font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 8px;'>🔐 Account & Workspace</div>", unsafe_allow_html=True)
+            auth_tab_in, auth_tab_up = st.tabs(["Sign In", "Create Account"])
+
+            with auth_tab_in:
+                login_email = st.text_input("Email", key="in_email", placeholder="user@company.com")
+                login_pwd = st.text_input("Password", type="password", key="in_pwd")
+                if st.button("Sign In", type="primary", use_container_width=True):
+                    if login_email and login_pwd:
+                        with st.spinner("Authenticating..."):
+                            success, user_obj, msg = auth_sign_in(login_email, login_pwd)
+                            if success:
+                                st.session_state.user = user_obj
+                                st.session_state.user_email = login_email
+                                st.toast("Welcome back!", icon="🚀")
+                                time.sleep(0.3)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+                    else:
+                        st.warning("Please enter your email and password.")
+
+            with auth_tab_up:
+                up_email = st.text_input("Email", key="up_email", placeholder="newuser@company.com")
+                up_pwd = st.text_input("Password (min 6 chars)", type="password", key="up_pwd")
+                if st.button("Create Free Account", type="primary", use_container_width=True):
+                    if up_email and up_pwd:
+                        with st.spinner("Creating account..."):
+                            success, user_obj, msg = auth_sign_up(up_email, up_pwd)
+                            if success:
+                                st.session_state.user = user_obj
+                                st.session_state.user_email = up_email
+                                st.toast("Account created successfully!", icon="🎉")
+                                time.sleep(0.3)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+                    else:
+                        st.warning("Please provide valid details.")
+
+        st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin: 16px 0;'>", unsafe_allow_html=True)
+
+        # ---------------------------------------------------------------------
+        # 2. NAVIGATION MENU
+        # ---------------------------------------------------------------------
+        st.markdown("<div style='font-size: 11px; font-weight: 700; color: var(--hesh-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>Workspace</div>", unsafe_allow_html=True)
+
+        nav_dash = st.button("📊 Dashboard & Upload", key="nav_btn_dash", use_container_width=True, type="primary" if st.session_state.current_nav == "dashboard" and st.session_state.active_session_id is None else "secondary")
+        if nav_dash:
+            st.session_state.current_nav = "dashboard"
+            st.session_state.active_session_id = None
+            st.rerun()
+
+        nav_recents = st.button("📁 Recent Summaries", key="nav_btn_recents", use_container_width=True, type="primary" if st.session_state.current_nav == "recents" and st.session_state.active_session_id is None else "secondary")
+        if nav_recents:
+            st.session_state.current_nav = "recents"
+            st.session_state.active_session_id = None
+            st.rerun()
+
+        nav_actions = st.button("📋 Action Items Tracker", key="nav_btn_actions", use_container_width=True, type="primary" if st.session_state.current_nav == "actions" and st.session_state.active_session_id is None else "secondary")
+        if nav_actions:
+            st.session_state.current_nav = "actions"
+            st.session_state.active_session_id = None
+            st.rerun()
+
+        nav_export = st.button("📦 Export Center", key="nav_btn_export", use_container_width=True, type="primary" if st.session_state.current_nav == "export" and st.session_state.active_session_id is None else "secondary")
+        if nav_export:
+            st.session_state.current_nav = "export"
+            st.session_state.active_session_id = None
+            st.rerun()
+
+        st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin: 16px 0;'>", unsafe_allow_html=True)
+
+        # ---------------------------------------------------------------------
+        # 3. FREEMIUM TIER LIMITS & USAGE COUNTER
+        # ---------------------------------------------------------------------
+        user_id = get_current_user_id()
+        usage = get_user_usage(user_id, plan_tier=st.session_state.plan_tier)
+
+        st.markdown("<div style='font-size: 11px; font-weight: 700; color: var(--hesh-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>Monthly Usage</div>", unsafe_allow_html=True)
+
+        if st.session_state.plan_tier == "free":
+            st.markdown(f"""
+            <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 8px; padding: 10px; margin-bottom: 8px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--hesh-text-primary); margin-bottom:4px;">
+                    <span>Audio Uploads</span>
+                    <span>{usage['used_count']} / {usage['limit']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.progress(usage["percent"] / 100.0)
+
+            # Upgrade to Pro Card
+            st.markdown("""
+            <div class="pricing-card">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                    <span style="font-size:13px; font-weight:800; color:var(--hesh-accent);">⚡ Hesh-rec Pro</span>
+                    <span style="font-size:12px; font-weight:700; color:#A855F7;">$19/mo</span>
+                </div>
+                <div style="font-size:11px; color:var(--hesh-text-secondary); line-height:1.45; margin-bottom:10px;">
+                    • Unlimited audio & video meetings<br>
+                    • Groq Whisper-large-v3 priority queue<br>
+                    • Full Supabase Cloud Sync & Export
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if st.button("✨ Upgrade to Pro ($19/mo)", key="btn_upgrade_pro", type="primary", use_container_width=True):
+                st.session_state.plan_tier = "pro"
+                st.toast("🎉 Upgraded to Hesh-rec Pro! Enjoy unlimited processing.", icon="✨")
+                time.sleep(0.3)
+                st.rerun()
+
+        else:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(56, 189, 248, 0.1) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px; text-align:center;">
+                <span class="pro-badge">PRO SUBSCRIBER</span>
+                <div style="font-size:12px; font-weight:600; color:var(--hesh-text-primary); margin-top:6px;">Unlimited Cloud Processing</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("Switch to Free Tier", key="btn_downgrade", type="secondary", use_container_width=True):
+                st.session_state.plan_tier = "free"
+                st.rerun()
+
+        # Theme Toggle
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+        theme_icon = "🌙 Dark Mode" if st.session_state.theme == "dark" else "☀️ Light Mode"
+        if st.button(theme_icon, key="sidebar_theme_toggle", type="secondary", use_container_width=True):
+            st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+            st.rerun()
+
+
+# =============================================================================
+# VIEW 1: DASHBOARD & UPLOAD/RECORD AREA
+# =============================================================================
+def render_dashboard_view():
+    sessions = load_user_sessions()
+    user_id = get_current_user_id()
+    usage = get_user_usage(user_id, plan_tier=st.session_state.plan_tier)
+
+    # 1. Executive Metric Cards
+    total_duration_mins = sum([int(float(s["data"].get("metadata", {}).get("duration_seconds", 900)) / 60.0) for s in sessions])
+    total_actions = sum([s["action_count"] for s in sessions])
+    total_decisions = sum([s["decision_count"] for s in sessions])
+
+    st.markdown("""
+    <div style="margin-bottom: 20px;">
+        <h1 style="font-size: 24px; font-weight: 800; margin-bottom: 4px;">Executive Dashboard</h1>
+        <div style="font-size: 13px; color: var(--hesh-text-muted);">Real-time meeting intelligence overview and rapid cloud transcription</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    with col_m1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Total Meetings</div>
+            <div class="metric-val">{len(sessions)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_m2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Spoken Time Analyzed</div>
+            <div class="metric-val">{total_duration_mins}m</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_m3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Action Deliverables</div>
+            <div class="metric-val" style="color: #F43F5E;">{total_actions}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_m4:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Decisions Agreed</div>
+            <div class="metric-val" style="color: #10B981;">{total_decisions}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+
+    # 2. Main Upload & Audio Processing Studio Card
+    st.markdown("""
+    <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 22px; margin-bottom: 24px; box-shadow: var(--hesh-card-shadow);">
+        <div style="font-size: 16px; font-weight: 700; color: var(--hesh-text-primary); margin-bottom: 4px;">⚡ Upload or Record Meeting</div>
+        <div style="font-size: 12.5px; color: var(--hesh-text-muted); margin-bottom: 16px;">Powered by Groq Whisper-large-v3 (<1s transcription) + Gemini 2.5 Flash + Supabase Cloud Sync</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab_up, tab_voice = st.tabs(["📤 File Upload (.mp3, .wav, .m4a, .mp4)", "🎙️ Instant Browser Voice Memo"])
+
+    with tab_up:
         uploaded_file = st.file_uploader(
-            "Upload file",
-            type=["mp3", "wav", "m4a", "mp4", "aac"],
+            "Drop audio/video files here",
+            type=["mp3", "wav", "m4a", "mp4", "aac", "ogg", "flac"],
             label_visibility="collapsed"
         )
 
@@ -496,29 +681,33 @@ def new_recording_dialog():
         with col_opt2:
             st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
             if uploaded_file is not None:
-                if st.button("⚡ Transcribe & Analyze", type="primary", use_container_width=True):
-                    save_path = INPUTS_DIR / uploaded_file.name
-                    with open(save_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
+                if not usage["can_upload"]:
+                    st.error("⚠️ Free monthly limit reached (3/3 meetings). Please upgrade to Pro in the sidebar for unlimited processing.")
+                else:
+                    if st.button("🚀 Transcribe & Analyze", type="primary", use_container_width=True):
+                        save_path = INPUTS_DIR / uploaded_file.name
+                        with open(save_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
 
-                    with st.spinner("🚀 Transcribing with Groq Whisper-large-v3 + Gemini 2.5 Flash + Supabase Sync..."):
-                        try:
-                            result = process_meeting_file_cloud(
-                                save_path,
-                                model_choice=st.session_state.model_choice
-                            )
-                            sid = result.get("metadata", {}).get("session_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
-                            st.session_state.active_session_id = f"session_{sid}"
-                            st.toast("✅ Meeting processed and synchronized to Cloud!", icon="🚀")
-                            time.sleep(0.3)
-                            st.rerun()
-                        except Exception as ex:
-                            st.error(f"Processing failed: {ex}")
+                        with st.spinner("⚡ Processing on Groq LPUs + Gemini Intelligence + Supabase Cloud Sync..."):
+                            try:
+                                result = process_meeting_file_cloud(
+                                    save_path,
+                                    model_choice=st.session_state.model_choice,
+                                    user_id=user_id
+                                )
+                                sid = result.get("metadata", {}).get("session_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
+                                st.session_state.active_session_id = f"session_{sid}"
+                                st.toast("✅ Meeting synchronized to Cloud!", icon="🚀")
+                                time.sleep(0.3)
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Processing failed: {ex}")
 
-    with tab_record:
+    with tab_voice:
         st.markdown("""
-        <div style="font-size: 13px; color: var(--plaud-text-secondary); line-height: 1.5; margin-bottom: 14px;">
-            <b>🎙️ Cloud Voice Memo & Meeting Recording:</b> Record directly from your browser. Audio is uploaded to Groq Whisper-large-v3 and analyzed with Gemini.
+        <div style="font-size: 13px; color: var(--hesh-text-secondary); line-height: 1.5; margin-bottom: 14px;">
+            Record thoughts, executive notes, or live audio directly from your browser.
         </div>
         """, unsafe_allow_html=True)
 
@@ -526,107 +715,80 @@ def new_recording_dialog():
         with col_rec_btn:
             recorded_bytes = audio_recorder(
                 pause_threshold=2.5,
-                text="Record Browser Audio",
-                recording_color="#EF4444",
+                text="Record Voice Memo",
+                recording_color="#F43F5E",
                 neutral_color="#38BDF8",
                 icon_size="2x"
             )
-        
+
         with col_rec_action:
             if recorded_bytes:
                 st.audio(recorded_bytes, format="audio/wav")
-                if st.button("🚀 Transcribe & Analyze Memo", type="primary", use_container_width=True):
-                    memo_filename = f"voice_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
-                    memo_path = INPUTS_DIR / memo_filename
-                    with open(memo_path, "wb") as f:
-                        f.write(recorded_bytes)
-                    with st.spinner("Processing voice recording with Groq & Gemini..."):
-                        try:
-                            result = process_meeting_file_cloud(
-                                memo_path,
-                                custom_title="Voice Memo Recording",
-                                model_choice=st.session_state.model_choice
-                            )
-                            sid = result.get("metadata", {}).get("session_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
-                            st.session_state.active_session_id = f"session_{sid}"
-                            st.toast("✅ Voice memo transcribed and saved!", icon="🎙️")
-                            time.sleep(0.3)
-                            st.rerun()
-                        except Exception as ex:
-                            st.error(f"Analysis failed: {ex}")
+                if not usage["can_upload"]:
+                    st.error("⚠️ Free limit reached. Upgrade to Pro for unlimited recording.")
+                else:
+                    if st.button("🚀 Transcribe & Analyze Memo", type="primary", use_container_width=True):
+                        memo_filename = f"voice_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+                        memo_path = INPUTS_DIR / memo_filename
+                        with open(memo_path, "wb") as f:
+                            f.write(recorded_bytes)
+                        with st.spinner("Transcribing with Groq Whisper & Gemini..."):
+                            try:
+                                result = process_meeting_file_cloud(
+                                    memo_path,
+                                    custom_title="Voice Memo Recording",
+                                    model_choice=st.session_state.model_choice,
+                                    user_id=user_id
+                                )
+                                sid = result.get("metadata", {}).get("session_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
+                                st.session_state.active_session_id = f"session_{sid}"
+                                st.toast("✅ Voice memo transcribed!", icon="🎙️")
+                                time.sleep(0.3)
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Analysis failed: {ex}")
 
-
-@st.dialog("✏️ Rename Meeting Title")
-def rename_meeting_dialog(session_id: str, current_title: str):
-    new_title = st.text_input("Meeting Title", value=current_title)
-    col_cnl, col_sav = st.columns([1.0, 1.0])
-    
-    with col_cnl:
-        if st.button("Cancel", use_container_width=True):
-            st.session_state.rename_target = None
-            st.rerun()
-    with col_sav:
-        if st.button("Save Title", type="primary", use_container_width=True):
-            if new_title.strip():
-                try:
-                    rename_session_record(session_id, new_title.strip())
-                    st.toast("Title updated successfully!", icon="✅")
-                    st.session_state.rename_target = None
-                    time.sleep(0.3)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to rename: {e}")
+    # 3. Quick Snapshot of 3 Latest Meetings
+    st.markdown("<div style='font-size: 15px; font-weight: 700; color: var(--hesh-text-primary); margin-top: 24px; margin-bottom: 12px;'>📁 Latest Sessions</div>", unsafe_allow_html=True)
+    if not sessions:
+        st.info("No recorded meetings yet. Upload an audio recording above to generate your first intelligence report.")
+    else:
+        for s in sessions[:3]:
+            with st.container():
+                col_i, col_info, col_act = st.columns([0.3, 3.2, 1.0])
+                with col_i:
+                    st.markdown("<div style='font-size: 22px; padding-top: 6px;'>🎙️</div>", unsafe_allow_html=True)
+                with col_info:
+                    st.markdown(f"""
+                    <div style="font-weight: 600; font-size: 14px; color: var(--hesh-text-primary);">{s['title']}</div>
+                    <div style="font-size: 11.5px; color: var(--hesh-text-muted);">⏱️ {s['duration']} • 📅 {s['date_display']} • ⚡ {s['action_count']} Action Items</div>
+                    """, unsafe_allow_html=True)
+                with col_act:
+                    if st.button("Open Report ↗️", key=f"quick_open_{s['id']}", type="secondary", use_container_width=True):
+                        st.session_state.active_session_id = s["id"]
+                        st.rerun()
 
 
 # =============================================================================
-# TOP NAVIGATION BAR COMPONENT
+# VIEW 2: RECENT SUMMARIES (FILTERABLE WORKSPACE LIST)
 # =============================================================================
-def render_navbar():
-    col_logo, col_search, col_theme, col_btn = st.columns([1.3, 1.7, 0.4, 1.2])
-    
-    with col_logo:
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 8px; padding-top: 4px;">
-            <span style="font-size: 24px;">🎙️</span>
-            <span style="font-weight: 800; font-size: 19px; color: var(--plaud-text-primary); letter-spacing: -0.5px;">Plaud Studio</span>
-            <span class="plaud-badge">Cloud AI</span>
+def render_recents_view():
+    sessions = load_user_sessions()
+    user_id = get_current_user_id()
+
+    col_title, col_search = st.columns([2.0, 1.5])
+    with col_title:
+        st.markdown("""
+        <div>
+            <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 2px;">Recent Summaries</h1>
+            <div style="font-size: 12.5px; color: var(--hesh-text-muted);">All cloud-synchronized meeting intelligence archives</div>
         </div>
         """, unsafe_allow_html=True)
-
     with col_search:
-        if st.session_state.active_session_id is None:
-            st.session_state.search_query = st.text_input(
-                "Search",
-                placeholder="🔍 Search notes, decisions, or transcripts...",
-                label_visibility="collapsed"
-            )
-        else:
-            st.write("")
+        st.session_state.search_query = st.text_input("Search", placeholder="🔍 Search meetings, pillars, or actions...", label_visibility="collapsed")
 
-    with col_theme:
-        theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
-        theme_tooltip = "Switch to Dark Mode" if st.session_state.theme == "light" else "Switch to Light Mode"
-        if st.button(theme_icon, help=theme_tooltip, type="secondary", use_container_width=True):
-            st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
-            st.rerun()
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    with col_btn:
-        if st.session_state.active_session_id is None:
-            if st.button("+ New Recording / Upload", type="primary", use_container_width=True):
-                new_recording_dialog()
-        else:
-            if st.button("← Back to Recent files", type="secondary", use_container_width=True):
-                st.session_state.active_session_id = None
-                st.rerun()
-
-
-# =============================================================================
-# VIEW 1: RECENT FILES WORKSPACE (DEFAULT LANDING PAGE)
-# =============================================================================
-def render_recent_files_view():
-    sessions = load_all_sessions()
-
-    # Filter by search query
     if st.session_state.search_query.strip():
         q = st.session_state.search_query.lower()
         sessions = [
@@ -634,27 +796,16 @@ def render_recent_files_view():
             if q in s["title"].lower() or any(q in t.lower() for t in s["tags"]) or q in json.dumps(s["data"]).lower()
         ]
 
-    # Section Header
-    st.markdown(f"""
-    <div class="section-header">
-        <div>
-            <h1 class="section-title">Recent files</h1>
-            <span class="section-count">{len(sessions)} recorded meetings & intelligence sessions (Supabase Cloud + Local)</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
     if not sessions:
         st.markdown("""
-        <div style="text-align: center; padding: 60px 20px; background: var(--plaud-card-bg); border: 1px dashed var(--plaud-border); border-radius: 12px;">
+        <div style="text-align: center; padding: 60px 20px; background: var(--hesh-surface); border: 1px dashed var(--hesh-border); border-radius: 12px;">
             <span style="font-size: 38px;">📁</span>
-            <div style="font-size: 16px; font-weight: 600; color: var(--plaud-text-primary); margin-top: 10px;">No recent meeting sessions found</div>
-            <div style="font-size: 13px; color: var(--plaud-text-muted); margin-top: 4px;">Click "+ New Recording / Upload" above to get started with Groq & Gemini.</div>
+            <div style="font-size: 15px; font-weight: 600; color: var(--hesh-text-primary); margin-top: 10px;">No meeting records found</div>
+            <div style="font-size: 12.5px; color: var(--hesh-text-muted); margin-top: 4px;">Upload an audio file in the Dashboard to get started.</div>
         </div>
         """, unsafe_allow_html=True)
         return
 
-    # Render List of File Cards
     for s in sessions:
         with st.container():
             col_icon, col_info, col_actions = st.columns([0.35, 3.2, 1.45])
@@ -663,16 +814,16 @@ def render_recent_files_view():
                 st.markdown("<div style='font-size: 26px; padding-top: 6px;'>🎙️</div>", unsafe_allow_html=True)
 
             with col_info:
-                source_badge = f'<span class="tag-pill" style="color: var(--plaud-blue);">☁️ {s.get("source", "Cloud")}</span>'
+                source_badge = f'<span class="saas-badge">☁️ {s.get("source", "Cloud")}</span>'
                 st.markdown(f"""
-                <div class="file-title">{s['title']}</div>
-                <div class="file-meta">
+                <div style="font-size: 14.5px; font-weight: 700; color: var(--hesh-text-primary); margin-bottom: 3px;">{s['title']}</div>
+                <div style="display:flex; align-items:center; gap: 10px; font-size: 12px; color: var(--hesh-text-muted);">
                     <span>⏱️ {s['duration']}</span>
                     <span>📅 {s['date_display']}</span>
-                    <span>⚡ {s['action_count']} Action Items</span>
+                    <span>⚡ {s['action_count']} Actions</span>
                     <span>📌 {s['decision_count']} Decisions</span>
                     {source_badge}
-                    {' '.join([f'<span class="tag-pill">{t}</span>' for t in s['tags']])}
+                    {' '.join([f'<span class="saas-badge">{t}</span>' for t in s['tags']])}
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -683,34 +834,170 @@ def render_recent_files_view():
                         st.session_state.active_session_id = s["id"]
                         st.rerun()
                 with col_btn_ren:
-                    if st.button("✏️", key=f"ren_{s['id']}", help="Rename Meeting", type="secondary", use_container_width=True):
+                    if st.button("✏️", key=f"ren_{s['id']}", help="Rename Title", type="secondary", use_container_width=True):
                         st.session_state.rename_target = (s["raw_id"], s["title"])
                 with col_btn_del:
                     if st.button("🗑️", key=f"del_{s['id']}", help="Delete Meeting", type="secondary", use_container_width=True):
                         try:
-                            delete_session_record(s["raw_id"])
+                            delete_session_record(s["raw_id"], user_id=user_id)
                             st.toast("Session deleted.", icon="🗑️")
                             time.sleep(0.3)
                             st.rerun()
                         except Exception:
                             pass
 
-            st.markdown("<hr style='border: none; border-top: 1px solid var(--plaud-border); margin: 8px 0;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin: 8px 0;'>", unsafe_allow_html=True)
 
     if st.session_state.rename_target:
         rename_meeting_dialog(st.session_state.rename_target[0], st.session_state.rename_target[1])
 
 
 # =============================================================================
-# VIEW 2: MEETING DETAIL WORKSPACE (TWO-COLUMN EXECUTIVE REPORT)
+# VIEW 3: ACTION ITEMS TRACKER (CROSS-MEETING MATRIX)
+# =============================================================================
+def render_action_tracker_view():
+    sessions = load_user_sessions()
+
+    st.markdown("""
+    <div style="margin-bottom: 18px;">
+        <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 2px;">Action Items Tracker</h1>
+        <div style="font-size: 12.5px; color: var(--hesh-text-muted);">Aggregated matrix of all tasks, commitments, and deadlines across meetings</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    all_actions = []
+    for s in sessions:
+        actions = s["data"].get("action_items", [])
+        for a in actions:
+            item = dict(a)
+            item["meeting_title"] = s["title"]
+            item["meeting_id"] = s["id"]
+            all_actions.append(item)
+
+    if not all_actions:
+        st.info("No action items found across your meetings.")
+        return
+
+    # Filter Bar
+    col_f1, col_f2 = st.columns([1.5, 1.5])
+    with col_f1:
+        prio_filter = st.multiselect("Filter by Priority", ["HIGH", "MED", "LOW"], default=["HIGH", "MED", "LOW"])
+    with col_f2:
+        owners = list(set([a.get("assignee", "Team") for a in all_actions]))
+        owner_filter = st.multiselect("Filter by Owner", owners, default=owners)
+
+    filtered_actions = [
+        a for a in all_actions
+        if (a.get("priority", "MED").upper() in prio_filter) and (a.get("assignee", "Team") in owner_filter)
+    ]
+
+    st.markdown(f"<div style='font-size: 12px; color: var(--hesh-text-muted); margin-bottom: 10px;'>Showing {len(filtered_actions)} actionable deliverables</div>", unsafe_allow_html=True)
+
+    rows_html = []
+    for idx, a in enumerate(filtered_actions):
+        deliverable = a.get("description") or a.get("task") or "Task"
+        owner = a.get("assignee") or a.get("owner") or "Team"
+        prio = (a.get("priority") or "MED").upper()
+        due = a.get("due_date") or "Next Sprint"
+        notes = a.get("notes") or a.get("acceptance_criteria") or "—"
+        meeting = a.get("meeting_title", "Meeting")
+
+        prio_class = "priority-med"
+        if "HIGH" in prio:
+            prio_class = "priority-high"
+        elif "LOW" in prio:
+            prio_class = "priority-low"
+
+        rows_html.append(f"""
+        <tr>
+            <td style="font-weight: 600; color: var(--hesh-text-primary);">{deliverable}</td>
+            <td style="color: var(--hesh-accent); font-weight: 600;">{owner}</td>
+            <td><span class="{prio_class}">{prio}</span></td>
+            <td style="color: var(--hesh-text-muted); font-size: 11.5px;">{due}</td>
+            <td style="color: var(--hesh-text-secondary); font-size: 11.5px;">{notes}</td>
+            <td style="color: var(--hesh-text-muted); font-size: 11px;">{meeting}</td>
+        </tr>
+        """)
+
+    table_html = f"""
+    <table class="action-table">
+        <thead>
+            <tr>
+                <th style="width: 32%;">Task Deliverable</th>
+                <th style="width: 14%;">Owner</th>
+                <th style="width: 10%;">Priority</th>
+                <th style="width: 12%;">Due Date</th>
+                <th style="width: 18%;">Acceptance Notes</th>
+                <th style="width: 14%;">Source Meeting</th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join(rows_html)}
+        </tbody>
+    </table>
+    """
+    st.html(table_html)
+
+
+# =============================================================================
+# VIEW 4: EXPORT CENTER
+# =============================================================================
+def render_export_center_view():
+    sessions = load_user_sessions()
+
+    st.markdown("""
+    <div style="margin-bottom: 18px;">
+        <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 2px;">Export Center</h1>
+        <div style="font-size: 12.5px; color: var(--hesh-text-muted);">Batch download meeting transcripts, executive briefs, and intelligence data</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not sessions:
+        st.info("No meeting sessions available to export.")
+        return
+
+    for s in sessions:
+        with st.container():
+            col_info, col_btn1, col_btn2 = st.columns([2.5, 1.0, 1.0])
+            with col_info:
+                st.markdown(f"""
+                <div style="font-size: 14px; font-weight: 700; color: var(--hesh-text-primary);">{s['title']}</div>
+                <div style="font-size: 11.5px; color: var(--hesh-text-muted);">Processed on {s['date_display']} • Duration: {s['duration']}</div>
+                """, unsafe_allow_html=True)
+
+            raw_md = s["data"].get("raw_markdown", "# Meeting Report")
+            with col_btn1:
+                st.download_button(
+                    "📄 Markdown (.md)",
+                    data=raw_md,
+                    file_name=f"{s['id']}.md",
+                    mime="text/markdown",
+                    key=f"exp_md_{s['id']}",
+                    use_container_width=True
+                )
+            with col_btn2:
+                st.download_button(
+                    "📦 JSON Dataset",
+                    data=json.dumps(s["data"], indent=2),
+                    file_name=f"{s['id']}.json",
+                    mime="application/json",
+                    key=f"exp_json_{s['id']}",
+                    use_container_width=True
+                )
+
+            st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin: 8px 0;'>", unsafe_allow_html=True)
+
+
+# =============================================================================
+# VIEW 5: MEETING DETAIL WORKSPACE (TWO-COLUMN EXECUTIVE REPORT)
 # =============================================================================
 def render_meeting_detail_view(session_id: str):
-    sessions = load_all_sessions()
+    sessions = load_user_sessions()
     active_item = next((s for s in sessions if s["id"] == session_id or s["raw_id"] == session_id), None)
 
     if not active_item:
         st.error("Meeting session not found or deleted.")
-        if st.button("← Back to Recent files"):
+        if st.button("← Back to Dashboard"):
             st.session_state.active_session_id = None
             st.rerun()
         return
@@ -722,36 +1009,30 @@ def render_meeting_detail_view(session_id: str):
     date_str = active_item["date_display"]
     model_name = meta.get("model", "Groq Whisper-large-v3 + Gemini 2.5 Flash")
 
-    # Header Title Banner
     col_h_left, col_h_right = st.columns([3.0, 1.5])
     with col_h_left:
         st.markdown(f"""
         <div style="margin-bottom: 16px;">
-            <div style="font-size: 24px; font-weight: 800; color: var(--plaud-text-primary); letter-spacing: -0.5px; margin-bottom: 6px;">
+            <div style="font-size: 24px; font-weight: 800; color: var(--hesh-text-primary); letter-spacing: -0.5px; margin-bottom: 6px;">
                 {title}
             </div>
-            <div style="display: flex; gap: 10px; font-size: 12px; color: var(--plaud-text-secondary); font-weight: 500;">
+            <div style="display: flex; gap: 10px; font-size: 12px; color: var(--hesh-text-muted); font-weight: 500;">
                 <span>⏱️ {duration}</span>
                 <span>•</span>
                 <span>📅 {date_str}</span>
                 <span>•</span>
                 <span>⚡ {model_name}</span>
-                {' '.join([f'<span class="tag-pill">{t}</span>' for t in active_item['tags']])}
+                {' '.join([f'<span class="saas-badge">{t}</span>' for t in active_item['tags']])}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
     with col_h_right:
-        col_cp, col_dl = st.columns([1.0, 1.0])
-        raw_md = data.get("raw_markdown", "# Meeting Report")
-        with col_cp:
-            st.download_button(
-                "📄 Download .md",
-                data=raw_md,
-                file_name=f"{session_id}.md",
-                mime="text/markdown",
-                use_container_width=True
-            )
+        col_back, col_dl = st.columns([1.0, 1.0])
+        with col_back:
+            if st.button("← Back", key="btn_back_detail", type="secondary", use_container_width=True):
+                st.session_state.active_session_id = None
+                st.rerun()
         with col_dl:
             st.download_button(
                 "📦 Export JSON",
@@ -761,22 +1042,19 @@ def render_meeting_detail_view(session_id: str):
                 use_container_width=True
             )
 
-    st.markdown("<hr style='border: none; border-top: 1px solid var(--plaud-border); margin-bottom: 20px;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin-bottom: 20px;'>", unsafe_allow_html=True)
 
     # Executive Two-Column Layout
     col_left, col_right = st.columns([1.15, 0.85], gap="large")
 
-    # -------------------------------------------------------------------------
-    # LEFT COLUMN: EXECUTIVE INTELLIGENCE & STRUCTURE
-    # -------------------------------------------------------------------------
     with col_left:
         # 1. Executive Brief
         exec_brief = data.get("executive_brief", [])
         if exec_brief:
-            points_html = "".join([f"<div style='font-size: 13px; color: var(--plaud-text-secondary); margin-bottom: 6px; line-height: 1.5;'>• {p.lstrip('•*- ').strip()}</div>" for p in exec_brief])
-            st.html(f"""<div class="detail-box"><div class="box-title">⚡ Executive Summary</div>{points_html}</div>""")
+            points_html = "".join([f"<div style='font-size: 13px; color: var(--hesh-text-secondary); margin-bottom: 6px; line-height: 1.5;'>• {p.lstrip('•*- ').strip()}</div>" for p in exec_brief])
+            st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">⚡ Executive Summary</div>{points_html}</div>""")
 
-        # 2. Discussion Pillars (Clean custom details, no arrow_right glitch)
+        # 2. Discussion Pillars
         pillars = data.get("discussion_pillars", [])
         if pillars:
             pillars_html = []
@@ -785,8 +1063,8 @@ def render_meeting_detail_view(session_id: str):
                 p_time = pillar.get("timestamp", "00:00:00")
                 p_details = pillar.get("details", "").replace("\n", "<br>")
                 open_attr = "open" if idx == 0 else ""
-                pillars_html.append(f"""<details class="pillar-card" {open_attr}><summary><span class="time-badge">{p_time}</span> <span>{p_title}</span></summary><div class="pillar-body">{p_details}</div></details>""")
-            st.html(f"""<div class="detail-box"><div class="box-title">🏛️ Key Discussion Pillars</div>{''.join(pillars_html)}</div>""")
+                pillars_html.append(f"""<details style="background: var(--hesh-surface-hover); border: 1px solid var(--hesh-border); border-radius: 8px; margin-bottom: 8px; overflow: hidden;" {open_attr}><summary style="padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer;"><span style="background: var(--hesh-accent-subtle); color: var(--hesh-accent); padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 8px;">{p_time}</span> <span>{p_title}</span></summary><div style="padding: 10px 14px; font-size: 12.5px; color: var(--hesh-text-secondary); border-top: 1px solid var(--hesh-border); line-height: 1.55;">{p_details}</div></details>""")
+            st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">🏛️ Key Discussion Pillars</div>{''.join(pillars_html)}</div>""")
 
         # 3. Decisions & Reversals
         decisions = data.get("decisions", [])
@@ -796,14 +1074,14 @@ def render_meeting_detail_view(session_id: str):
             if decisions:
                 dec_html.append("<div style='font-size: 12px; font-weight: 700; color: #10B981; margin-bottom: 6px;'>✅ Approved Decisions</div>")
                 for dec in decisions:
-                    dec_html.append(f"<div style='font-size: 12.5px; color: var(--plaud-text-secondary); margin-bottom: 5px; line-height: 1.45;'>• {dec}</div>")
+                    dec_html.append(f"<div style='font-size: 12.5px; color: var(--hesh-text-secondary); margin-bottom: 5px; line-height: 1.45;'>• {dec}</div>")
             if reversals:
-                dec_html.append("<div style='font-size: 12px; font-weight: 700; color: #EF4444; margin-top: 10px; margin-bottom: 6px;'>🔄 Rejected Proposals & Reversals</div>")
+                dec_html.append("<div style='font-size: 12px; font-weight: 700; color: #F43F5E; margin-top: 10px; margin-bottom: 6px;'>🔄 Rejected Proposals & Reversals</div>")
                 for rev in reversals:
-                    dec_html.append(f"<div style='font-size: 12.5px; color: var(--plaud-text-secondary); margin-bottom: 5px; line-height: 1.45;'>• {rev}</div>")
-            st.html(f"""<div class="detail-box"><div class="box-title">⚖️ Decisions Approved & Reversals</div>{''.join(dec_html)}</div>""")
+                    dec_html.append(f"<div style='font-size: 12.5px; color: var(--hesh-text-secondary); margin-bottom: 5px; line-height: 1.45;'>• {rev}</div>")
+            st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">⚖️ Decisions Approved & Reversals</div>{''.join(dec_html)}</div>""")
 
-        # 4. Action Items Matrix (Enhanced schema with Task Deliverable & Acceptance Criteria)
+        # 4. Action Items Matrix
         action_items = data.get("action_items", [])
         if action_items:
             rows_html = []
@@ -813,24 +1091,24 @@ def render_meeting_detail_view(session_id: str):
                 prio = (item.get("priority") or "MED").upper()
                 due = item.get("due_date") or "Next Sprint"
                 notes = item.get("notes") or item.get("acceptance_criteria") or "—"
-                
+
                 prio_class = "priority-med"
                 if "HIGH" in prio:
                     prio_class = "priority-high"
                 elif "LOW" in prio:
                     prio_class = "priority-low"
 
-                rows_html.append(f"""<tr><td style="font-weight: 600; color: var(--plaud-text-primary);">{deliverable}</td><td style="color: var(--plaud-blue); font-weight: 600;">{owner}</td><td><span class="{prio_class}">{prio}</span></td><td style="color: var(--plaud-text-secondary); font-size: 11.5px;">{due}</td><td style="color: var(--plaud-text-secondary); font-size: 11.5px;">{notes}</td></tr>""")
+                rows_html.append(f"""<tr><td style="font-weight: 600; color: var(--hesh-text-primary);">{deliverable}</td><td style="color: var(--hesh-accent); font-weight: 600;">{owner}</td><td><span class="{prio_class}">{prio}</span></td><td style="color: var(--hesh-text-muted); font-size: 11.5px;">{due}</td><td style="color: var(--hesh-text-secondary); font-size: 11.5px;">{notes}</td></tr>""")
 
-            table_html = f"""<div class="detail-box"><div class="box-title">📋 Action Items Matrix</div><table class="action-table"><thead><tr><th style="width: 38%;">Task Deliverable</th><th style="width: 16%;">Owner</th><th style="width: 12%;">Priority</th><th style="width: 14%;">Due Date</th><th style="width: 20%;">Acceptance Criteria & Notes</th></tr></thead><tbody>{''.join(rows_html)}</tbody></table></div>"""
+            table_html = f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">📋 Action Items Matrix</div><table class="action-table"><thead><tr><th style="width: 38%;">Task Deliverable</th><th style="width: 16%;">Owner</th><th style="width: 12%;">Priority</th><th style="width: 14%;">Due Date</th><th style="width: 20%;">Acceptance Criteria & Notes</th></tr></thead><tbody>{''.join(rows_html)}</tbody></table></div>"""
             st.html(table_html)
 
         # 5. Mermaid Architecture Mindmap
         mindmap = data.get("mermaid_mindmap", "")
         if mindmap and "mindmap" in mindmap:
             st.markdown("""
-            <div class="detail-box">
-                <div class="box-title">🗺️ Visual Meeting Mindmap</div>
+            <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;">
+                <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">🗺️ Visual Meeting Mindmap</div>
             """, unsafe_allow_html=True)
             try:
                 st_mermaid(mindmap, height="320px")
@@ -838,28 +1116,19 @@ def render_meeting_detail_view(session_id: str):
                 st.code(mindmap, language="mermaid")
             st.markdown("</div>", unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # RIGHT COLUMN: AUDIO & INTERACTIVE DIARIZED TRANSCRIPT
-    # -------------------------------------------------------------------------
     with col_right:
-        # 1. Locate media file
+        # Synced Audio & Diarized Transcript
         found_audio = None
         source_path = meta.get("source_file", "")
         if source_path and Path(source_path).exists() and is_supported_media(Path(source_path)):
             found_audio = Path(source_path)
         else:
-            # Match media from inputs/ directory
             for ext in [".mp3", ".wav", ".m4a", ".mp4"]:
                 cand = INPUTS_DIR / f"{session_id}{ext}"
                 if cand.exists():
                     found_audio = cand
                     break
-                cand_clean = INPUTS_DIR / f"{title}{ext}"
-                if cand_clean.exists():
-                    found_audio = cand_clean
-                    break
 
-        # 2. Extract transcript turns
         transcript_turns = []
         if "transcript_segments" in data and data["transcript_segments"]:
             for seg in data["transcript_segments"]:
@@ -870,18 +1139,9 @@ def render_meeting_detail_view(session_id: str):
                     "seconds": seg.get("start", 0.0)
                 })
         else:
-            transcript_turns = parse_transcript_turns(raw_md)
+            transcript_turns = parse_transcript_turns(data.get("raw_markdown", ""))
 
-        # Q&A History Log (if present from Live Copilot)
-        qna_history = data.get("qna_history", [])
-        if qna_history:
-            qna_cards = []
-            for qa in qna_history:
-                qna_cards.append(f"""<div style="background: var(--plaud-blue-subtle); border: 1px solid var(--plaud-border); border-radius: 8px; padding: 10px; margin-bottom: 8px;"><div style="font-size: 11px; font-weight: 700; color: var(--plaud-blue);">⏱️ {qa.get('time', '')} • Q&A</div><div style="font-size: 12px; font-weight: 700; color: var(--plaud-text-primary); margin: 2px 0;">Q: {qa.get('question', '')}</div><div style="font-size: 12px; color: var(--plaud-text-secondary); line-height: 1.45;">{qa.get('answer', '')}</div></div>""")
-            st.html(f"""<div class="detail-box"><div class="box-title">🎯 Live Q&A Cheat-Sheets</div>{''.join(qna_cards)}</div>""")
-
-        # 3. Interactive Timestamp Seeking Component
-        st.html("""<div class="detail-box"><div class="box-title">🗣️ Synced Audio & Diarized Transcript</div></div>""")
+        st.html("""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">🗣️ Synced Audio & Diarized Transcript</div></div>""")
 
         audio_b64 = ""
         audio_mime = "audio/mp3"
@@ -891,29 +1151,25 @@ def render_meeting_detail_view(session_id: str):
                     audio_b64 = base64.b64encode(af.read()).decode("utf-8")
                 if found_audio.suffix.lower() == ".wav":
                     audio_mime = "audio/wav"
-                elif found_audio.suffix.lower() == ".m4a":
-                    audio_mime = "audio/mp4"
             except Exception:
                 pass
 
-        # Build Interactive HTML/JS Player Component
         theme_mode = st.session_state.theme
-        bg_bubble = "#1C2128" if theme_mode == "dark" else "#F9FAFB"
-        bg_bubble_hover = "#21262D" if theme_mode == "dark" else "#F1F5F9"
-        border_col = "#30363D" if theme_mode == "dark" else "#E5E7EB"
-        text_pri = "#F0F6FC" if theme_mode == "dark" else "#111827"
-        text_sec = "#8B949E" if theme_mode == "dark" else "#4B5563"
-        blue_accent = "#38BDF8" if theme_mode == "dark" else "#2563EB"
+        bg_bubble = "#182238" if theme_mode == "dark" else "#F1F5F9"
+        border_col = "#232E48" if theme_mode == "dark" else "#E2E8F0"
+        text_pri = "#F8FAFC" if theme_mode == "dark" else "#0F172A"
+        text_sec = "#94A3B8" if theme_mode == "dark" else "#475569"
+        accent_col = "#38BDF8" if theme_mode == "dark" else "#0284C7"
 
         transcript_cards_html = []
-        for idx, turn in enumerate(transcript_turns):
+        for turn in transcript_turns:
             transcript_cards_html.append(f"""
-            <div class="turn-card" data-seek="{turn['seconds']}" onclick="seekToAudio({turn['seconds']}, this)">
-                <div class="turn-header">
-                    <span class="speaker-name">{turn['speaker']}</span>
-                    <span class="time-tag" title="Click to seek audio">{turn['time']}</span>
+            <div class="turn-card" data-seek="{turn['seconds']}" onclick="seekToAudio({turn['seconds']}, this)" style="background: {bg_bubble}; border: 1px solid {border_col}; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 12px; font-weight: 700; color: {accent_col};">{turn['speaker']}</span>
+                    <span style="font-size: 10.5px; font-weight: 700; color: {text_sec}; background: rgba(125, 125, 125, 0.1); padding: 2px 6px; border-radius: 4px;">{turn['time']}</span>
                 </div>
-                <div class="turn-content">{turn['text']}</div>
+                <div style="font-size: 12.5px; color: {text_pri}; line-height: 1.5;">{turn['text']}</div>
             </div>
             """)
 
@@ -924,85 +1180,17 @@ def render_meeting_detail_view(session_id: str):
             <style>
                 * {{ box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
                 body {{ margin: 0; padding: 0; background: transparent; color: {text_pri}; }}
-                
-                .audio-container {{
-                    background: {bg_bubble};
-                    border: 1px solid {border_col};
-                    border-radius: 10px;
-                    padding: 10px 12px;
-                    margin-bottom: 12px;
-                }}
-                audio {{
-                    width: 100%;
-                    height: 36px;
-                    outline: none;
-                }}
-                
-                .transcript-list {{
-                    max-height: 520px;
-                    overflow-y: auto;
-                    padding-right: 4px;
-                }}
-                .transcript-list::-webkit-scrollbar {{
-                    width: 5px;
-                }}
-                .transcript-list::-webkit-scrollbar-thumb {{
-                    background: {border_col};
-                    border-radius: 4px;
-                }}
-                
-                .turn-card {{
-                    background: {bg_bubble};
-                    border: 1px solid {border_col};
-                    border-radius: 8px;
-                    padding: 10px 12px;
-                    margin-bottom: 8px;
-                    cursor: pointer;
-                    transition: all 0.15s ease;
-                }}
-                .turn-card:hover {{
-                    background: {bg_bubble_hover};
-                    border-color: {blue_accent};
-                    transform: translateX(2px);
-                }}
-                .turn-card.active {{
-                    border-left: 4px solid {blue_accent};
-                    background: {bg_bubble_hover};
-                }}
-                
-                .turn-header {{
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    margin-bottom: 4px;
-                }}
-                .speaker-name {{
-                    font-size: 12px;
-                    font-weight: 700;
-                    color: {blue_accent};
-                }}
-                .time-tag {{
-                    font-size: 10.5px;
-                    font-weight: 700;
-                    color: {text_sec};
-                    background: rgba(125, 125, 125, 0.1);
-                    padding: 2px 6px;
-                    border-radius: 4px;
-                    letter-spacing: 0.3px;
-                }}
-                .turn-content {{
-                    font-size: 12.5px;
-                    color: {text_pri};
-                    line-height: 1.5;
-                }}
+                .transcript-list {{ max-height: 540px; overflow-y: auto; padding-right: 4px; }}
+                .transcript-list::-webkit-scrollbar {{ width: 5px; }}
+                .transcript-list::-webkit-scrollbar-thumb {{ background: {border_col}; border-radius: 4px; }}
+                .turn-card.active {{ border-left: 4px solid {accent_col} !important; }}
             </style>
         </head>
         <body>
-            {'<div class="audio-container"><audio id="plaud-audio" controls src="data:' + audio_mime + ';base64,' + audio_b64 + '"></audio></div>' if audio_b64 else ''}
+            {'<div style="margin-bottom:12px;"><audio id="plaud-audio" controls style="width:100%; height:36px;" src="data:' + audio_mime + ';base64,' + audio_b64 + '"></audio></div>' if audio_b64 else ''}
             <div class="transcript-list" id="transcriptList">
-                {''.join(transcript_cards_html) if transcript_cards_html else '<div style="font-size:12.5px; color:' + text_sec + '; padding:10px;">' + raw_md.replace(chr(10), "<br>") + '</div>'}
+                {''.join(transcript_cards_html) if transcript_cards_html else '<div style="font-size:12.5px; color:' + text_sec + '; padding:10px;">Transcript not available in turn format.</div>'}
             </div>
-
             <script>
                 function seekToAudio(seconds, element) {{
                     const audio = document.getElementById('plaud-audio');
@@ -1015,52 +1203,52 @@ def render_meeting_detail_view(session_id: str):
                         element.classList.add('active');
                     }}
                 }}
-
-                const audio = document.getElementById('plaud-audio');
-                if (audio) {{
-                    const cards = Array.from(document.querySelectorAll('.turn-card'));
-                    audio.addEventListener('timeupdate', () => {{
-                        const cur = audio.currentTime;
-                        let activeIdx = -1;
-                        for (let i = 0; i < cards.length; i++) {{
-                            const sec = parseFloat(cards[i].getAttribute('data-seek') || 0);
-                            if (cur >= sec) {{
-                                activeIdx = i;
-                            }} else {{
-                                break;
-                            }}
-                        }}
-                        cards.forEach((c, idx) => {{
-                            if (idx === activeIdx) {{
-                                if (!c.classList.contains('active')) {{
-                                    c.classList.add('active');
-                                    c.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
-                                }}
-                            }} else {{
-                                c.classList.remove('active');
-                            }}
-                        }});
-                    }});
-                }}
             </script>
         </body>
         </html>
         """
-
         components.html(interactive_html, height=600, scrolling=False)
-        st.markdown("</div>", unsafe_allow_html=True)
+
+
+@st.dialog("✏️ Rename Meeting Title")
+def rename_meeting_dialog(session_id: str, current_title: str):
+    new_title = st.text_input("Meeting Title", value=current_title)
+    col_cnl, col_sav = st.columns([1.0, 1.0])
+    with col_cnl:
+        if st.button("Cancel", use_container_width=True):
+            st.session_state.rename_target = None
+            st.rerun()
+    with col_sav:
+        if st.button("Save Title", type="primary", use_container_width=True):
+            if new_title.strip():
+                try:
+                    user_id = get_current_user_id()
+                    rename_session_record(session_id, new_title.strip(), user_id=user_id)
+                    st.toast("Title updated successfully!", icon="✅")
+                    st.session_state.rename_target = None
+                    time.sleep(0.3)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to rename: {e}")
 
 
 # =============================================================================
 # MAIN APPLICATION ROUTER
 # =============================================================================
 def main():
-    render_navbar()
+    render_sidebar()
 
     if st.session_state.active_session_id is not None:
         render_meeting_detail_view(st.session_state.active_session_id)
     else:
-        render_recent_files_view()
+        if st.session_state.current_nav == "dashboard":
+            render_dashboard_view()
+        elif st.session_state.current_nav == "recents":
+            render_recents_view()
+        elif st.session_state.current_nav == "actions":
+            render_action_tracker_view()
+        elif st.session_state.current_nav == "export":
+            render_export_center_view()
 
 if __name__ == "__main__":
     main()

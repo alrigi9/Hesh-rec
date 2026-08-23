@@ -434,13 +434,14 @@ def parse_markdown_to_session_dict(raw_markdown: str, model_name: str) -> Dict[s
 def process_meeting_file_cloud(
     audio_path: Path,
     custom_title: Optional[str] = None,
-    model_choice: str = DEFAULT_GEMINI_MODEL
+    model_choice: str = DEFAULT_GEMINI_MODEL,
+    user_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     End-to-end cloud pipeline:
     1. Transcribe with Groq Whisper-large-v3
     2. Extract intelligence with Gemini 2.5 Flash
-    3. Save locally & Sync to Supabase cloud
+    3. Save locally & Sync to Supabase cloud with user_id
     """
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     title = custom_title or audio_path.stem.replace("_", " ").title()
@@ -464,6 +465,7 @@ def process_meeting_file_cloud(
     session_data = {
         "metadata": {
             "session_id": session_id,
+            "user_id": user_id,
             "source_file": audio_path.name,
             "filename": f"session_{session_id}.json",
             "file_size": f"{audio_path.stat().st_size / (1024*1024):.2f} MB" if audio_path.exists() else "0 MB",
@@ -487,16 +489,96 @@ def process_meeting_file_cloud(
     }
 
     # 3. Save locally and sync to Supabase
-    save_session_record(session_id, title, session_data)
+    save_session_record(session_id, title, session_data, user_id=user_id)
 
     return session_data
 
 
 # =============================================================================
-# 4. SUPABASE CLOUD & LOCAL STORAGE OPERATIONS
+# 4. SUPABASE AUTH & MULTI-TENANCY OPERATIONS
 # =============================================================================
-def save_session_record(session_id: str, title: str, session_data: Dict[str, Any]) -> bool:
-    """Saves session locally to JSON and attempts to sync to Supabase."""
+def auth_sign_in(email: str, password: str) -> Tuple[bool, Optional[Any], str]:
+    """Signs in user with email and password via Supabase Auth."""
+    sb = get_supabase_client()
+    if not sb:
+        return False, None, "Supabase client is not configured."
+    try:
+        res = sb.auth.sign_in_with_password({"email": email.strip(), "password": password})
+        if res and res.user:
+            return True, res.user, "Login successful."
+        return False, None, "Login failed: No user returned."
+    except Exception as e:
+        err_msg = str(e)
+        if "Invalid login credentials" in err_msg:
+            err_msg = "Invalid email or password. Please try again or create an account."
+        return False, None, err_msg
+
+
+def auth_sign_up(email: str, password: str) -> Tuple[bool, Optional[Any], str]:
+    """Registers a new user account with email and password via Supabase Auth."""
+    sb = get_supabase_client()
+    if not sb:
+        return False, None, "Supabase client is not configured."
+    try:
+        res = sb.auth.sign_up({"email": email.strip(), "password": password})
+        if res and res.user:
+            return True, res.user, "Account created successfully! You are now logged in."
+        return False, None, "Sign up failed: No user created."
+    except Exception as e:
+        return False, None, str(e)
+
+
+def auth_sign_out():
+    """Signs out the active user."""
+    sb = get_supabase_client()
+    if sb:
+        try:
+            sb.auth.sign_out()
+        except Exception:
+            pass
+
+
+def get_user_usage(user_id: Optional[str], plan_tier: str = "free") -> Dict[str, Any]:
+    """
+    Calculates monthly audio processing usage for the user.
+    Free tier: 3 meetings / month
+    Pro tier: Unlimited
+    """
+    sessions = fetch_all_sessions(user_id=user_id)
+    current_month_prefix = datetime.now().strftime("%Y-%m")
+    
+    monthly_count = 0
+    for s in sessions:
+        p_at = str(s.get("processed_at", ""))
+        if p_at.startswith(current_month_prefix):
+            monthly_count += 1
+
+    limit = 9999 if plan_tier.lower() == "pro" else 3
+    can_upload = monthly_count < limit or plan_tier.lower() == "pro"
+    percent = min(100, int((monthly_count / 3.0) * 100)) if plan_tier.lower() == "free" else 100
+
+    return {
+        "used_count": monthly_count,
+        "limit": limit,
+        "plan_tier": plan_tier.upper(),
+        "can_upload": can_upload,
+        "percent": percent,
+        "remaining": max(0, limit - monthly_count) if plan_tier.lower() == "free" else 9999
+    }
+
+
+def save_session_record(
+    session_id: str,
+    title: str,
+    session_data: Dict[str, Any],
+    user_id: Optional[str] = None
+) -> bool:
+    """Saves session locally to JSON and attempts to sync to Supabase with user_id."""
+    if user_id:
+        if "metadata" not in session_data:
+            session_data["metadata"] = {}
+        session_data["metadata"]["user_id"] = user_id
+
     # 1. Local Save
     local_file = SESSIONS_DIR / f"session_{session_id}.json"
     try:
@@ -509,15 +591,24 @@ def save_session_record(session_id: str, title: str, session_data: Dict[str, Any
     sb = get_supabase_client()
     if sb:
         try:
+            # Deterministic or random UUID for Supabase
+            try:
+                sid_uuid = str(uuid.UUID(session_id))
+            except Exception:
+                sid_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(session_id)))
+
             row = {
-                "id": session_id,
+                "id": sid_uuid,
                 "title": title,
                 "duration": session_data.get("metadata", {}).get("duration", "N/A"),
                 "transcript": json.dumps(session_data, ensure_ascii=False),
                 "created_at": datetime.now().isoformat()
             }
+            if user_id:
+                row["user_id"] = user_id
+
             sb.table("sessions").upsert(row).execute()
-            print(f"[+] Supabase Cloud Sync Success: session_{session_id}", flush=True)
+            print(f"[+] Supabase Cloud Sync Success: session_{session_id} (user: {user_id})", flush=True)
             return True
         except Exception as e:
             print(f"[!] Supabase Cloud Sync Note (stored locally): {e}", flush=True)
@@ -525,10 +616,10 @@ def save_session_record(session_id: str, title: str, session_data: Dict[str, Any
     return True
 
 
-def fetch_all_sessions() -> List[Dict[str, Any]]:
+def fetch_all_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """
-    Fetches all past meetings, prioritizing Supabase cloud records
-    and seamlessly merging with local session files.
+    Fetches all past meetings filtered by user_id for multi-tenancy.
+    Seamlessly merges cloud and local storage.
     """
     sessions_map: Dict[str, Dict[str, Any]] = {}
 
@@ -537,6 +628,12 @@ def fetch_all_sessions() -> List[Dict[str, Any]]:
         try:
             with open(p, "r", encoding="utf-8") as f:
                 data = json.load(f)
+            
+            file_user_id = data.get("metadata", {}).get("user_id")
+            # Multi-tenant local filter: if user_id is provided, only show matching sessions or unassigned demo sessions
+            if user_id and file_user_id and file_user_id != user_id:
+                continue
+
             sid = p.stem.replace("session_", "")
             title = data.get("metadata", {}).get("source_file", f"Meeting {sid}")
             if title.endswith(".json") or title.endswith(".wav") or title.endswith(".mp3"):
@@ -549,6 +646,7 @@ def fetch_all_sessions() -> List[Dict[str, Any]]:
                 "processed_at": data.get("metadata", {}).get("processed_at", datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M")),
                 "file_path": str(p),
                 "data": data,
+                "user_id": file_user_id,
                 "source": "Local"
             }
         except Exception as e:
@@ -558,12 +656,17 @@ def fetch_all_sessions() -> List[Dict[str, Any]]:
     sb = get_supabase_client()
     if sb:
         try:
-            res = sb.table("sessions").select("*").order("created_at", desc=True).execute()
+            query = sb.table("sessions").select("*")
+            if user_id:
+                query = query.eq("user_id", user_id)
+            res = query.order("created_at", desc=True).execute()
+
             for row in res.data or []:
                 sid = str(row.get("id"))
                 title = row.get("title") or f"Cloud Session {sid}"
                 duration = row.get("duration") or "N/A"
                 created_at = row.get("created_at") or datetime.now().isoformat()
+                row_user_id = row.get("user_id")
                 
                 raw_t = row.get("transcript")
                 parsed_data = {}
@@ -582,6 +685,7 @@ def fetch_all_sessions() -> List[Dict[str, Any]]:
                     "processed_at": created_at[:16].replace("T", " "),
                     "file_path": str(SESSIONS_DIR / f"session_{sid}.json"),
                     "data": parsed_data,
+                    "user_id": row_user_id,
                     "source": "Supabase Cloud"
                 }
         except Exception as e:
@@ -596,7 +700,7 @@ def fetch_all_sessions() -> List[Dict[str, Any]]:
     return sorted_sessions
 
 
-def delete_session_record(session_id: str) -> bool:
+def delete_session_record(session_id: str, user_id: Optional[str] = None) -> bool:
     """Deletes a session from local storage and Supabase."""
     # 1. Delete Local
     local_file = SESSIONS_DIR / f"session_{session_id}.json"
@@ -610,14 +714,22 @@ def delete_session_record(session_id: str) -> bool:
     sb = get_supabase_client()
     if sb:
         try:
-            sb.table("sessions").delete().eq("id", session_id).execute()
+            try:
+                sid_uuid = str(uuid.UUID(session_id))
+            except Exception:
+                sid_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(session_id)))
+
+            query = sb.table("sessions").delete().eq("id", sid_uuid)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            query.execute()
         except Exception:
             pass
 
     return True
 
 
-def rename_session_record(session_id: str, new_title: str) -> bool:
+def rename_session_record(session_id: str, new_title: str, user_id: Optional[str] = None) -> bool:
     """Renames a session title locally and in Supabase."""
     local_file = SESSIONS_DIR / f"session_{session_id}.json"
     if local_file.exists():
@@ -633,8 +745,17 @@ def rename_session_record(session_id: str, new_title: str) -> bool:
     sb = get_supabase_client()
     if sb:
         try:
-            sb.table("sessions").update({"title": new_title}).eq("id", session_id).execute()
+            try:
+                sid_uuid = str(uuid.UUID(session_id))
+            except Exception:
+                sid_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(session_id)))
+
+            query = sb.table("sessions").update({"title": new_title}).eq("id", sid_uuid)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            query.execute()
         except Exception:
             pass
 
     return True
+
