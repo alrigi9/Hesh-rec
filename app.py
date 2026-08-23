@@ -74,6 +74,8 @@ if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 if "plan_tier" not in st.session_state:
     st.session_state.plan_tier = "free"
+if "is_vip" not in st.session_state:
+    st.session_state.is_vip = False
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = {}
 
@@ -257,7 +259,19 @@ def apply_saas_theme(theme: str):
             border-radius: 6px;
             letter-spacing: 0.3px;
         }}
-        .pro-badge {{
+        .pro-vip-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 50%, #FBBF24 100%);
+            color: #000000 !important;
+            font-size: 10.5px;
+            font-weight: 800;
+            padding: 2px 9px;
+            border-radius: 100px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+        }
+        .pro-badge {
             display: inline-block;
             background: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
             color: #FFFFFF;
@@ -267,7 +281,7 @@ def apply_saas_theme(theme: str):
             border-radius: 100px;
             letter-spacing: 0.5px;
             text-transform: uppercase;
-        }}
+        }
         .free-badge {{
             display: inline-block;
             background: var(--hesh-surface-hover);
@@ -561,7 +575,12 @@ def render_sidebar():
         # ---------------------------------------------------------------------
         if st.session_state.user:
             user_email = st.session_state.user.email if hasattr(st.session_state.user, "email") else st.session_state.user_email
-            plan_badge = '<span class="pro-badge">PRO PLAN</span>' if st.session_state.plan_tier == "pro" else '<span class="free-badge">FREE PLAN</span>'
+            if st.session_state.get("is_vip", False):
+                plan_badge = '<span class="pro-vip-badge">👑 PRO VIP</span>'
+            elif st.session_state.plan_tier == "pro":
+                plan_badge = '<span class="pro-badge">PRO PLAN</span>'
+            else:
+                plan_badge = '<span class="free-badge">FREE PLAN</span>'
             
             st.markdown(f"""
             <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 10px; padding: 12px; margin-bottom: 14px;">
@@ -573,11 +592,29 @@ def render_sidebar():
             </div>
             """, unsafe_allow_html=True)
 
+            # Promo Code Redeemer for Logged In User
+            if not st.session_state.get("is_vip", False) and st.session_state.plan_tier == "free":
+                st.markdown("<div style='font-size: 11px; font-weight: 700; color: var(--hesh-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;'>🎁 Redeem Promo Code</div>", unsafe_allow_html=True)
+                col_code, col_redeem = st.columns([1.5, 1.0])
+                with col_code:
+                    promo_input = st.text_input("Promo Code", key="input_promo_code", placeholder="Code (e.g. Hesh)", label_visibility="collapsed")
+                with col_redeem:
+                    if st.button("Redeem", key="btn_redeem_promo", type="secondary", use_container_width=True):
+                        if promo_input.strip().lower() == "hesh":
+                            st.session_state.plan_tier = "pro"
+                            st.session_state.is_vip = True
+                            st.toast("🎉 PRO Plan Activated via VIP Code 'Hesh'!", icon="👑")
+                            time.sleep(0.4)
+                            st.rerun()
+                        else:
+                            st.error("Invalid promo code.")
+
             if st.button("🚪 Sign Out", key="btn_signout", type="secondary", use_container_width=True):
                 auth_sign_out()
                 st.session_state.user = None
                 st.session_state.user_email = ""
                 st.session_state.plan_tier = "free"
+                st.session_state.is_vip = False
                 st.session_state.active_session_id = None
                 st.toast("Signed out successfully.", icon="👋")
                 time.sleep(0.3)
@@ -585,7 +622,7 @@ def render_sidebar():
 
         else:
             st.markdown("<div style='font-size: 12.5px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 8px;'>🔐 Account & Workspace</div>", unsafe_allow_html=True)
-            auth_tab_in, auth_tab_up = st.tabs(["Sign In", "Register"])
+            auth_tab_in, auth_tab_up, auth_tab_promo = st.tabs(["Sign In", "Register", "VIP Promo"])
 
             with auth_tab_in:
                 login_email = st.text_input("Email", key="in_email", placeholder="user@company.com")
@@ -622,6 +659,21 @@ def render_sidebar():
                                 st.error(msg)
                     else:
                         st.warning("Please provide valid details.")
+
+            with auth_tab_promo:
+                st.markdown("<div style='font-size:12px; color:var(--hesh-text-secondary); margin-bottom:8px;'>Enter your VIP Promo Code:</div>", unsafe_allow_html=True)
+                guest_promo = st.text_input("Promo Code", key="guest_promo_input", placeholder="Code (e.g. Hesh)", label_visibility="collapsed")
+                if st.button("Redeem VIP Access", key="btn_guest_redeem", type="primary", use_container_width=True):
+                    if guest_promo.strip().lower() == "hesh":
+                        st.session_state.user_email = "vip_guest@heshrec.ai"
+                        st.session_state.user = type("VIPUser", (), {"id": "vip_guest", "email": "vip_guest@heshrec.ai"})()
+                        st.session_state.plan_tier = "pro"
+                        st.session_state.is_vip = True
+                        st.toast("🎉 PRO Plan Activated via VIP Code 'Hesh'!", icon="👑")
+                        time.sleep(0.4)
+                        st.rerun()
+                    else:
+                        st.error("Invalid promo code.")
 
         st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin: 14px 0;'>", unsafe_allow_html=True)
 
@@ -683,7 +735,7 @@ def render_sidebar():
             usage = get_user_usage(user_id, plan_tier=st.session_state.plan_tier)
             st.markdown("<div style='font-size: 11px; font-weight: 700; color: var(--hesh-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>Monthly Storage / Quota</div>", unsafe_allow_html=True)
 
-            if st.session_state.plan_tier == "free":
+            if not st.session_state.get("is_vip", False) and st.session_state.plan_tier == "free":
                 st.markdown(f"""
                 <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 8px; padding: 10px; margin-bottom: 8px;">
                     <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--hesh-text-primary); margin-bottom:4px;">
@@ -716,14 +768,17 @@ def render_sidebar():
                     st.rerun()
 
             else:
-                st.markdown("""
-                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(56, 189, 248, 0.1) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px; text-align:center;">
-                    <span class="pro-badge">PRO SUBSCRIBER</span>
+                vip_label = "👑 PRO VIP UNLIMITED" if st.session_state.get("is_vip", False) else "PRO SUBSCRIBER"
+                badge_class = "pro-vip-badge" if st.session_state.get("is_vip", False) else "pro-badge"
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(56, 189, 248, 0.1) 100%); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 12px; text-align:center;">
+                    <span class="{badge_class}">{vip_label}</span>
                     <div style="font-size:12px; font-weight:600; color:var(--hesh-text-primary); margin-top:6px;">Unlimited Cloud Processing</div>
                 </div>
                 """, unsafe_allow_html=True)
                 if st.button("Switch to Free Tier", key="btn_downgrade", type="secondary", use_container_width=True):
                     st.session_state.plan_tier = "free"
+                    st.session_state.is_vip = False
                     st.rerun()
 
         # Theme Switcher
