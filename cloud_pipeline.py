@@ -115,7 +115,7 @@ def transcribe_audio_groq(
     """
     groq_client = get_groq_client()
     if not groq_client:
-        raise ValueError("GROQ_API_KEY is not configured in .env file.")
+        raise ValueError("GROQ_API_KEY is not configured in secrets or environment.")
 
     if not audio_file_path.exists():
         raise FileNotFoundError(f"Audio file not found: {audio_file_path}")
@@ -176,20 +176,164 @@ def transcribe_audio_groq(
 
 
 # =============================================================================
-# 2. GEMINI 2.5 FLASH STRUCTURED INTELLIGENCE PIPELINE
+# 2. INTELLIGENCE PROMPTS & SUMMARY TEMPLATES
 # =============================================================================
-def build_intelligence_prompt(topic: str, transcript_text: str, duration_str: str) -> str:
-    return f"""You are an elite Executive Meeting Intelligence AI Analyst powered by Plaud AI methodology.
-Your objective is to produce a comprehensive, structured, high-impact intelligence report from the provided meeting transcript.
+def build_intelligence_prompt(
+    topic: str,
+    transcript_text: str,
+    duration_str: str,
+    template_type: str = "executive"
+) -> str:
+    """Builds prompt tailored to the selected intelligence template."""
+    base_header = f"""You are an elite AI Meeting & Speech Intelligence Analyst powered by Plaud AI methodology.
+Your objective is to produce a structured, high-impact intelligence report from the provided transcript.
 
 Topic/Title: {topic}
-Meeting Duration: {duration_str}
+Duration: {duration_str}
 Spoken Transcript:
 \"\"\"
 {transcript_text}
 \"\"\"
+"""
 
-Analyze the transcript thoroughly and generate the report adhering STRICTLY to the following Markdown structure:
+    if template_type == "academic":
+        return base_header + """
+Analyze the academic lecture thoroughly and generate the report adhering STRICTLY to this Markdown structure:
+
+# 🎓 Academic Lecture Intelligence: {topic}
+
+**Duration:** {duration_str}
+
+---
+
+## ⚡ Executive Brief
+> • **Core Thesis & Subject:** [1 sentence summarizing the central thesis or concept taught]
+> • **Primary Academic Takeaway:** [1 sentence on the most critical principle or formula discussed]
+> • **Follow-up Study Requirement:** [1 sentence summarizing homework, assigned reading, or exam focus]
+
+---
+
+## 🏛️ Key Discussion Pillars
+
+### 1. [00:00:00] [Conceptual Theme 1]
+- **Context & Definition:** [Summary of theoretical foundation]
+- **Key Explanations & Examples:** [Specific breakdown taught by instructor]
+- **Core Principle & Takeaway:** [Essential principle to master]
+
+### 2. [00:15:00] [Conceptual Theme 2]
+- **Context & Definition:** [Details]
+- **Key Explanations & Examples:** [Details]
+- **Core Principle & Takeaway:** [Details]
+
+---
+
+## 📋 Action Items Matrix
+
+Provide a structured table of important academic terms, formulas, and study deliverables mentioned.
+
+| # | Task Deliverable | Owner | Priority | Due Date | Acceptance Criteria & Notes |
+|---|------------------|-------|----------|----------|-----------------------------|
+| 1 | [Study deliverable or exam topic to review] | Student / Study Group | [HIGH / MED / LOW] | Next Class / Exam | [Key formulas, definitions or problem sets] |
+
+---
+
+## ⚖️ Decisions & Reversals
+
+### ✅ Final Decisions Approved
+1. **[00:00:00] [Confirmed Academic Principle]:** [Explanation of approved standard or guideline]
+
+### 🔄 Rejected & Overturned Ideas (Reversals)
+1. **[00:00:00] [Common Misconception Debunked]:** [Misconception clarified by lecturer]
+
+---
+
+## 🗺️ Visual Architecture (Mermaid Mindmap)
+
+```mermaid
+mindmap
+  root((Lecture Topic))
+    Core Thesis
+      Foundational Concept
+      Primary Principle
+    Theoretical Pillars
+      Concept A
+      Concept B
+    Exam Focus
+      Key Definition
+      Review Questions
+```
+"""
+
+    elif template_type == "brainstorm":
+        return base_header + """
+Analyze the brainstorming and ideation session thoroughly and generate the report adhering STRICTLY to this Markdown structure:
+
+# 💡 Brainstorm & Ideation Report: {topic}
+
+**Duration:** {duration_str}
+
+---
+
+## ⚡ Executive Brief
+> • **Strategic Purpose:** [1 sentence summarizing the ideation challenge or innovation goal]
+> • **Key Breakthrough & Consensus:** [1 sentence highlighting the most promising creative concept]
+> • **Immediate Next Step:** [1 sentence on the first experiment or prototype to build]
+
+---
+
+## 🏛️ Key Discussion Pillars
+
+### 1. [00:00:00] [Ideation Track 1 Title]
+- **Context & Challenge:** [What creative problem is addressed]
+- **Key Ideas & Suggestions:** [Key proposals generated]
+- **Consensus & Outcome:** [Promising angles selected]
+
+### 2. [00:15:00] [Ideation Track 2 Title]
+- **Context & Challenge:** [Details]
+- **Key Ideas & Suggestions:** [Details]
+- **Consensus & Outcome:** [Details]
+
+---
+
+## 📋 Action Items Matrix
+
+| # | Task Deliverable | Owner | Priority | Due Date | Acceptance Criteria & Notes |
+|---|------------------|-------|----------|----------|-----------------------------|
+| 1 | [Prototype, mock, or research experiment deliverable] | [Owner or Team] | [HIGH / MED / LOW] | Next Sprint | [Success metrics or test criteria] |
+
+---
+
+## ⚖️ Decisions & Reversals
+
+### ✅ Final Decisions Approved
+1. **[00:00:00] [Selected Concept / Idea]:** [Detailed explanation of why this idea won approval]
+
+### 🔄 Rejected & Overturned Ideas (Reversals)
+1. **[00:00:00] [Discarded Idea]:** [Idea proposed and why the team chose not to pursue it]
+
+---
+
+## 🗺️ Visual Architecture (Mermaid Mindmap)
+
+```mermaid
+mindmap
+  root((Brainstorm Topic))
+    Core Challenge
+      User Need
+      Opportunity
+    Idea Tracks
+      Concept 1
+      Concept 2
+    Next Experiments
+      Prototype Alpha
+      Validation Test
+```
+"""
+
+    else:
+        # Default: Executive Meeting Template
+        return base_header + """
+Analyze the meeting transcript thoroughly and generate the report adhering STRICTLY to this Markdown structure:
 
 # 🎙️ Meeting Intelligence Report: {topic}
 
@@ -206,8 +350,6 @@ Analyze the transcript thoroughly and generate the report adhering STRICTLY to t
 ---
 
 ## 🏛️ Key Discussion Pillars
-
-Divide the meeting into clear thematic pillars in chronological order with precise timestamps.
 
 ### 1. [00:00:00] [Pillar 1 Title]
 - **Context & Objective:** [Summary of why this topic was brought up]
@@ -247,8 +389,6 @@ CRITICAL RULE: In the "Task Deliverable" column, NEVER write brief generic phras
 
 ## 🗺️ Visual Architecture (Mermaid Mindmap)
 
-Generate a valid Mermaid mindmap representing the meeting taxonomy, themes, decisions, and action items. Keep node texts clean without special characters or parentheses that break Mermaid rendering.
-
 ```mermaid
 mindmap
   root((Meeting Topic))
@@ -278,12 +418,13 @@ def extract_intelligence_gemini(
     topic: str,
     transcript_text: str,
     duration_str: str,
-    model_name: str = DEFAULT_GEMINI_MODEL
+    model_name: str = DEFAULT_GEMINI_MODEL,
+    template_type: str = "executive"
 ) -> Dict[str, Any]:
     """Extracts executive brief, pillars, actions, decisions, and mindmap using Gemini (with Groq fallback)."""
     client = get_gemini_client()
     groq_client = get_groq_client()
-    prompt = build_intelligence_prompt(topic, transcript_text, duration_str)
+    prompt = build_intelligence_prompt(topic, transcript_text, duration_str, template_type=template_type)
 
     resp_text = None
     used_model = model_name
@@ -327,7 +468,6 @@ def extract_intelligence_gemini(
                 )
                 if g_resp and g_resp.choices and g_resp.choices[0].message.content:
                     raw = g_resp.choices[0].message.content.strip()
-                    # Strip reasoning tags if present
                     clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
                     if clean:
                         resp_text = clean
@@ -340,10 +480,14 @@ def extract_intelligence_gemini(
     if not resp_text:
         raise RuntimeError("Failed to generate intelligence report from all available AI providers.")
 
-    return parse_markdown_to_session_dict(resp_text, used_model)
+    return parse_markdown_to_session_dict(resp_text, used_model, template_type=template_type)
 
 
-def parse_markdown_to_session_dict(raw_markdown: str, model_name: str) -> Dict[str, Any]:
+def parse_markdown_to_session_dict(
+    raw_markdown: str,
+    model_name: str,
+    template_type: str = "executive"
+) -> Dict[str, Any]:
     """Parses standard markdown report into clean structured session dictionary."""
     # 1. Executive Brief
     exec_brief = []
@@ -417,6 +561,7 @@ def parse_markdown_to_session_dict(raw_markdown: str, model_name: str) -> Dict[s
         mindmap = mm_match.group(1).strip()
 
     return {
+        "template_type": template_type,
         "executive_brief": exec_brief,
         "discussion_pillars": pillars,
         "action_items": action_items,
@@ -429,18 +574,199 @@ def parse_markdown_to_session_dict(raw_markdown: str, model_name: str) -> Dict[s
 
 
 # =============================================================================
-# 3. COMPLETE CLOUD PIPELINE ORCHESTRATOR
+# 3. INTERACTIVE CHAT WITH AUDIO ASSISTANT (GEMINI + GROQ)
+# =============================================================================
+def chat_with_session(
+    session_data: Dict[str, Any],
+    user_query: str,
+    chat_history: Optional[List[Dict[str, str]]] = None,
+    model_name: str = DEFAULT_GEMINI_MODEL
+) -> str:
+    """Answers conversational questions grounded strictly in the meeting transcript and intelligence."""
+    client = get_gemini_client()
+    groq_client = get_groq_client()
+
+    meta = session_data.get("metadata", {})
+    title = meta.get("source_file", "Meeting")
+    full_transcript = session_data.get("full_transcript_text") or session_data.get("raw_markdown", "")
+    exec_summary = "\n".join(session_data.get("executive_brief", []))
+    decisions = "\n".join([f"- {d}" for d in session_data.get("decisions", [])])
+
+    system_context = f"""You are Hesh-rec Copilot, an elite AI assistant for this specific recorded meeting.
+Meeting Title: {title}
+Executive Summary:
+{exec_summary}
+
+Decisions Agreed:
+{decisions}
+
+Full Spoken Transcript:
+\"\"\"
+{full_transcript}
+\"\"\"
+
+Answer the user's question accurately, concisely, and cite specific timestamps or quotes when relevant.
+"""
+
+    messages_payload = [{"role": "system", "content": system_context}]
+    if chat_history:
+        for msg in chat_history[-6:]:
+            role = "assistant" if msg["role"] == "assistant" else "user"
+            messages_payload.append({"role": role, "content": msg["content"]})
+    messages_payload.append({"role": "user", "content": user_query})
+
+    # 1. Try Gemini
+    if client:
+        try:
+            gemini_prompt = f"{system_context}\n\nUser Question: {user_query}"
+            resp = client.models.generate_content(
+                model=model_name,
+                contents=gemini_prompt,
+                config=types.GenerateContentConfig(temperature=0.2, max_output_tokens=1000)
+            )
+            if resp and resp.text:
+                return resp.text.strip()
+        except Exception as e:
+            print(f"[!] Gemini Chat Error: {e}", flush=True)
+
+    # 2. Fallback to Groq
+    if groq_client:
+        try:
+            g_resp = groq_client.chat.completions.create(
+                model="qwen/qwen3.6-27b",
+                messages=messages_payload,
+                max_tokens=1000,
+                temperature=0.2
+            )
+            if g_resp and g_resp.choices and g_resp.choices[0].message.content:
+                clean = re.sub(r"<think>.*?</think>", "", g_resp.choices[0].message.content, flags=re.DOTALL).strip()
+                return clean
+        except Exception as ge:
+            print(f"[!] Groq Chat Error: {ge}", flush=True)
+
+    return "I'm sorry, I was unable to connect to the AI model to analyze this audio. Please check your API credentials."
+
+
+# =============================================================================
+# 4. PRINTABLE HTML / PDF EXPORT GENERATOR
+# =============================================================================
+def generate_printable_html(session_data: Dict[str, Any]) -> str:
+    """Generates a standalone, beautiful HTML document suitable for browser print-to-PDF."""
+    meta = session_data.get("metadata", {})
+    title = meta.get("source_file", "Meeting Intelligence Report")
+    duration = meta.get("duration", "N/A")
+    date_str = meta.get("processed_at", datetime.now().strftime("%Y-%m-%d"))
+    model_str = meta.get("model", "Hesh-rec AI")
+    exec_brief = session_data.get("executive_brief", [])
+    pillars = session_data.get("discussion_pillars", [])
+    action_items = session_data.get("action_items", [])
+    decisions = session_data.get("decisions", [])
+    reversals = session_data.get("reversals", [])
+    transcript_segments = session_data.get("transcript_segments", [])
+
+    brief_html = "".join([f"<li>{p.lstrip('•*- ')}</li>" for p in exec_brief])
+
+    pillars_html = []
+    for p in pillars:
+        pillars_html.append(f"""
+        <div class="pillar">
+            <h3><span class="badge">{p.get('timestamp', '00:00')}</span> {p.get('title', 'Pillar')}</h3>
+            <p>{p.get('details', '').replace(chr(10), '<br>')}</p>
+        </div>
+        """)
+
+    action_rows = []
+    for a in action_items:
+        action_rows.append(f"""
+        <tr>
+            <td><strong>{a.get('description', '')}</strong></td>
+            <td>{a.get('assignee', 'Team')}</td>
+            <td><span class="prio prio-{a.get('priority', 'MED').lower()}">{a.get('priority', 'MED')}</span></td>
+            <td>{a.get('due_date', 'Next Sprint')}</td>
+            <td>{a.get('notes', '—')}</td>
+        </tr>
+        """)
+
+    decisions_html = "".join([f"<li>{d}</li>" for d in decisions])
+    reversals_html = "".join([f"<li>{r}</li>" for r in reversals])
+
+    transcript_html = []
+    for s in transcript_segments:
+        transcript_html.append(f"""
+        <div class="turn">
+            <span class="time">[{s.get('timestamp', '00:00')}]</span>
+            <strong>{s.get('speaker', 'Speaker')}:</strong> {s.get('text', '')}
+        </div>
+        """)
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{title} - Hesh-rec Report</title>
+    <style>
+        body {{ font-family: 'Helvetica Neue', Arial, sans-serif; margin: 40px; color: #1E293B; line-height: 1.6; }}
+        h1 {{ font-size: 24px; color: #0F172A; border-bottom: 2px solid #0284C7; padding-bottom: 8px; margin-bottom: 4px; }}
+        .meta {{ font-size: 13px; color: #64748B; margin-bottom: 24px; }}
+        .badge {{ background: #E0F2FE; color: #0284C7; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }}
+        h2 {{ font-size: 16px; color: #0284C7; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-top: 24px; }}
+        .pillar {{ background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 12px; margin-bottom: 12px; }}
+        .pillar h3 {{ margin: 0 0 6px 0; font-size: 14px; color: #0F172A; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }}
+        th, td {{ border: 1px solid #CBD5E1; padding: 8px 10px; text-align: left; }}
+        th {{ background: #F1F5F9; color: #475569; }}
+        .prio {{ padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; }}
+        .prio-high {{ background: #FFE4E6; color: #E11D48; }}
+        .prio-med {{ background: #FEF3C7; color: #D97706; }}
+        .prio-low {{ background: #D1FAE5; color: #059669; }}
+        .turn {{ font-size: 12px; margin-bottom: 6px; }}
+        .turn .time {{ color: #0284C7; font-weight: bold; }}
+        @media print {{ body {{ margin: 20px; }} }}
+    </style>
+</head>
+<body>
+    <h1>🎙️ {title}</h1>
+    <div class="meta">⏱️ Duration: {duration} | 📅 Date: {date_str} | ⚡ Model: {model_str}</div>
+
+    <h2>⚡ Executive Summary</h2>
+    <ul>{brief_html}</ul>
+
+    <h2>🏛️ Key Discussion Pillars</h2>
+    {''.join(pillars_html)}
+
+    <h2>📋 Action Items Matrix</h2>
+    <table>
+        <thead>
+            <tr><th>Task Deliverable</th><th>Owner</th><th>Priority</th><th>Due Date</th><th>Acceptance Notes</th></tr>
+        </thead>
+        <tbody>
+            {''.join(action_rows)}
+        </tbody>
+    </table>
+
+    {'<h2>✅ Approved Decisions</h2><ul>' + decisions_html + '</ul>' if decisions else ''}
+    {'<h2>🔄 Rejected Proposals & Reversals</h2><ul>' + reversals_html + '</ul>' if reversals else ''}
+
+    <h2>🗣️ Spoken Transcript</h2>
+    {''.join(transcript_html) if transcript_html else '<p>Transcript in turn format not available.</p>'}
+</body>
+</html>"""
+
+
+# =============================================================================
+# 5. COMPLETE CLOUD PIPELINE ORCHESTRATOR
 # =============================================================================
 def process_meeting_file_cloud(
     audio_path: Path,
     custom_title: Optional[str] = None,
     model_choice: str = DEFAULT_GEMINI_MODEL,
-    user_id: Optional[str] = None
+    user_id: Optional[str] = None,
+    template_type: str = "executive"
 ) -> Dict[str, Any]:
     """
     End-to-end cloud pipeline:
     1. Transcribe with Groq Whisper-large-v3
-    2. Extract intelligence with Gemini 2.5 Flash
+    2. Extract intelligence with Gemini 2.5 Flash / Groq LLM using selected template
     3. Save locally & Sync to Supabase cloud with user_id
     """
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -457,7 +783,8 @@ def process_meeting_file_cloud(
         topic=title,
         transcript_text=full_text,
         duration_str=duration_str,
-        model_name=model_choice
+        model_name=model_choice,
+        template_type=template_type
     )
 
     total_time_str = f"{time.time() - start_time:.2f}s"
@@ -466,6 +793,7 @@ def process_meeting_file_cloud(
         "metadata": {
             "session_id": session_id,
             "user_id": user_id,
+            "template_type": template_type,
             "source_file": audio_path.name,
             "filename": f"session_{session_id}.json",
             "file_size": f"{audio_path.stat().st_size / (1024*1024):.2f} MB" if audio_path.exists() else "0 MB",
@@ -495,7 +823,7 @@ def process_meeting_file_cloud(
 
 
 # =============================================================================
-# 4. SUPABASE AUTH & MULTI-TENANCY OPERATIONS
+# 6. SUPABASE AUTH & MULTI-TENANCY OPERATIONS
 # =============================================================================
 def auth_sign_in(email: str, password: str) -> Tuple[bool, Optional[Any], str]:
     """Signs in user with email and password via Supabase Auth."""
@@ -591,7 +919,6 @@ def save_session_record(
     sb = get_supabase_client()
     if sb:
         try:
-            # Deterministic or random UUID for Supabase
             try:
                 sid_uuid = str(uuid.UUID(session_id))
             except Exception:
@@ -630,7 +957,6 @@ def fetch_all_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
                 data = json.load(f)
             
             file_user_id = data.get("metadata", {}).get("user_id")
-            # Multi-tenant local filter: if user_id is provided, only show matching sessions or unassigned demo sessions
             if user_id and file_user_id and file_user_id != user_id:
                 continue
 
@@ -758,4 +1084,3 @@ def rename_session_record(session_id: str, new_title: str, user_id: Optional[str
             pass
 
     return True
-
