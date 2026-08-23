@@ -77,6 +77,8 @@ if "plan_tier" not in st.session_state:
     st.session_state.plan_tier = "free"
 if "is_vip" not in st.session_state:
     st.session_state.is_vip = False
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = {}
 
@@ -139,8 +141,27 @@ def apply_saas_theme(theme: str = "dark"):
 
         {css_vars}
 
-        * {{
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        body, p, div, span:not([data-testid="stIconMaterial"]):not(.material-symbols-rounded):not(.material-symbols-outlined):not(.material-icons),
+        h1, h2, h3, h4, h5, h6, input, button, select, textarea, label, td, th, a {{
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }}
+
+        /* Protect Material Icons from font-family ligature text leaks */
+        .material-symbols-rounded,
+        .material-symbols-outlined,
+        .material-icons,
+        [data-testid="stIconMaterial"],
+        [data-testid="stSidebarCollapseButton"] span,
+        [data-testid="stSidebarHeader"] span,
+        button span[data-testid="stIconMaterial"] {{
+            font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+            font-style: normal !important;
+            letter-spacing: normal !important;
+            text-transform: none !important;
+            display: inline-block !important;
+            white-space: nowrap !important;
+            word-wrap: normal !important;
+            direction: ltr !important;
         }}
 
         .stApp {{
@@ -585,20 +606,31 @@ def render_sidebar():
         # ---------------------------------------------------------------------
         if st.session_state.user:
             user_email = st.session_state.user.email if hasattr(st.session_state.user, "email") else st.session_state.user_email
-            if st.session_state.get("is_vip", False):
+            
+            if st.session_state.get("is_admin", False):
+                name_tag = "👑 Hesham (Admin)"
+                role_sub = '<span style="color:#F59E0B; font-weight:800; font-size:10.5px; letter-spacing:0.5px;">⚡ SUPER ADMIN</span>'
+                plan_badge = '<span class="pro-vip-badge">👑 VIP PRO UNLIMITED</span>'
+            elif st.session_state.get("is_vip", False):
+                name_tag = f"👤 {user_email[:20]}"
+                role_sub = '<span style="color:var(--hesh-text-muted); font-size:11px;">Tenant Cloud Isolated</span>'
                 plan_badge = '<span class="pro-vip-badge">👑 PRO VIP</span>'
             elif st.session_state.plan_tier == "pro":
+                name_tag = f"👤 {user_email[:20]}"
+                role_sub = '<span style="color:var(--hesh-text-muted); font-size:11px;">Tenant Cloud Isolated</span>'
                 plan_badge = '<span class="pro-badge">PRO PLAN</span>'
             else:
+                name_tag = f"👤 {user_email[:20]}"
+                role_sub = '<span style="color:var(--hesh-text-muted); font-size:11px;">Tenant Cloud Isolated</span>'
                 plan_badge = '<span class="free-badge">FREE PLAN</span>'
             
             st.markdown(f"""
             <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 10px; padding: 12px; margin-bottom: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <span style="font-size: 12.5px; font-weight: 700; color: var(--hesh-text-primary);">👤 {user_email[:20]}</span>
+                    <span style="font-size: 12.5px; font-weight: 700; color: var(--hesh-text-primary);">{name_tag}</span>
                     {plan_badge}
                 </div>
-                <div style="font-size: 11px; color: var(--hesh-text-muted);">Tenant Cloud Isolated</div>
+                <div>{role_sub}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -610,7 +642,7 @@ def render_sidebar():
                     promo_input = st.text_input("Promo Code", key="input_promo_code", placeholder="Code (e.g. Hesh)", label_visibility="collapsed")
                 with col_redeem:
                     if st.button("Redeem", key="btn_redeem_promo", type="secondary", use_container_width=True):
-                        if promo_input.strip().lower() == "hesh":
+                        if promo_input.strip().lower() in ["hesh", "alrigi"]:
                             st.session_state.plan_tier = "pro"
                             st.session_state.is_vip = True
                             st.toast("🎉 PRO Plan Activated via VIP Code 'Hesh'!", icon="👑")
@@ -625,6 +657,7 @@ def render_sidebar():
                 st.session_state.user_email = ""
                 st.session_state.plan_tier = "free"
                 st.session_state.is_vip = False
+                st.session_state.is_admin = False
                 st.session_state.active_session_id = None
                 st.toast("Signed out successfully.", icon="👋")
                 time.sleep(0.3)
@@ -635,22 +668,39 @@ def render_sidebar():
             auth_tab_in, auth_tab_up, auth_tab_promo = st.tabs(["Sign In", "Register", "VIP Promo"])
 
             with auth_tab_in:
-                login_email = st.text_input("Email", key="in_email", placeholder="user@company.com")
+                login_email = st.text_input("Username or Email", key="in_email", placeholder="Hesh or user@company.com")
                 login_pwd = st.text_input("Password", type="password", key="in_pwd")
                 if st.button("Sign In", type="primary", use_container_width=True):
                     if login_email and login_pwd:
-                        with st.spinner("Authenticating..."):
-                            success, user_obj, msg = auth_sign_in(login_email, login_pwd)
-                            if success:
-                                st.session_state.user = user_obj
-                                st.session_state.user_email = login_email
-                                st.toast("Welcome back!", icon="🚀")
-                                time.sleep(0.3)
-                                st.rerun()
-                            else:
-                                st.error(msg)
+                        # 1. Master Admin Bypass Check
+                        clean_u = login_email.strip().lower()
+                        clean_p = login_pwd.strip().lower()
+                        if clean_u in ["hesh", "hesham", "alrigi", "hesh@heshrec.ai"] and clean_p == "alrigi":
+                            st.session_state.user = type("AdminUser", (), {
+                                "id": "hesh_admin",
+                                "email": "hesh@heshrec.ai",
+                                "display_name": "Hesham (Admin)"
+                            })()
+                            st.session_state.user_email = "hesh@heshrec.ai"
+                            st.session_state.plan_tier = "pro"
+                            st.session_state.is_vip = True
+                            st.session_state.is_admin = True
+                            st.toast("👑 Welcome Master Admin Hesham!", icon="🎉")
+                            time.sleep(0.3)
+                            st.rerun()
+                        else:
+                            with st.spinner("Authenticating..."):
+                                success, user_obj, msg = auth_sign_in(login_email, login_pwd)
+                                if success:
+                                    st.session_state.user = user_obj
+                                    st.session_state.user_email = login_email
+                                    st.toast("Welcome back!", icon="🚀")
+                                    time.sleep(0.3)
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
                     else:
-                        st.warning("Please enter your email and password.")
+                        st.warning("Please enter your username/email and password.")
 
             with auth_tab_up:
                 up_email = st.text_input("Email", key="up_email", placeholder="newuser@company.com")
@@ -674,7 +724,7 @@ def render_sidebar():
                 st.markdown("<div style='font-size:12px; color:var(--hesh-text-secondary); margin-bottom:8px;'>Enter your VIP Promo Code:</div>", unsafe_allow_html=True)
                 guest_promo = st.text_input("Promo Code", key="guest_promo_input", placeholder="Code (e.g. Hesh)", label_visibility="collapsed")
                 if st.button("Redeem VIP Access", key="btn_guest_redeem", type="primary", use_container_width=True):
-                    if guest_promo.strip().lower() == "hesh":
+                    if guest_promo.strip().lower() in ["hesh", "alrigi"]:
                         st.session_state.user_email = "vip_guest@heshrec.ai"
                         st.session_state.user = type("VIPUser", (), {"id": "vip_guest", "email": "vip_guest@heshrec.ai"})()
                         st.session_state.plan_tier = "pro"
