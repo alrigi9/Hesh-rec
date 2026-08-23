@@ -1,0 +1,261 @@
+# 🎙️ Meeting Intelligence Report: 08-21 Weekly Meeting  Soc 2 Training, Task Tracking, And Azure Server Access
+
+**Generated:** 2026-08-24 03:08
+**Duration:** 00:16:35
+**Identified Participants:**
+*   **Shajin:** Team Lead / Manager
+*   **Hisham:** Developer / Security Analyst
+*   **Faris:** Developer / Security Analyst
+
+---
+
+## ⚡ Executive Brief
+> • **Strategic Purpose:** Align on the SOC 2 cybersecurity awareness training strategy, coordinate task tracking workflows, and establish secure access protocols for the Snaffer Identity Cities portal on Azure.
+> • **Key Breakthrough & Consensus:** Agreed to simplify the SOC 2 training program by focusing on a recorded PowerPoint presentation and a 5-question quiz hosted on a Vercel web application, while excluding the phishing simulation for the initial compliance phase.
+> • **Immediate Next Step:** Faris to complete and record the SOC 2 training presentation by next Tuesday, and Hisham to submit his weekly hour logs by the end of today.
+
+---
+
+## 🏛️ Key Discussion Pillars
+
+### 1. [00:00:34] Task Tracking Sheet & Collaboration Workflow
+- **Context & Objective:** Hisham raised a question regarding the task tracking sheet, asking if he and Faris could collaborate on a single Excel sheet since their working hours differ (Hisham works at night, Faris during the day).
+- **Key Arguments & Perspectives:**
+  - **Hisham:** Proposed a shared sheet to better coordinate and see each other's progress despite opposing schedules.
+  - **Shajin:** Clarified that the tracking sheet is designed to be downloaded and managed individually (renamed with their respective names). Shared tasks (labeled "Hisham/Faris") do not require active collaboration; they simply indicate that Shajin needs to monitor both individuals for those items.
+- **Consensus & Outcome:** Hisham and Faris will maintain individual tracking sheets and delete the other's rows upon downloading to keep their focus clear.
+
+### 2. [00:03:18] SOC 2 Cybersecurity Awareness Training Strategy
+- **Context & Objective:** Faris and Hisham presented their research on cybersecurity awareness training best practices based on company policy and industry standards.
+- **Key Arguments & Perspectives:**
+  - **Faris:** Proposed a comprehensive training program including a recorded PowerPoint training, a short quiz, a phishing simulation baseline test, periodic short security updates, and a centralized tracker.
+  - **Shajin:** Agreed with the recorded training and quiz but recommended removing the phishing simulation to simplify the initial SOC 2 compliance process ("scratching the surface" for legal and compliance purposes).
+- **Consensus & Outcome:** The training will consist of a recorded presentation (created by Faris) and a simple 5-question quiz (created by Hisham), hosted on a Vercel-based UI page with an acknowledgment form.
+
+### 3. [00:09:33] Azure Server Access & Snaffer Identity Cities Portal
+- **Context & Objective:** Shajin coordinated Hisham's access to the Snaffer Identity Cities portal on the Azure server.
+- **Key Arguments & Perspectives:**
+  - **Shajin:** Will grant Hisham a 1-hour window of access. She emphasized the critical security requirement of shutting down the server immediately after exploration due to data load and cyber vulnerabilities.
+  - **Hisham:** Agreed to the timeline and security protocols.
+- **Consensus & Outcome:** Hisham will explore the portal during his allocated hour and ensure the server is shut down afterward. He will also continue his ongoing research on DLPs, end-to-end encryption, monitoring, and BYOD endpoints.
+
+### 4. [01:13:15] Policy Discrepancy & Future Compliance Roadmap
+- **Context & Objective:** Faris pointed out a file mismatch in the portal where the "remote working policy" link pointed to the "anti-malware" policy (Policy 8).
+- **Key Arguments & Perspectives:**
+  - **Faris:** Identified the mismatch in the PDF upload.
+  - **Shajin:** Acknowledged the upload error (likely made by Ujan) and committed to fixing it. She also outlined the future roadmap: completing SOC 2 training, moving to ISO compliance, assigning Faris to API work with Sara, and Hisham to technical architecture with Shargil or Shajin.
+- **Consensus & Outcome:** Shajin will correct the policy file upload. Both developers confirmed they have completed their policy acknowledgment emails.
+
+---
+
+## 📋 Action Items Matrix
+
+| # | Task Description | Assignee | Priority | Due Date | Notes / Dependencies |
+|---|------------------|----------|----------|----------|----------------------|
+| 1 | Submit weekly hour logs | Hisham & Faris | HIGH | Today (End of Day) | Required for weekly tracking. |
+| 2 | Create and record SOC 2 training presentation | Faris | HIGH | 2026-08-25 (Tuesday) | Send recorded video and PowerPoint slide deck via email. |
+| 3 | Send Canva Pro presentation template | Shajin | MED | Today | To assist Faris with slide design. |
+| 4 | Create 5-question quiz for SOC 2 training | Hisham | MED | Post-Tuesday | Keep it simple, bare minimum for compliance. |
+| 5 | Explore Snaffer Identity Cities portal on Azure | Hisham | MED | Scheduled Window | Must shut down the server immediately after use. |
+| 6 | Send Azure server access credentials | Shajin | HIGH | Today | For Hisham's scheduled portal exploration. |
+| 7 | Fix policy file mismatch in portal | Shajin | MED | ASAP | Replace Policy 8 (Anti-Malware) with the correct Remote Working Policy. |
+
+---
+
+## ⚖️ Decisions & Reversals
+
+### ✅ Final Decisions Approved
+1. **[00:05:35] SOC 2 Training Delivery Method:** Approved hosting the training on a Vercel-based web page (similar to Faris's portfolio design) with a recorded presentation, a 5-question quiz, and an acknowledgment form.
+2. **[00:09:33] Azure Server Security Protocol:** Mandated that the Azure server must be manually shut down immediately after Hisham's 1-hour exploration window to prevent security vulnerabilities.
+
+### 🔄 Rejected & Overturned Ideas (Reversals)
+1. **[00:05:35] Phishing Simulation Exclusion:** Faris proposed running baseline and follow-up phishing simulation tests as part of the training. Shajin rejected this for the initial phase, opting to exclude phishing tests to simplify the process and achieve SOC 2 compliance faster.
+
+---
+
+## 🗺️ Visual Architecture (Mermaid Mindmap)
+
+```mermaid
+mindmap
+  root((08-21 Weekly Meeting))
+    Executive Brief
+      SOC 2 Compliance Focus
+      Simplified Training Strategy
+      Immediate Next Steps
+    Discussion Pillars
+      Task Tracking Workflow
+      SOC 2 Training Plan
+      Azure Server Access
+      Policy Mismatch Fix
+    Decisions
+      Vercel Hosted Training UI
+      Phishing Simulation Excluded
+      Azure Server Shutdown Mandate
+    Action Items
+      Faris Presentation Content
+      Hisham Quiz Creation
+      Azure Portal Exploration
+      Hour Logs Submission
+```
+
+---
+
+## 🗣️ Speaker Diarization & Complete Transcript
+
+**[00:00:02] Hisham:** Hi Shajin.
+
+**[00:00:03] Shajin:** Hi Hisham, sorry.
+
+**[00:00:04] Hisham:** Morning.
+
+**[00:00:05] Shajin:** How's it going?
+
+**[00:00:06] Hisham:** Good, yourself?
+
+**[00:00:18] Shajin:** Hey Faris, how's it going?
+
+**[00:00:18] Faris:** Hey, good morning.
+
+**[00:00:23] Shajin:** Can you guys hear me okay?
+
+**[00:00:25] Hisham:** Yeah, yeah, can you?
+
+**[00:00:27] Faris:** Yes, how are you, Shajin?
+
+**[00:00:28] Hisham:** Can you hear me?
+
+**[00:00:32] Shajin:** Yeah, I can hear you now. Sorry, my laptop was weird for some reason.
+
+**[00:00:33] Hisham:** Okay, good.
+
+**[00:00:39] Shajin:** All right guys, any update on the tasks that we prioritized? And yeah, do you guys have anything that you want to ask? Hisham, I saw your message. It was pretty late for me, so I couldn't reply. But what was the question about? You can ask now.
+
+**[00:00:56] Hisham:** No, all good. We already updated actually, but I said if we can work, me and Faris, in one Excel sheet. I know that we can work together, but because his sleep... he wake up at night, I sleep at night, so we cannot see other works. And I don't know what Faris did in his tasks. So if we can have one Excel sheet for both of us and update it if I did anything or he did anything. It is possible, I mean, but can we do it? I still have to talk to you and ask you.
+
+**[00:01:33] Shajin:** Yeah, definitely, definitely. See, the track sheet that I sent you, you guys have to work on it individually. It's your choice whether you guys want to collaborate or not. All you have to do is like go ahead and download this sheet, right? And put in your name. So if it's Faris's sheet, it's going to put in Faris. And if it's Hisham, it's your sheet, you're going to put in your name. The points, the tasks where it's Hisham/Faris, you guys don't have to collaborate. It's just an understanding for me that hey, I sort of need to check on both of these for this particular task. But once with just separate names, for example, Hisham, Hisham, I just have to check with you, Hisham. So that's the purpose of the track sheet.
+
+**[00:02:17] Hisham:** Yeah, yeah.
+
+**[00:02:18] Shajin:** Yeah. And did you guys get a chance to work on anything at all in terms of the best practices? Because that's the most urgent bit for us at the moment.
+
+**[00:02:29] Faris:** Yes.
+
+**[00:02:33] Shajin:** Awesome. Let's just quickly start one by one. Let's start brainstorming ideas. I have a meeting scheduled with our director today. I'm going to explain the ideas that you guys give me to him, whatever sort of whatever whatever sort of thing that we finalize, right? Also, there's one more thing that remember the server that I showed you, the one that's built on Azure? I sort of did take an approval to provide you guys with that. But since we're already occupied in this work, I'm just going to let it be for a while, and then we can switch to working on the server and you guys exploring the server, the 3D models, and the digital twins and all of that. I'll walk you through.
+
+**[00:03:15] Faris:** Yeah, that's fine.
+
+**[00:03:17] Shajin:** Yeah? Faris, let's start with you. All right, your task was to sort of align best practices for the SOC 2 cybersecurity awareness training. And we sort of needed to finalize the mandatory topics that needs to be covered inside that meeting. The acknowledgment ideas, if you have any, like the ones that I provided you in the last meetings, sort of like a UI design which you know the people can scroll through, look at the content, and then just put in their name.
+
+**[00:03:47] Faris:** Yeah, that was also helpful, actually.
+
+**[00:03:51] Shajin:** Yeah, so...
+
+**[00:03:53] Faris:** Um, yeah, we actually researched, me and Hisham, about the security awareness training. Our sources was from the actual policy that was written. So we depended on that while researching. We also researched top companies to get like how they do their practice training, the awareness practice training. So the idea is we make one recorded PowerPoint training that staff can watch it anytime, then a short quiz at the end. After that, we run a fishing test to get a baseline, and then another one later and compare the results. And also, during the year, instead of making people do another full course, we can send short security topics every now and then to just update the employees. And new starters and contractors can do the same recorded training when they join. And also, one important thing for evidence, I think we keep only one simple tracker with who completed the training, the quiz result, fishing result, and like anything, any retraining.
+
+**[00:05:35] Shajin:** Awesome. The quiz result sounds really good. Faris, since it's just a sort of like a best practice to get the SOC 2 compliance, we're just going to keep the phishing simulation out of it. It's just going to be a quiz and the content that we have to sort of read through.
+
+**[00:05:50] Faris:** Oh, okay. Because I saw it was mentioned in the policy, I think.
+
+**[00:05:55] Shajin:** Yeah, it was mentioned in the policy, but since we're trying to get SOC 2, it doesn't have to be by the books. It's sort of like scratching off the surface so that we could particularly close that gap. So whenever some sort of cyber attack comes through or a vendor gets to sort of like, you know, it's just for legal purposes to have those trainings. Do you get what I'm trying to say? So we're just scraping off the surface of that particular bit. So yeah, the phishing simulation, all right, let's just leave it be. Tracker card sounds good, simple and plain. Quiz sounds really good, simple and plain. Let's just talk about the content. Did you guys get a chance to work on the content for the training yet?
+
+**[00:06:41] Faris:** No, the content we have not actually started working on it, but we've got a couple of ideas. Like I said, the PowerPoint, we're going to work on it. And yeah, hopefully we can deliver it in the next week.
+
+**[00:07:02] Shajin:** All right. Would Tuesday work for you guys? Because I'm going to sit with the UI developer of our team, and I'm going to plan out a UI for the delivery of the trainings. So if we're putting if we're sort of creating the presentation, I was wondering maybe a page created on Vercel app, maybe Vercel app sort of like a page, the one, Faris, that you sent me, the portfolio thing was really good. Something like that, and that is the link that we send to all the employees in one particular email. And then what you can do is like sort of we can sort of track whoever clicked the link, completed the trainings, put in a quick form quiz at the end, and then an acknowledgment for name and emails, and then you're done with it. How does that sound?
+
+**[00:07:53] Faris:** Sounds good.
+
+**[00:07:54] Shajin:** Yeah? Faris, I will assign the presentation to you, the content in the presentation for the entire SOC 2 trainings for you. Would you be able to complete that on your own by Tuesday?
+
+**[00:08:07] Faris:** Yes, by Tuesday, yes, it's fine. So it's going to be a recorded presentation?
+
+**[00:08:16] Shajin:** The presentation that you're going to create, can you possibly give that to me? Because I need to put it like sort of fit it into our...
+
+**[00:08:24] Faris:** Yes. So I can, yeah, I can do it like like with in my own device, record it, and then send it to you, right?
+
+**[00:08:35] Shajin:** Yeah, perfect. And I would need the PPT as well, the PowerPoint slide deck as well on email.
+
+**[00:08:42] Faris:** Yeah, that's fine.
+
+**[00:08:44] Shajin:** And then we can sit and finalize the content, review the content. I'm pretty sure you guys are going to nail it. But yeah, I'm just going to quickly verify that, get it approved, put it in the UI, create a quiz out of that, and then just, you know, plan out the whole training. Hisham, what your task is going to be is once Faris is done completing his content on the presentation, I'm just going to leave it to you to create the quiz for it. And it has to be really simple. It has to be like bare minimum of five questions, because since we're just, again, scraping off the surface and we just need it done for compliance purposes. We just need to make it really simple. And you're going to draft these five questions for me, which are going to go as quiz on the UI thing that we are going to create.
+
+**[00:09:29] Hisham:** Yeah, sure.
+
+**[00:09:31] Shajin:** Awesome. Sounds good? I think we're pretty good in terms of this particular bit. Also, Hisham, I have one more thing for you. Faris is going to be really busy, so with the content, I'm not going to bombard you with other stuff. So because you have to create the content, so you're probably going to have to research on the internet for the best content that is delivered for the SOC 2 compliance. You're going to have to put it in a presentation, you're going to have to screen record it. So that's a lot of work till Tuesday. Let me know if anything becomes overwhelming, and I'm happy to jump in, I'm happy to help you out. And you need to sort of like keep me in loop when you're in progress rather than just submitting the final work, because once...
+
+**[00:10:11] Faris:** Yes, yes, sure.
+
+**[00:10:12] Shajin:** Sort of like iterations in middle, between like sort of like an agile practice. So once we're sort of exchanging, having iterations of the work that is being done, it just makes things easier to get the perfect product out of it.
+
+**[00:10:28] Faris:** Okay. Is there a limit with the PowerPoints slides?
+
+**[00:10:33] Shajin:** Um, it has to be around 20 minutes, the trainings. Minimum of 15 minutes. So you can put that as much as you want. And at the end, I'm just going to send you some Do you have access to Canva? Do you need access to Canva? We have a Canva Pro version where we create most of the presentation. I can give you a quick look at that. All righty, so these are the sort of presentations that we do. Most of the work done here is related to us targeting on the marketing perspective. But yeah, these are the sort of presentations and drafts if you'd like to extract it. I can sort of provide you a template of the presentation, so it works easier for you and you can set it up, the header and the footer with the logos, and then the content's going to come in.
+
+**[00:11:23] Faris:** Yeah, that's fine.
+
+**[00:11:25] Shajin:** Yeah? Works?
+
+**[00:11:26] Faris:** Yeah, perfect.
+
+**[00:11:27] Shajin:** Also, Hisham, I have so you have to sort of like specify an hour for me where you're going to be available to skim through this Snaffer Identity Cities portal. Now for that particular bit, I'll have to turn on and off the server. And I can provide you the Azure server access as well. So what you're going to do is like simply come into here, log into the portal, log into the server, turn it on, skim through the whole portal, one hour, one and a half hour, two hours, whatever you're convenient with, and then you have to go and shut down the server, right? Because there's a lot of data on there, the digital twin one, and it takes up a lot of load on Azure, and we're still vulnerable to cyber attacks as well, cybersecurity attacks as well, right? So we have to be very particular about that bit. And since you'll be waiting on Faris to complete his presentation and the content, I just want you to keep working on the DLPs, the end-to-end encryption research, the monitoring bit, the BYOD endpoint stuff. This new task that you're going to work on, this Snaffer Identity Cities exploration, I'm going to add that bit here and send out the updated sheet.
+
+**[00:12:52] Hisham:** Yeah, yeah, sure.
+
+**[00:12:53] Shajin:** All right. I'm going to alter it, whatever you guys are working on separately and together. I'm going to alter that bit so that it's much clearer for you guys. And then once you download the sheet, you can delete like if Hisham, you're downloading it, you can delete the rows which are Faris's. And Faris, if you're downloading it, you can delete the rows which are Hisham's, right?
+
+**[00:13:13] Hisham:** Mhm.
+
+**[00:13:14] Shajin:** And you guys have to submit me the hour logs for this particular week by the end of the day today.
+
+**[00:13:23] Hisham:** Okay.
+
+**[00:13:24] Shajin:** Okay? Hisham, you'll be getting an email with the access to the Azure server. Faris, I'm going to be sending out the presentation template to you for your reference, okay?
+
+**[00:13:34] Faris:** Yeah.
+
+**[00:13:35] Shajin:** And the updated sheet for both of you.
+
+**[00:13:39] Faris:** Sure. I also have a question about the policies. In the portal, I noticed that the policy that's for remote working policy, it's actually for anti-malware.
+
+**[00:13:50] Shajin:** Okay.
+
+**[00:13:51] Faris:** I don't know if it's the wrong uploaded file or not.
+
+**[00:14:03] Shajin:** Uh, can you like policies acknowledgment to you?
+
+**[00:14:07] Faris:** Yes, it's policy number eight. The remote working policy. Yeah, you can open the PDF.
+
+**[00:14:18] Shajin:** Ah, okay, okay, okay. I must have uploaded the wrong Ujan must have uploaded the wrong one. I'm going to see if I have the working file for it. But if I don't, I'm just going to have this replaced. But thanks for the acknowledgment. Also, guys, one more thing. There is the policy acknowledgment email that you guys must have received. And you guys are still sort of Oh, oh, you're done with it. I just checked in the morning and you weren't, Hisham, and Oh, perfect, that's great.
+
+**[00:14:43] Hisham:** Yeah.
+
+**[00:14:45] Shajin:** I'm just going to get this fixed. That sounds great. Thanks for pointing that out. And any questions regarding the portal and how it works?
+
+**[00:14:56] Hisham:** Oh, it's pretty straightforward.
+
+**[00:14:57] Shajin:** Yeah, it's pretty straightforward. So, yeah.
+
+**[00:15:01] Hisham:** Yeah.
+
+**[00:15:03] Shajin:** Perfect, perfect. Excited to...
+
+**[00:15:04] Faris:** And is our work going to be like SOC 2 compliance from now on?
+
+**[00:15:09] Shajin:** Um, it's just going to be till the training bit. But after that, we're going to start working on ISO, I think it was ISO compliance as well. And then we're going to put you Faris, you're going to get into some APIs work, API-related work with our API, Microsoft senior developer, which is Sara. And Hisham, you're going to stay with either me or you're going to go under Shargil, which is our technical architecture. So, yeah, for now, till the training is completed, the training bit is completed, SOC 2 is your go-to, and then we can start putting you in different directions based on your portfolio and resumes. And I can sort of like ask you where you want to fit in after providing you with some insights. That's...
+
+**[00:15:59] Faris:** Yeah, yeah, that sounds good.
+
+**[00:16:01] Shajin:** Yeah? Yeah, that sounds good.
+
+**[00:16:03] Shajin:** Okay, awesome, awesome. Any questions, let me know. We're sort of going with an iteration-based work. Don't wait on anything to sort of finish your work. And I'll be expecting the sheet with the hours by end of day today.
+
+**[00:16:18] Faris:** Yeah.
+
+**[00:16:19] Hisham:** Okay.
+
+**[00:16:20] Shajin:** Awesome. Thank you so much, guys, for your time. Hisham...
+
+**[00:16:24] Hisham:** Yeah, here. Thanks, Shajin.
+
+**[00:16:27] Shajin:** Yeah, have a great day, guys. Bye-bye.
+
+**[00:16:29] Faris:** Talk soon. See you.

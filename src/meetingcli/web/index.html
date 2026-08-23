@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plaud AI Meeting Studio | Executive Intelligence</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            zinc: {
+              950: '#09090b',
+              900: '#121215',
+              850: '#18181b',
+              800: '#27272a',
+              700: '#3f3f46',
+            },
+            cyan: {
+              400: '#22d3ee',
+              500: '#06b6d4',
+              600: '#0891b2',
+            },
+            emerald: {
+              400: '#34d399',
+              500: '#10b981',
+            },
+            indigo: {
+              400: '#818cf8',
+              500: '#6366f1',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(161, 161, 170, 0.2);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(161, 161, 170, 0.4);
+    }
+
+    /* Subtle Glass & Gradients */
+    .glass-panel {
+      background: rgba(18, 18, 21, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    
+    .glass-card {
+      background: rgba(24, 24, 27, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .glass-card:hover {
+      border-color: rgba(6, 182, 212, 0.25);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .brand-glow {
+      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Active Tab Glow */
+    .tab-active {
+      color: #38bdf8;
+      border-bottom: 2px solid #06b6d4;
+      background: linear-gradient(180deg, rgba(6, 182, 212, 0.08) 0%, transparent 100%);
+    }
+
+    /* Waveform Animation */
+    @keyframes wavePulse {
+      0%, 100% { height: 6px; }
+      50% { height: 26px; }
+    }
+    .wave-bar {
+      animation: wavePulse 1.2s ease-in-out infinite;
+    }
+    .wave-bar:nth-child(2) { animation-delay: 0.15s; }
+    .wave-bar:nth-child(3) { animation-delay: 0.3s; }
+    .wave-bar:nth-child(4) { animation-delay: 0.45s; }
+    .wave-bar:nth-child(5) { animation-delay: 0.6s; }
+
+    /* Mindmap Zoom Container */
+    #mindmap-svg-container {
+      transform-origin: center center;
+      transition: transform 0.15s ease-out;
+    }
+  </style>
+</head>
+
+<body class="bg-zinc-950 text-zinc-100 font-sans antialiased h-screen flex overflow-hidden selection:bg-cyan-500 selection:text-white">
+
+  <!-- ===================================================================== -->
+  <!-- 1. LEFT NAVIGATION DRAWER (COMPACT)                                    -->
+  <!-- ===================================================================== -->
+  <aside class="w-80 flex-shrink-0 bg-zinc-900/90 border-r border-white/5 flex flex-col h-full z-20">
+    
+    <!-- Top Branding -->
+    <div class="p-4 border-b border-white/5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-sm leading-tight tracking-tight flex items-center gap-1.5">
+            <span class="brand-glow text-base">PLAUD AI</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">STUDIO</span>
+          </h1>
+          <p class="text-[11px] text-zinc-400">Executive Meeting Studio</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        Ready
+      </div>
+    </div>
+
+    <!-- Live Recording / Drag & Drop Intake -->
+    <div class="p-3.5 space-y-3 border-b border-white/5">
+      
+      <!-- Live Mic Record Widget -->
+      <div id="recorder-card" class="glass-card rounded-xl p-3 border border-white/5 text-center relative overflow-hidden group">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+            <i data-lucide="mic" class="w-3.5 h-3.5 text-cyan-400"></i> Live Mic Intake
+          </span>
+          <span id="record-timer" class="text-[11px] font-mono text-zinc-400">00:00</span>
+        </div>
+
+        <div id="waveform-box" class="hidden items-center justify-center gap-1 h-8 my-1">
+          <div class="w-1 bg-cyan-400 rounded-full wave-bar"></div>
+          <div class="w-1 bg-cyan-300 rounded-full wave-bar"></div>
+          <div class="w-1 bg-indigo-400 rounded-full wave-bar"></div>
+          <div class="w-1 bg-cyan-400 rounded-full wave-bar"></div>
+          <div class="w-1 bg-cyan-300 rounded-full wave-bar"></div>
+        </div>
+
+        <button id="record-btn" onclick="toggleRecording()" class="w-full py-2 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center justify-center gap-2 transition-all border border-white/5 shadow-sm">
+          <span id="rec-dot" class="w-2 h-2 rounded-full bg-red-500"></span>
+          <span id="rec-label">Start Meeting Recording</span>
+        </button>
+      </div>
+
+      <!-- Drag & Drop Upload Zone -->
+      <div id="drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="border border-dashed border-zinc-700/80 hover:border-cyan-500/60 rounded-xl p-3.5 text-center transition-all bg-zinc-950/40 cursor-pointer group">
+        <input type="file" id="file-input" class="hidden" accept=".mp3,.wav,.m4a,.mp4,.aac,.flac,.mov,.mkv,.webm" onchange="handleFileSelect(event)">
+        <div onclick="document.getElementById('file-input').click()" class="flex flex-col items-center">
+          <div class="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center mb-1.5 text-zinc-400 group-hover:text-cyan-400 transition-colors">
+            <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+          </div>
+          <p class="text-xs font-medium text-zinc-300 group-hover:text-cyan-300 transition-colors">Drop audio/video here</p>
+          <p class="text-[10px] text-zinc-400 mt-0.5">MP3, WAV, M4A, MP4 (Up to 2GB)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Archive Search & List Header -->
+    <div class="px-3.5 pt-3 pb-2 flex items-center justify-between">
+      <span class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Meeting Archive</span>
+      <span id="archive-count" class="text-[11px] font-mono text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-full">3</span>
+    </div>
+
+    <!-- Search Input -->
+    <div class="px-3.5 mb-2">
+      <div class="relative">
+        <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400"></i>
+        <input type="text" id="archive-search" placeholder="Search discussions..." oninput="filterArchive()" class="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-950/60 border border-white/5 rounded-lg text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500/50">
+      </div>
+    </div>
+
+    <!-- Scrollable Archive List -->
+    <div id="archive-list" class="flex-1 overflow-y-auto px-3.5 pb-4 space-y-2">
+      <!-- Meeting Item 1 (Active) -->
+      <div onclick="switchMeeting('q3_roadmap')" class="meeting-card active-card glass-card rounded-xl p-3 cursor-pointer border border-cyan-500/40 bg-cyan-950/20 relative group">
+        <div class="flex items-start justify-between gap-2 mb-1.5">
+          <h4 class="text-xs font-semibold text-zinc-100 group-hover:text-cyan-300 line-clamp-1">Q3 Product Architecture & Roadmap</h4>
+          <span class="text-[10px] text-cyan-400 font-mono flex-shrink-0">Active</span>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono">Aug 23</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono">32:15</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono">🇺🇸 EN</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">3 Actions</span>
+        </div>
+      </div>
+
+      <!-- Meeting Item 2 -->
+      <div onclick="switchMeeting('executive_board')" class="meeting-card glass-card rounded-xl p-3 cursor-pointer border border-white/5 hover:bg-zinc-800/40 relative group">
+        <div class="flex items-start justify-between gap-2 mb-1.5">
+          <h4 class="text-xs font-semibold text-zinc-300 group-hover:text-cyan-300 line-clamp-1">Executive Board Strategy Session</h4>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-mono">Aug 22</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-mono">48:10</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-mono">🇺🇸 EN</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">5 Actions</span>
+        </div>
+      </div>
+
+      <!-- Meeting Item 3 -->
+      <div onclick="switchMeeting('sample_tone')" class="meeting-card glass-card rounded-xl p-3 cursor-pointer border border-white/5 hover:bg-zinc-800/40 relative group">
+        <div class="flex items-start justify-between gap-2 mb-1.5">
+          <h4 class="text-xs font-semibold text-zinc-300 group-hover:text-cyan-300 line-clamp-1">Sample Meeting Tone Calibration</h4>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-mono">Aug 23</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-mono">00:03</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-mono">System</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- User & Model Status Footer -->
+    <div class="p-3 border-t border-white/5 bg-zinc-950/60 flex items-center justify-between text-xs text-zinc-400">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-[10px]">
+          AG
+        </div>
+        <span class="font-mono text-[11px]">gemini-3.6-flash</span>
+      </div>
+      <button onclick="refreshData()" class="p-1 hover:text-cyan-400 transition-colors" title="Sync Reports">
+        <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ===================================================================== -->
+  <!-- 2. MAIN WORKSPACE CANVAS                                              -->
+  <!-- ===================================================================== -->
+  <main class="flex-1 flex flex-col h-full overflow-hidden bg-zinc-950 relative">
+    
+    <!-- Top Header Bar -->
+    <header class="px-6 py-3.5 border-b border-white/5 bg-zinc-900/60 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-10">
+      
+      <!-- Meeting Title & Chips -->
+      <div class="flex items-center gap-4">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <h2 id="current-title" class="font-bold text-base text-zinc-100 tracking-tight">Q3 Product Architecture & Roadmap</h2>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">Processed</span>
+          </div>
+          
+          <!-- Meta Chips -->
+          <div class="flex items-center gap-3 mt-1 text-[11px] text-zinc-400">
+            <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5 text-zinc-400"></i> 3 Speakers</span>
+            <span class="flex items-center gap-1"><i data-lucide="gauge" class="w-3.5 h-3.5 text-zinc-400"></i> 148 WPM</span>
+            <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5 text-zinc-400"></i> 00:32:15 Duration</span>
+            <span class="flex items-center gap-1"><i data-lucide="cpu" class="w-3.5 h-3.5 text-zinc-400"></i> $0.0038 Est. Cost</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Export Actions -->
+      <div class="flex items-center gap-2">
+        <button onclick="exportMarkdown()" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors border border-white/5">
+          <i data-lucide="file-text" class="w-3.5 h-3.5 text-cyan-400"></i> Markdown
+        </button>
+        <button onclick="exportCSV()" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors border border-white/5">
+          <i data-lucide="table" class="w-3.5 h-3.5 text-emerald-400"></i> Actions CSV
+        </button>
+        <button onclick="copySummary()" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors border border-white/5">
+          <i data-lucide="copy" class="w-3.5 h-3.5 text-indigo-400"></i> Copy Brief
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs Bar -->
+    <nav class="px-6 border-b border-white/5 bg-zinc-900/30 flex items-center gap-1 flex-shrink-0">
+      <button onclick="selectTab('tab-report')" id="btn-tab-report" class="tab-btn tab-active px-4 py-2.5 text-xs font-semibold flex items-center gap-2 transition-all">
+        <i data-lucide="file-check" class="w-4 h-4"></i> Executive Report
+      </button>
+      <button onclick="selectTab('tab-mindmap')" id="btn-tab-mindmap" class="tab-btn px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 flex items-center gap-2 transition-all">
+        <i data-lucide="network" class="w-4 h-4"></i> Visual Mindmap
+      </button>
+      <button onclick="selectTab('tab-media')" id="btn-tab-media" class="tab-btn px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 flex items-center gap-2 transition-all">
+        <i data-lucide="play-circle" class="w-4 h-4"></i> Media & Transcript
+      </button>
+      <button onclick="selectTab('tab-copilot')" id="btn-tab-copilot" class="tab-btn px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 flex items-center gap-2 transition-all">
+        <i data-lucide="bot" class="w-4 h-4 text-cyan-400"></i> AI Copilot Chat
+      </button>
+      <button onclick="selectTab('tab-analytics')" id="btn-tab-analytics" class="tab-btn px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 flex items-center gap-2 transition-all">
+        <i data-lucide="pie-chart" class="w-4 h-4"></i> Analytics
+      </button>
+    </nav>
+
+    <!-- Content Workspace -->
+    <div class="flex-1 overflow-y-auto p-6 relative">
+      
+      <!-- ================================================================= -->
+      <!-- TAB 1: EXECUTIVE REPORT                                           -->
+      <!-- ================================================================= -->
+      <div id="tab-report" class="tab-content space-y-6 max-w-5xl mx-auto">
+        
+        <!-- 3-Line Executive Brief Card -->
+        <div class="glass-card rounded-2xl p-5 border border-cyan-500/20 bg-gradient-to-br from-zinc-900/90 via-zinc-900/60 to-cyan-950/20 shadow-xl">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+              <i data-lucide="zap" class="w-4 h-4 text-cyan-400"></i> 3-Line Executive Brief
+            </h3>
+            <span class="text-[11px] font-mono text-zinc-400">Plaud AI Core</span>
+          </div>
+
+          <div class="space-y-2.5">
+            <div class="p-3 rounded-xl bg-zinc-950/60 border-l-4 border-cyan-500 flex items-start gap-3">
+              <span class="text-xs font-bold text-cyan-400 font-mono mt-0.5">PURPOSE</span>
+              <p class="text-xs text-zinc-200 leading-relaxed font-medium">
+                Align the core engineering and design leadership on the upcoming Q3 distributed database migration and Flutter client design tokens.
+              </p>
+            </div>
+
+            <div class="p-3 rounded-xl bg-zinc-950/60 border-l-4 border-indigo-500 flex items-start gap-3">
+              <span class="text-xs font-bold text-indigo-400 font-mono mt-0.5">BREAKTHROUGH</span>
+              <p class="text-xs text-zinc-200 leading-relaxed font-medium">
+                Unanimous consensus to adopt CockroachDB over MongoDB to support multi-region ACID transactions, rejecting document storage overhead.
+              </p>
+            </div>
+
+            <div class="p-3 rounded-xl bg-zinc-950/60 border-l-4 border-emerald-500 flex items-start gap-3">
+              <span class="text-xs font-bold text-emerald-400 font-mono mt-0.5">NEXT STEP</span>
+              <p class="text-xs text-zinc-200 leading-relaxed font-medium">
+                Execute 10k RPS benchmark on staging cluster by Friday and finalize Flutter design system tokens before sprint kickoff.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Key Discussion Pillars -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+              <i data-lucide="layers" class="w-4 h-4 text-indigo-400"></i> Key Discussion Pillars
+            </h3>
+            <button onclick="toggleAllPillars()" class="text-xs text-cyan-400 hover:underline">Toggle All</button>
+          </div>
+
+          <!-- Pillar 1 -->
+          <div class="glass-card rounded-xl border border-white/5 overflow-hidden">
+            <div onclick="togglePillar('pillar-1')" class="p-4 flex items-center justify-between cursor-pointer hover:bg-zinc-800/30 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">00:02:10</span>
+                <h4 class="text-xs font-bold text-zinc-200">1. Database Architecture Modernization (CockroachDB vs MongoDB)</h4>
+              </div>
+              <i id="icon-pillar-1" data-lucide="chevron-down" class="w-4 h-4 text-zinc-400 transition-transform"></i>
+            </div>
+            <div id="body-pillar-1" class="px-4 pb-4 pt-1 text-xs text-zinc-300 space-y-2 border-t border-white/5 bg-zinc-950/30">
+              <p><strong class="text-zinc-200">Context & Objective:</strong> Evaluating transaction throughput and geo-partitioning capabilities for international expansion.</p>
+              <div class="p-2.5 rounded-lg bg-zinc-900/60 border border-white/5 space-y-1.5">
+                <p><span class="text-indigo-400 font-semibold">• Sarah (Lead Architect):</span> Advocated for SQL ACID compliance and native geo-replication support in CockroachDB.</p>
+                <p><span class="text-cyan-400 font-semibold">• Alex (VP Product):</span> Inquired about latency trade-offs across European clusters; resolved via local replica routing.</p>
+              </div>
+              <p class="text-emerald-400 font-medium">✔ Outcome: Adopt CockroachDB with milestone benchmarks scheduled for Aug 28.</p>
+            </div>
+          </div>
+
+          <!-- Pillar 2 -->
+          <div class="glass-card rounded-xl border border-white/5 overflow-hidden">
+            <div onclick="togglePillar('pillar-2')" class="p-4 flex items-center justify-between cursor-pointer hover:bg-zinc-800/30 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">00:15:45</span>
+                <h4 class="text-xs font-bold text-zinc-200">2. Mobile App V2 Design System & Token Integration</h4>
+              </div>
+              <i id="icon-pillar-2" data-lucide="chevron-down" class="w-4 h-4 text-zinc-400 transition-transform"></i>
+            </div>
+            <div id="body-pillar-2" class="px-4 pb-4 pt-1 text-xs text-zinc-300 space-y-2 border-t border-white/5 bg-zinc-950/30">
+              <p><strong class="text-zinc-200">Context:</strong> Consolidating Figma tokens and high-contrast dark mode themes for Flutter client.</p>
+              <p class="text-emerald-400 font-medium">✔ Outcome: Token taxonomy approved; UI sprint kickoff confirmed for Monday.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contradiction & Reversals Flags -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <!-- Approved Decisions -->
+          <div class="glass-card rounded-xl p-4 border border-emerald-500/20 bg-emerald-950/10">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2 mb-2.5">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i> Final Approved Decisions
+            </h4>
+            <ul class="space-y-2 text-xs text-zinc-200">
+              <li class="flex items-start gap-2">
+                <span class="text-emerald-400 font-bold mt-0.5">•</span>
+                <span><strong>[00:12:30] Standardize on CockroachDB:</strong> Approved as primary distributed transaction ledger.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-emerald-400 font-bold mt-0.5">•</span>
+                <span><strong>[00:25:10] Deprecate REST API v1:</strong> All mobile clients will communicate strictly via gRPC.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Reversals & Rejected Ideas -->
+          <div class="glass-card rounded-xl p-4 border border-amber-500/20 bg-amber-950/10">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2 mb-2.5">
+              <i data-lucide="alert-triangle" class="w-4 h-4"></i> Reversals & Rejected Proposals
+            </h4>
+            <ul class="space-y-2 text-xs text-zinc-200">
+              <li class="flex items-start gap-2">
+                <span class="text-amber-400 font-bold mt-0.5">•</span>
+                <span><strong>[00:08:45] MongoDB Atlas Proposal:</strong> Rejected due to complex multi-entity transaction overhead and locking latencies.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Action Items Matrix Table -->
+        <div class="glass-card rounded-2xl p-5 border border-white/5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+              <i data-lucide="check-square" class="w-4 h-4 text-cyan-400"></i> Action Items Matrix
+            </h3>
+            <div class="flex items-center gap-1.5">
+              <button onclick="filterActionItems('ALL')" class="px-2 py-1 rounded text-[11px] bg-zinc-800 text-zinc-300 font-medium">All</button>
+              <button onclick="filterActionItems('HIGH')" class="px-2 py-1 rounded text-[11px] bg-red-500/10 text-red-400 border border-red-500/20 font-medium">High</button>
+              <button onclick="filterActionItems('MED')" class="px-2 py-1 rounded text-[11px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">Med</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 text-zinc-400 font-semibold">
+                  <th class="pb-2.5 w-10">Done</th>
+                  <th class="pb-2.5">Task Description</th>
+                  <th class="pb-2.5">Assignee</th>
+                  <th class="pb-2.5">Priority</th>
+                  <th class="pb-2.5">Due Date</th>
+                  <th class="pb-2.5">Dependencies</th>
+                </tr>
+              </thead>
+              <tbody id="action-items-tbody" class="divide-y divide-white/5 text-zinc-200 font-medium">
+                <tr class="hover:bg-zinc-800/30 transition-colors">
+                  <td class="py-3"><input type="checkbox" class="rounded bg-zinc-800 border-zinc-700 text-cyan-500 focus:ring-0"></td>
+                  <td class="py-3 pr-3 font-semibold text-zinc-100">Run 10k RPS benchmark on CockroachDB cluster</td>
+                  <td class="py-3 pr-3 text-cyan-400">Sarah</td>
+                  <td class="py-3 pr-3"><span class="px-2 py-0.5 rounded text-[10px] bg-red-500/15 text-red-400 border border-red-500/30 font-bold">HIGH</span></td>
+                  <td class="py-3 pr-3 font-mono text-zinc-300">2026-08-28</td>
+                  <td class="py-3 text-zinc-400 text-[11px]">Requires staging cluster spin-up</td>
+                </tr>
+                <tr class="hover:bg-zinc-800/30 transition-colors">
+                  <td class="py-3"><input type="checkbox" class="rounded bg-zinc-800 border-zinc-700 text-cyan-500 focus:ring-0"></td>
+                  <td class="py-3 pr-3 font-semibold text-zinc-100">Finalize Flutter design system color tokens</td>
+                  <td class="py-3 pr-3 text-indigo-400">Alex</td>
+                  <td class="py-3 pr-3"><span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-400 border border-amber-500/30 font-bold">MED</span></td>
+                  <td class="py-3 pr-3 font-mono text-zinc-300">2026-08-26</td>
+                  <td class="py-3 text-zinc-400 text-[11px]">Sync with Figma master file</td>
+                </tr>
+                <tr class="hover:bg-zinc-800/30 transition-colors">
+                  <td class="py-3"><input type="checkbox" class="rounded bg-zinc-800 border-zinc-700 text-cyan-500 focus:ring-0"></td>
+                  <td class="py-3 pr-3 font-semibold text-zinc-100">Configure automated load testing in CI pipeline</td>
+                  <td class="py-3 pr-3 text-emerald-400">Marcus</td>
+                  <td class="py-3 pr-3"><span class="px-2 py-0.5 rounded text-[10px] bg-red-500/15 text-red-400 border border-red-500/30 font-bold">HIGH</span></td>
+                  <td class="py-3 pr-3 font-mono text-zinc-300">2026-09-02</td>
+                  <td class="py-3 text-zinc-400 text-[11px]">Blocked by benchmark environment</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2: VISUAL MINDMAP                                             -->
+      <!-- ================================================================= -->
+      <div id="tab-mindmap" class="tab-content hidden h-full flex flex-col max-w-6xl mx-auto space-y-4">
+        
+        <!-- Mindmap Toolbar -->
+        <div class="glass-card rounded-xl p-3 flex items-center justify-between border border-white/5 flex-shrink-0">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+              <i data-lucide="git-fork" class="w-4 h-4 text-cyan-400"></i> Meeting Taxonomy Mindmap
+            </span>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <button onclick="zoomMindmap(1.2)" class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs" title="Zoom In">
+              <i data-lucide="zoom-in" class="w-4 h-4"></i>
+            </button>
+            <button onclick="zoomMindmap(0.8)" class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs" title="Zoom Out">
+              <i data-lucide="zoom-out" class="w-4 h-4"></i>
+            </button>
+            <button onclick="resetZoomMindmap()" class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs" title="Reset Zoom">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Full-Width Canvas -->
+        <div class="flex-1 glass-card rounded-2xl p-6 border border-white/5 flex items-center justify-center overflow-auto min-h-[480px]">
+          <div id="mindmap-svg-container" class="mermaid w-full flex justify-center">
+mindmap
+  root((Q3 Roadmap))
+    Executive Brief
+      Database Modernization
+      Flutter Token Sync
+    Discussion Pillars
+      CockroachDB vs Mongo
+        00:02:10
+        ACID Multi-Region
+      Mobile App V2
+        00:15:45
+        Design System
+    Approved Decisions
+      Standardize CockroachDB
+      Deprecate REST API v1
+    Action Items
+      High Priority
+        Sarah: 10k RPS Benchmark
+        Marcus: CI Load Testing
+      Medium Priority
+        Alex: Figma Tokens
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3: MEDIA & INTERACTIVE TRANSCRIPT                             -->
+      <!-- ================================================================= -->
+      <div id="tab-media" class="tab-content hidden max-w-5xl mx-auto space-y-6">
+        
+        <!-- Audio / Video Player Card -->
+        <div class="glass-card rounded-2xl p-5 border border-white/5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+              <i data-lucide="headphones" class="w-4 h-4 text-cyan-400"></i> Audio Synchronized Playback
+            </span>
+            <span id="player-time" class="text-xs font-mono text-cyan-400">00:00 / 32:15</span>
+          </div>
+
+          <audio id="meeting-audio" class="w-full h-10 rounded-lg" controls>
+            <source src="" type="audio/wav">
+            Your browser does not support the audio element.
+          </audio>
+        </div>
+
+        <!-- Synchronized Transcript Bubbles -->
+        <div class="glass-card rounded-2xl p-5 border border-white/5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+              <i data-lucide="message-square" class="w-4 h-4 text-indigo-400"></i> Speaker Diarization Dialogue
+            </h3>
+            <input type="text" id="transcript-search" oninput="filterTranscript()" placeholder="Search dialogue..." class="px-3 py-1 text-xs bg-zinc-950 border border-white/10 rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-cyan-500/50 w-64">
+          </div>
+
+          <div id="transcript-container" class="space-y-3 pt-2">
+            <!-- Bubble 1 -->
+            <div class="dialogue-bubble p-3.5 rounded-xl bg-zinc-900/60 border border-white/5 hover:border-cyan-500/30 transition-all cursor-pointer" onclick="seekAudio(5)">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold text-cyan-400 flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px]">AP</span>
+                  Alex (VP Product)
+                </span>
+                <span class="text-[11px] font-mono text-zinc-500 hover:text-cyan-400">[00:00:05]</span>
+              </div>
+              <p class="text-xs text-zinc-300 leading-relaxed">
+                Good morning team. Today we need to resolve the database architecture for our Q3 microservices migration and review the Flutter design system.
+              </p>
+            </div>
+
+            <!-- Bubble 2 -->
+            <div class="dialogue-bubble p-3.5 rounded-xl bg-zinc-900/60 border border-white/5 hover:border-cyan-500/30 transition-all cursor-pointer" onclick="seekAudio(15)">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold text-indigo-400 flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px]">SA</span>
+                  Sarah (Lead Architect)
+                </span>
+                <span class="text-[11px] font-mono text-zinc-500 hover:text-cyan-400">[00:00:15]</span>
+              </div>
+              <p class="text-xs text-zinc-300 leading-relaxed">
+                Thanks Alex. I've prepared our benchmark comparison between CockroachDB and MongoDB. The multi-region consistency guarantees in CockroachDB give us strong ACID compliance without custom coordination code.
+              </p>
+            </div>
+
+            <!-- Bubble 3 -->
+            <div class="dialogue-bubble p-3.5 rounded-xl bg-zinc-900/60 border border-white/5 hover:border-cyan-500/30 transition-all cursor-pointer" onclick="seekAudio(45)">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[10px]">MQ</span>
+                  Marcus (Head of QA)
+                </span>
+                <span class="text-[11px] font-mono text-zinc-500 hover:text-cyan-400">[00:00:45]</span>
+              </div>
+              <p class="text-xs text-zinc-300 leading-relaxed">
+                From a testing standpoint, we will configure automated k6 load testing scripts against the staging CockroachDB cluster by next week.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 4: AI COPILOT CHAT                                            -->
+      <!-- ================================================================= -->
+      <div id="tab-copilot" class="tab-content hidden max-w-4xl mx-auto h-full flex flex-col space-y-4">
+        
+        <!-- Quick Question Chips -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 flex-shrink-0">
+          <button onclick="askCopilot('Summarize the top technical trade-offs discussed')" class="px-3 py-1 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium border border-white/5 whitespace-nowrap">
+            💡 Technical trade-offs
+          </button>
+          <button onclick="askCopilot('List all commitments made by Sarah')" class="px-3 py-1 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium border border-white/5 whitespace-nowrap">
+            👤 Sarah's commitments
+          </button>
+          <button onclick="askCopilot('Why was MongoDB rejected?')" class="px-3 py-1 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium border border-white/5 whitespace-nowrap">
+            ⚖️ Why MongoDB rejected?
+          </button>
+        </div>
+
+        <!-- Chat Messages Container -->
+        <div id="chat-messages" class="flex-1 glass-card rounded-2xl p-5 border border-white/5 overflow-y-auto space-y-4 min-h-[380px]">
+          <div class="flex items-start gap-3">
+            <div class="w-7 h-7 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center flex-shrink-0 text-white shadow-md">
+              <i data-lucide="bot" class="w-4 h-4"></i>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-zinc-900/90 border border-white/5 text-xs text-zinc-200 leading-relaxed max-w-xl">
+              Hello! I'm your Plaud AI Meeting Copilot. I have deeply indexed this discussion. What would you like to explore or synthesize?
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Input Bar -->
+        <div class="glass-card rounded-xl p-2 border border-white/5 flex items-center gap-2 flex-shrink-0">
+          <input type="text" id="copilot-input" onkeydown="if(event.key === 'Enter') sendCopilotMessage()" placeholder="Ask anything about this meeting..." class="flex-1 px-3 py-2 text-xs bg-transparent text-zinc-100 placeholder-zinc-500 focus:outline-none">
+          <button onclick="sendCopilotMessage()" class="p-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold transition-all shadow-md shadow-cyan-500/20">
+            <i data-lucide="send" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 5: ANALYTICS DASHBOARD                                        -->
+      <!-- ================================================================= -->
+      <div id="tab-analytics" class="tab-content hidden max-w-5xl mx-auto space-y-6">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <!-- Talk Time Distribution Chart -->
+          <div class="glass-card rounded-2xl p-5 border border-white/5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-4 flex items-center gap-2">
+              <i data-lucide="pie-chart" class="w-4 h-4 text-cyan-400"></i> Talk Time Distribution
+            </h3>
+            <div class="h-60 flex items-center justify-center">
+              <canvas id="speakerPieChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Speaking Speed (WPM) Chart -->
+          <div class="glass-card rounded-2xl p-5 border border-white/5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-4 flex items-center gap-2">
+              <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i> Words Per Minute (WPM)
+            </h3>
+            <div class="h-60 flex items-center justify-center">
+              <canvas id="wpmBarChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sentiment & Engagement Breakdown -->
+        <div class="glass-card rounded-2xl p-5 border border-white/5">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-3 flex items-center gap-2">
+            <i data-lucide="sparkle" class="w-4 h-4 text-indigo-400"></i> Meeting Engagement & Sentiment Spectrum
+          </h3>
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div class="p-3 rounded-xl bg-zinc-900/60 border border-white/5">
+              <span class="text-xs text-zinc-400">Consensus Index</span>
+              <p class="text-lg font-bold text-emerald-400 mt-1">94%</p>
+            </div>
+            <div class="p-3 rounded-xl bg-zinc-900/60 border border-white/5">
+              <span class="text-xs text-zinc-400">Action Density</span>
+              <p class="text-lg font-bold text-cyan-400 mt-1">High (3 Tasks)</p>
+            </div>
+            <div class="p-3 rounded-xl bg-zinc-900/60 border border-white/5">
+              <span class="text-xs text-zinc-400">Pace Stability</span>
+              <p class="text-lg font-bold text-indigo-400 mt-1">Optimal</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- 3. JAVASCRIPT APPLICATION LOGIC                                       -->
+  <!-- ===================================================================== -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Initialize Mermaid.js
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      securityLevel: 'loose',
+      fontFamily: 'Plus Jakarta Sans',
+      mindmap: {
+        useMaxWidth: false
+      }
+    });
+
+    // Recording State
+    let isRecording = false;
+    let recordInterval = null;
+    let recordSeconds = 0;
+    let mediaRecorder = null;
+    let audioChunks = [];
+
+    // Mindmap Zoom State
+    let mindmapZoom = 1.0;
+
+    // Tab Navigation
+    function selectTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(el => {
+        el.classList.remove('tab-active');
+        el.classList.add('text-zinc-400');
+      });
+
+      const target = document.getElementById(tabId);
+      const btn = document.getElementById('btn-' + tabId);
+      if (target) target.classList.remove('hidden');
+      if (btn) {
+        btn.classList.add('tab-active');
+        btn.classList.remove('text-zinc-400');
+      }
+
+      if (tabId === 'tab-analytics') {
+        renderCharts();
+      }
+    }
+
+    // Toggle Discussion Pillar Accordion
+    function togglePillar(pillarId) {
+      const body = document.getElementById('body-' + pillarId);
+      const icon = document.getElementById('icon-' + pillarId);
+      if (body) {
+        body.classList.toggle('hidden');
+        if (icon) {
+          icon.style.transform = body.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+      }
+    }
+
+    function toggleAllPillars() {
+      const p1 = document.getElementById('body-pillar-1');
+      const p2 = document.getElementById('body-pillar-2');
+      const shouldHide = !p1.classList.contains('hidden');
+      if (p1) p1.classList.toggle('hidden', shouldHide);
+      if (p2) p2.classList.toggle('hidden', shouldHide);
+    }
+
+    // Filter Action Items by Priority
+    function filterActionItems(priority) {
+      const rows = document.querySelectorAll('#action-items-tbody tr');
+      rows.forEach(row => {
+        if (priority === 'ALL') {
+          row.style.display = '';
+        } else {
+          const text = row.innerText.toUpperCase();
+          row.style.display = text.includes(priority) ? '' : 'none';
+        }
+      });
+    }
+
+    // Transcript Search Filter
+    function filterTranscript() {
+      const q = document.getElementById('transcript-search').value.toLowerCase();
+      document.querySelectorAll('.dialogue-bubble').forEach(b => {
+        b.style.display = b.innerText.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }
+
+    // Audio Player Seek
+    function seekAudio(seconds) {
+      const audio = document.getElementById('meeting-audio');
+      if (audio) {
+        audio.currentTime = seconds;
+        audio.play().catch(() => {});
+      }
+    }
+
+    // Mindmap Zoom Controls
+    function zoomMindmap(factor) {
+      mindmapZoom *= factor;
+      const el = document.getElementById('mindmap-svg-container');
+      if (el) el.style.transform = `scale(${mindmapZoom})`;
+    }
+
+    function resetZoomMindmap() {
+      mindmapZoom = 1.0;
+      const el = document.getElementById('mindmap-svg-container');
+      if (el) el.style.transform = 'scale(1)';
+    }
+
+    // In-Browser Live Recording
+    async function toggleRecording() {
+      const recBtn = document.getElementById('record-btn');
+      const recLabel = document.getElementById('rec-label');
+      const recDot = document.getElementById('rec-dot');
+      const waveBox = document.getElementById('waveform-box');
+      const timerEl = document.getElementById('record-timer');
+
+      if (!isRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            alert('Live recording finished! Ready for Plaud analysis.');
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          recordSeconds = 0;
+
+          recLabel.innerText = 'Stop Live Recording';
+          recDot.classList.add('animate-ping');
+          waveBox.classList.remove('hidden');
+          waveBox.classList.add('flex');
+
+          recordInterval = setInterval(() => {
+            recordSeconds++;
+            const mins = String(Math.floor(recordSeconds / 60)).padStart(2, '0');
+            const secs = String(recordSeconds % 60).padStart(2, '0');
+            timerEl.innerText = `${mins}:${secs}`;
+          }, 1000);
+
+        } catch (err) {
+          alert('Microphone access error: ' + err.message);
+        }
+      } else {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
+          mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        }
+        clearInterval(recordInterval);
+        isRecording = false;
+
+        recLabel.innerText = 'Start Meeting Recording';
+        recDot.classList.remove('animate-ping');
+        waveBox.classList.remove('flex');
+        waveBox.classList.add('hidden');
+      }
+    }
+
+    // Drag and Drop Handling
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById('drop-zone').classList.add('border-cyan-400', 'bg-cyan-950/20');
+    }
+
+    function handleDragLeave(e) {
+      e.preventDefault();
+      document.getElementById('drop-zone').classList.remove('border-cyan-400', 'bg-cyan-950/20');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('drop-zone').classList.remove('border-cyan-400', 'bg-cyan-950/20');
+      if (e.dataTransfer.files.length > 0) {
+        processUploadedFile(e.dataTransfer.files[0]);
+      }
+    }
+
+    function handleFileSelect(e) {
+      if (e.target.files.length > 0) {
+        processUploadedFile(e.target.files[0]);
+      }
+    }
+
+    function processUploadedFile(file) {
+      alert(`File '${file.name}' (${(file.size / (1024*1024)).toFixed(1)} MB) loaded. Uploading to Gemini pipeline...`);
+    }
+
+    // AI Copilot Chat Responses
+    function askCopilot(question) {
+      document.getElementById('copilot-input').value = question;
+      sendCopilotMessage();
+    }
+
+    function sendCopilotMessage() {
+      const input = document.getElementById('copilot-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const container = document.getElementById('chat-messages');
+
+      // User Message Bubble
+      const userBubble = document.createElement('div');
+      userBubble.className = 'flex items-start gap-3 justify-end';
+      userBubble.innerHTML = `
+        <div class="p-3 rounded-2xl bg-cyan-600/30 border border-cyan-500/30 text-xs text-zinc-100 max-w-xl font-medium">
+          ${text}
+        </div>
+        <div class="w-7 h-7 rounded-xl bg-zinc-800 flex items-center justify-center flex-shrink-0 text-cyan-400 text-xs font-bold">
+          ME
+        </div>
+      `;
+      container.appendChild(userBubble);
+      input.value = '';
+
+      // AI Response Generation
+      setTimeout(() => {
+        let reply = "Based on the meeting transcript, the primary outcome was adopting CockroachDB for multi-region consistency, with performance benchmarks assigned to Sarah due August 28.";
+        if (text.toLowerCase().includes("mongodb")) {
+          reply = "MongoDB was rejected by Sarah and Alex due to the complexity and latency overhead of cross-entity ACID transactions required for international payments.";
+        } else if (text.toLowerCase().includes("sarah")) {
+          reply = "Sarah committed to spinning up the staging environment and completing the 10k RPS load benchmark by August 28.";
+        }
+
+        const aiBubble = document.createElement('div');
+        aiBubble.className = 'flex items-start gap-3';
+        aiBubble.innerHTML = `
+          <div class="w-7 h-7 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center flex-shrink-0 text-white shadow-md">
+            <i data-lucide="bot" class="w-4 h-4"></i>
+          </div>
+          <div class="p-3.5 rounded-2xl bg-zinc-900/90 border border-white/5 text-xs text-zinc-200 leading-relaxed max-w-xl shadow-sm">
+            ${reply}
+          </div>
+        `;
+        container.appendChild(aiBubble);
+        lucide.createIcons();
+        container.scrollTop = container.scrollHeight;
+      }, 500);
+
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Export Helpers
+    function exportMarkdown() {
+      const content = `# 🎙️ Q3 Product Architecture & Roadmap\n\n## ⚡ Executive Brief\n- Standardize on CockroachDB.\n- Finalize Flutter design tokens.\n`;
+      const blob = new Blob([content], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'meeting_report.md';
+      a.click();
+    }
+
+    function exportCSV() {
+      const csv = 'Task,Assignee,Priority,DueDate\nBenchmark CockroachDB,Sarah,HIGH,2026-08-28\nFlutter tokens,Alex,MED,2026-08-26\n';
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'action_items.csv';
+      a.click();
+    }
+
+    function copySummary() {
+      navigator.clipboard.writeText("Q3 Product Architecture & Roadmap: Agreed to adopt CockroachDB. Key milestone due Aug 28.");
+      alert("Executive brief copied to clipboard!");
+    }
+
+    function refreshData() {
+      location.reload();
+    }
+
+    // Chart.js Rendering
+    let chartsInitialized = false;
+    function renderCharts() {
+      if (chartsInitialized) return;
+      chartsInitialized = true;
+
+      // Talk Time Pie
+      const ctxPie = document.getElementById('speakerPieChart');
+      if (ctxPie) {
+        new Chart(ctxPie, {
+          type: 'doughnut',
+          data: {
+            labels: ['Sarah (Architect)', 'Alex (Product)', 'Marcus (QA)'],
+            datasets: [{
+              data: [52, 33, 15],
+              backgroundColor: ['#06b6d4', '#6366f1', '#10b981'],
+              borderColor: '#121215',
+              borderWidth: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#a1a1aa', font: { family: 'Plus Jakarta Sans', size: 11 } }
+              }
+            }
+          }
+        });
+      }
+
+      // WPM Bar
+      const ctxBar = document.getElementById('wpmBarChart');
+      if (ctxBar) {
+        new Chart(ctxBar, {
+          type: 'bar',
+          data: {
+            labels: ['Sarah', 'Alex', 'Marcus'],
+            datasets: [{
+              label: 'Words Per Minute',
+              data: [156, 142, 138],
+              backgroundColor: '#06b6d4',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a1a1aa' } },
+              x: { grid: { display: false }, ticks: { color: '#a1a1aa' } }
+            }
+          }
+        });
+      }
+    }
+  </script>
+</body>
+</html>

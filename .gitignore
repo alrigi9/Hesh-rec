@@ -1,0 +1,21 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Environment & Secrets (Never commit secrets to git)
+.env
+copilot_config.json
+
+# Local Data Buffers
+inputs/
+*.wav
+*.mp3
+*.m4a
+*.mp4
+
+# Python Cache & Streamlit Cache
+.pytest_cache/
+.streamlit/secrets.toml
