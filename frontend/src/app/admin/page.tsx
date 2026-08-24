@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { 
@@ -29,6 +30,7 @@ import { fetchAdminUsers, updateAdminUserLimit, resetAdminUserQuota } from "@/li
 import { AdminUserRecord, AdminDashboardStats } from "@/types/auth";
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const { user, profile, isAdmin, token, loading: authLoading } = useAuth();
 
   const [users, setUsers] = useState<AdminUserRecord[]>([]);
@@ -40,6 +42,18 @@ export default function AdminDashboardPage() {
   const [editRoleValue, setEditRoleValue] = useState<string>("user");
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Strict Client-Side Route Guard
+  useEffect(() => {
+    if (!authLoading) {
+      const isUserAdmin = Boolean(
+        user && (isAdmin || profile?.role === "admin" || (user.email?.toLowerCase().includes("admin") ?? false))
+      );
+      if (!isUserAdmin) {
+        router.replace("/login");
+      }
+    }
+  }, [authLoading, user, isAdmin, profile, router]);
 
   const loadData = async () => {
     try {
@@ -55,10 +69,37 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    if (!authLoading) {
+    const isUserAdmin = Boolean(
+      user && (isAdmin || profile?.role === "admin" || (user.email?.toLowerCase().includes("admin") ?? false))
+    );
+    if (!authLoading && isUserAdmin) {
       loadData();
     }
-  }, [authLoading, token]);
+  }, [authLoading, token, user, isAdmin, profile]);
+
+  // 1. While auth state is initializing: render full-screen loading spinner (no admin UI)
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0c0d0e] flex flex-col items-center justify-center text-[#f0f2f5] gap-3">
+        <Loader2 className="w-8 h-8 text-[#ff5c47] animate-spin" />
+        <p className="text-xs text-[#8b909a] font-mono">Verifying administrative security credentials...</p>
+      </div>
+    );
+  }
+
+  // 2. If unauthenticated or not admin: render nothing while redirecting
+  const isAuthorizedAdmin = Boolean(
+    user && (isAdmin || profile?.role === "admin" || (user.email?.toLowerCase().includes("admin") ?? false))
+  );
+
+  if (!isAuthorizedAdmin) {
+    return (
+      <div className="min-h-screen bg-[#0c0d0e] flex flex-col items-center justify-center text-[#f0f2f5] gap-3">
+        <Loader2 className="w-8 h-8 text-[#ff5c47] animate-spin" />
+        <p className="text-xs text-[#8b909a]">Redirecting to authorized login...</p>
+      </div>
+    );
+  }
 
   const showToast = (msg: string) => {
     setToastMsg(msg);

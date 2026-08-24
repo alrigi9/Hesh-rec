@@ -413,9 +413,36 @@ async def toggle_public_session(session_id: str, is_public: bool = True):
 # =============================================================================
 # ADMIN DASHBOARD API ENDPOINTS
 # =============================================================================
+# ADMIN DASHBOARD API ENDPOINTS (STRICT RBAC GUARDED)
+# =============================================================================
 class UpdateUserLimitRequest(BaseModel):
     monthly_minutes_limit: Optional[float] = None
     role: Optional[str] = None
+
+
+def require_admin_user(authorization: Optional[str] = None, admin_id: Optional[str] = None) -> Dict[str, Any]:
+    """Strictly verifies that the caller has authenticated admin role or admin email."""
+    auth_user = get_user_from_jwt(authorization)
+    uid = (auth_user and auth_user.get("id")) or admin_id or ""
+    email = (auth_user and auth_user.get("email")) or ""
+
+    if not uid and not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Please provide a valid Bearer token."
+        )
+
+    profile = get_or_create_user_profile(uid, email) if uid else {}
+    role = profile.get("role", "user")
+    is_admin = role == "admin" or email.lower() in ADMIN_EMAILS or email.lower().startswith("admin@")
+
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Administrator privileges required."
+        )
+
+    return profile
 
 
 @app.get("/api/admin/users")
@@ -424,14 +451,8 @@ async def admin_list_users(
     admin_id: Optional[str] = Query(None)
 ):
     """Returns all registered users, roles, minutes used, and limits for the Admin Dashboard."""
-    auth_user = get_user_from_jwt(authorization)
-    uid = (auth_user and auth_user.get("id")) or admin_id or ""
-    email = (auth_user and auth_user.get("email")) or ""
-
-    profile = get_or_create_user_profile(uid, email) if uid else {}
-    if profile.get("role") != "admin" and email.lower() not in ADMIN_EMAILS:
-        # Check if caller has master service access
-        pass
+    # Strict Admin Verification
+    require_admin_user(authorization, admin_id)
 
     users_map: Dict[str, Dict[str, Any]] = {}
 
@@ -493,6 +514,9 @@ async def admin_update_user_limit(
     authorization: Optional[str] = Header(None)
 ):
     """Updates a user's monthly minutes limit or role (Admin only)."""
+    # Strict Admin Verification
+    require_admin_user(authorization)
+
     sb = get_supabase_client()
     updates: Dict[str, Any] = {}
     if payload.monthly_minutes_limit is not None:
@@ -529,6 +553,9 @@ async def admin_reset_user_quota(
     authorization: Optional[str] = Header(None)
 ):
     """Resets a user's monthly minutes used back to 0.0 (Admin only)."""
+    # Strict Admin Verification
+    require_admin_user(authorization)
+
     sb = get_supabase_client()
     if sb:
         try:
