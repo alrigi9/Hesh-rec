@@ -21,12 +21,13 @@ import {
   Loader2, 
   Sparkles,
   Sliders,
-  AlertCircle
+  AlertCircle,
+  UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
-import { fetchAdminUsers, updateAdminUserLimit, resetAdminUserQuota } from "@/lib/api";
+import { fetchAdminUsers, updateAdminUserLimit, resetAdminUserQuota, activateAdminUser } from "@/lib/api";
 import { AdminUserRecord, AdminDashboardStats } from "@/types/auth";
 
 export default function AdminDashboardPage() {
@@ -139,6 +140,21 @@ export default function AdminDashboardPage() {
       }
     } catch {
       showToast("Failed to reset quota.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleActivateUser = async (userId: string, email: string) => {
+    try {
+      setActionLoading(true);
+      const ok = await activateAdminUser(userId, token || undefined, user?.id);
+      if (ok) {
+        showToast(`Verified and activated account for ${email || userId}.`);
+        await loadData();
+      }
+    } catch {
+      showToast("Failed to activate user account.");
     } finally {
       setActionLoading(false);
     }
@@ -401,7 +417,18 @@ export default function AdminDashboardPage() {
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-2 flex-wrap sm:flex-nowrap">
+                            {!u.email_confirmed && (
+                              <Button
+                                size="sm"
+                                disabled={actionLoading}
+                                onClick={() => handleActivateUser(u.id, u.email)}
+                                className="h-7 px-2.5 rounded-lg text-xs bg-[#ff5c47]/15 hover:bg-[#ff5c47]/25 text-[#ff5c47] border border-[#ff5c47]/30"
+                              >
+                                <UserCheck className="w-3 h-3 mr-1" />
+                                Verify
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
