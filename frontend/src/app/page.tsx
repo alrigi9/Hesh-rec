@@ -20,21 +20,25 @@ import { MeetingView } from "@/components/MeetingView";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { fetchSessions } from "@/lib/api";
 import { MeetingSession } from "@/types/meeting";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
+  const { user, token } = useAuth();
   const [sessions, setSessions] = useState<MeetingSession[]>([]);
   const [activeSession, setActiveSession] = useState<MeetingSession | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [audioSeekTime, setAudioSeekTime] = useState<number | undefined>(undefined);
 
-  // Load sessions on mount
+  // Load sessions on mount or when user changes
   useEffect(() => {
-    fetchSessions().then((data) => {
+    fetchSessions(user?.id, token || undefined).then((data) => {
       if (data && data.length > 0) {
         setSessions(data);
+      } else {
+        setSessions([]);
       }
     });
-  }, []);
+  }, [user?.id, token]);
 
   const handleUploadSuccess = (newSession: MeetingSession) => {
     setSessions((prev) => [newSession, ...prev]);

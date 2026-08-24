@@ -1,23 +1,26 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { 
   Plus, 
   Search, 
-  Layers, 
-  CheckSquare, 
-  FileText, 
-  Sparkles, 
   Clock, 
-  Tag, 
-  ChevronRight,
   AudioWaveform,
-  ShieldCheck
+  ShieldCheck,
+  ShieldAlert,
+  Sliders,
+  LogIn,
+  LogOut,
+  User,
+  Sparkles,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MeetingSession } from "@/types/meeting";
 import { formatMeetingTitle } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 interface SidebarProps {
   sessions: MeetingSession[];
@@ -33,6 +36,7 @@ export function Sidebar({
   onOpenUpload,
 }: SidebarProps) {
   const [search, setSearch] = useState("");
+  const { user, profile, isAdmin, signOut } = useAuth();
 
   const filteredSessions = sessions.filter((s) => {
     const q = search.toLowerCase();
@@ -40,6 +44,11 @@ export function Sidebar({
     const tags = (s.tags || []).join(" ").toLowerCase();
     return title.includes(q) || tags.includes(q);
   });
+
+  const minutesUsed = profile?.minutes_used_this_month ?? 0.0;
+  const minutesLimit = profile?.monthly_minutes_limit ?? 300.0;
+  const percentUsed = Math.min(100, Math.round((minutesUsed / minutesLimit) * 100));
+  const isQuotaExceeded = minutesUsed >= minutesLimit && !isAdmin;
 
   return (
     <aside className="w-64 h-screen bg-[#111215] border-r border-[#232529] flex flex-col flex-shrink-0 select-none">
@@ -62,14 +71,61 @@ export function Sidebar({
       </div>
 
       {/* Primary Action Button */}
-      <div className="p-3">
+      <div className="p-3 space-y-2">
         <Button
           onClick={onOpenUpload}
-          className="w-full h-9 bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-medium rounded-full text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all"
+          disabled={isQuotaExceeded}
+          className="w-full h-9 bg-[#ff5c47] hover:bg-[#ff5c47]/90 disabled:opacity-50 text-white font-medium rounded-full text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
-          New Session
+          <span>{isQuotaExceeded ? "Quota Limit Reached" : "New Session"}</span>
         </Button>
+
+        {/* Admin Dashboard shortcut if admin */}
+        {isAdmin && (
+          <Link href="/admin" className="block">
+            <Button
+              variant="outline"
+              className="w-full h-8 rounded-full text-xs border-[#ff5c47]/30 bg-[#ff5c47]/5 text-[#ff5c47] hover:bg-[#ff5c47]/10 flex items-center justify-center gap-1.5 transition-all"
+            >
+              <Sliders className="w-3 h-3" />
+              <span>Admin Dashboard</span>
+            </Button>
+          </Link>
+        )}
+      </div>
+
+      {/* Monthly Quota Badge Card */}
+      <div className="px-3 pb-2">
+        <div className="p-2.5 rounded-xl bg-[#141517] border border-[#232529] space-y-1.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-[#8b909a] flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-[#ff5c47]" />
+              Monthly Quota
+            </span>
+            <span className="font-mono text-[#f0f2f5] font-medium">
+              {minutesUsed.toFixed(1)} / {minutesLimit.toFixed(0)}m
+            </span>
+          </div>
+          
+          <div className="w-full h-1.5 bg-[#232529] rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${
+                percentUsed > 90
+                  ? "bg-[#ff5c47]"
+                  : percentUsed > 60
+                  ? "bg-[#f9ab00]"
+                  : "bg-[#3ec98a]"
+              }`}
+              style={{ width: `${percentUsed}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-[#8b909a] pt-0.5">
+            <span>{300 - Math.min(300, minutesUsed)}m remaining</span>
+            <span>{percentUsed}% used</span>
+          </div>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -132,15 +188,50 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Footer Tenant Tag */}
+      {/* Footer User / Auth Profile */}
       <div className="p-3 border-t border-[#232529]/60 flex items-center justify-between text-xs text-[#8b909a]">
-        <div className="flex items-center gap-1.5 text-[11px]">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#3ec98a]" />
-          <span>SOC 2 Compliant</span>
-        </div>
-        <Badge variant="outline" className="text-[10px] py-0 px-2 border-[#2e3238] bg-[#16171a] text-[#8b909a]">
-          Pro
-        </Badge>
+        {user ? (
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2 truncate pr-2">
+              <div className="w-6 h-6 rounded-full bg-[#232529] flex items-center justify-center text-[#f0f2f5] shrink-0">
+                <User className="w-3.5 h-3.5" />
+              </div>
+              <div className="truncate">
+                <div className="text-xs text-[#f0f2f5] truncate font-medium">
+                  {user.email?.split("@")[0]}
+                </div>
+                <div className="text-[10px] text-[#8b909a] capitalize">{profile?.role || "user"}</div>
+              </div>
+            </div>
+
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={signOut}
+              title="Sign Out"
+              className="w-7 h-7 text-[#8b909a] hover:text-[#ff5c47] rounded-lg"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#3ec98a]" />
+              <span>SOC 2 Type II</span>
+            </div>
+            <Link href="/login">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2.5 text-[11px] rounded-full border-[#232529] bg-[#18191c] text-[#f0f2f5] hover:border-[#ff5c47]/50"
+              >
+                <LogIn className="w-3 h-3 mr-1 text-[#ff5c47]" />
+                Sign In
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </aside>
   );

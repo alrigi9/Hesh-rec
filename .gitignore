@@ -23,3 +23,7 @@ inputs/
 # Installers & Binaries
 *.msi
 *.exe
+
+# Local Sessions & Cache
+sessions/
+frontend/.env.local

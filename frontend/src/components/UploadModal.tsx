@@ -4,12 +4,9 @@ import React, { useState, useRef } from "react";
 import { 
   Upload, 
   FileAudio, 
-  X, 
   Sparkles, 
   Loader2, 
-  CheckCircle2, 
-  AlertCircle,
-  FileCheck
+  AlertCircle 
 } from "lucide-react";
 import { 
   Dialog, 
@@ -21,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { processAudioFile } from "@/lib/api";
 import { MeetingSession } from "@/types/meeting";
+import { useAuth } from "@/context/AuthContext";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -29,12 +27,16 @@ interface UploadModalProps {
 }
 
 export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
+  const { user, token, profile, isAdmin, refreshProfile } = useAuth();
+
   const [file, setFile] = useState<File | null>(null);
   const [template, setTemplate] = useState("executive");
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isQuotaExceeded = (profile?.minutes_used_this_month ?? 0) >= (profile?.monthly_minutes_limit ?? 300) && !isAdmin;
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -57,15 +59,28 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       return;
     }
 
+    if (isQuotaExceeded) {
+      setError(`Monthly quota limit of ${profile?.monthly_minutes_limit ?? 300} minutes has been reached.`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const result = await processAudioFile(file, template, title || undefined);
+      const result = await processAudioFile(
+        file, 
+        template, 
+        title || undefined, 
+        user?.id, 
+        token || undefined
+      );
       setLoading(false);
       onSuccess(result);
+      // Refresh user's quota badge in real-time
+      refreshProfile();
       onClose();
-      // Reset
+      // Reset state
       setFile(null);
       setTitle("");
     } catch (err: unknown) {
@@ -193,7 +208,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             </Button>
             <Button
               type="button"
-              disabled={loading || !file}
+              disabled={loading || !file || isQuotaExceeded}
               onClick={handleProcess}
               className="h-9 px-5 rounded-full text-xs bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-medium shadow-sm transition-all"
             >
@@ -202,6 +217,8 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
                   <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
                   Transcribing & Analyzing...
                 </>
+              ) : isQuotaExceeded ? (
+                "Quota Limit Reached"
               ) : (
                 "Transcribe & Analyze"
               )}

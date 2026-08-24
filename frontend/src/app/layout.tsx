@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "SOC 2 & Executive Meeting Intelligence powered by Groq Whisper & Gemini",
 };
 
+import { AuthProvider } from "@/context/AuthContext";
+
 export default function RootLayout({
   children,
 }: {
@@ -25,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${plusJakarta.variable} dark h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-[#0c0d0e] text-[#f0f2f5] font-sans selection:bg-[#ff5c47]/20 selection:text-[#ff5c47]">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
