@@ -898,30 +898,120 @@ Answer the user's questions clearly, concisely, and accurately in the user's lan
 
 
 # =============================================================================
-# 4. PRINTABLE HTML / PDF EXPORT GENERATOR
+# 4. PRINTABLE HTML / PDF EXPORT GENERATOR & MARKMAP BUILDER
 # =============================================================================
+def build_markmap_md(s: dict) -> str:
+    """Constructs clean hierarchical markdown for Markmap from meeting summary object."""
+    title = s.get("title") or "Meeting Summary"
+    clean_title = re.sub(r"^#+\s*", "", str(title)).strip()
+    L = [f"# {clean_title}"]
+    
+    sections = s.get("sections", []) or s.get("numbered_topics", []) or s.get("discussion_pillars", [])
+    for sec in sections:
+        n = sec.get("n") or sec.get("index", "")
+        t = sec.get("title", "")
+        clean_t = re.sub(r"^\d+\.\s*", "", str(t)).strip()
+        L.append(f"## {n}. {clean_t}" if n else f"## {clean_t}")
+        if sec.get("narrative"):
+            clean_narr = re.sub(r"^\*\*[^*]+:\*\*\s*", "", str(sec["narrative"])).strip()
+            clean_narr = re.sub(r"^[-*•]\s*\*\*[^*]+:\*\*\s*", "", clean_narr).strip()
+            L.append(f"- {clean_narr}")
+        if sec.get("action_items"):
+            L.append("- ### Action Items")
+            for a in sec["action_items"]:
+                owner = a.get("owner") or a.get("assignee") or "Unassigned"
+                due_val = a.get("due_date") or a.get("due_text")
+                due = f" — {due_val}" if due_val and due_val != "—" else ""
+                task = a.get("task") or a.get("description", "")
+                L.append(f"  - {task} — {owner}{due}")
+                
+    if s.get("ai_suggestions"):
+        L.append("## AI Suggestions")
+        suggs = s["ai_suggestions"]
+        if isinstance(suggs, list):
+            for x in suggs:
+                if isinstance(x, dict):
+                    L.append(f"- **{x.get('label', '')}**: {x.get('detail', '')}")
+                else:
+                    L.append(f"- {x}")
+        elif isinstance(suggs, dict):
+            s_items = suggs.get("items", [])
+            if s_items:
+                for x in s_items:
+                    lbl = x.get("label") or x.get("title", "")
+                    det = x.get("detail") or x.get("body", "")
+                    L.append(f"- **{lbl}**: {det}")
+            else:
+                combined = suggs.get("unresolved", []) + suggs.get("gaps", []) + suggs.get("recommendations", [])
+                for c in combined:
+                    L.append(f"- {c}")
+    
+    result = "\n".join(L)
+    
+    # Validation guard against template leaks
+    banned = ["Key Takeaways", "Consensus & Outcome", "Meeting Overview", "Core Topic and Focus", "'s Perspective"]
+    for phrase in banned:
+        result = result.replace(phrase, "")
+    return result
+
+
 def generate_printable_html(session_data: Dict[str, Any]) -> str:
-    """Generates a standalone, beautiful Plaud-styled HTML document suitable for browser print-to-PDF."""
+    """Generates a standalone, beautiful Plaud-styled unified HTML document with embedded Markmap."""
     meta = session_data.get("metadata", {})
     title = session_data.get("title") or meta.get("source_file", "Meeting Intelligence Report")
+    clean_title = re.sub(r"^#+\s*", "", str(title)).strip()
     duration = meta.get("duration", "N/A")
     date_str = session_data.get("meeting_date") or meta.get("processed_at", datetime.now().strftime("%Y-%m-%d"))
     model_str = session_data.get("model_used") or meta.get("model", "Hesh-rec AI")
-    exec_brief = session_data.get("executive_brief", [])
+    
+    participants = session_data.get("participants", [])
+    if not participants and meta.get("speakers"):
+        raw_spk = meta.get("speakers")
+        participants = [raw_spk] if isinstance(raw_spk, str) else list(raw_spk)
+
+    tags = session_data.get("tags", [])
+    tldr = session_data.get("tldr", "")
     topics = session_data.get("sections", []) or session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
-    action_items = session_data.get("action_items", [])
-    ai_suggestions = session_data.get("ai_suggestions", {})
-    transcript_segments = session_data.get("transcript_segments", [])
+    open_questions = session_data.get("open_questions", [])
+    ai_suggestions = session_data.get("ai_suggestions", {}) or session_data.get("raw_suggestions_list", [])
 
-    brief_html = "".join([f"<p style='margin-bottom:6px;'>{p.lstrip('•*- ')}</p>" for p in exec_brief])
+    meta_spans = []
+    if date_str:
+        meta_spans.append(f"""<span style="display:inline-flex; align-items:center; gap:4px; font-size:13px; color:#555555;">📅 <strong>Date:</strong> {date_str}</span>""")
+    if duration and duration != "N/A":
+        meta_spans.append(f"""<span style="display:inline-flex; align-items:center; gap:4px; font-size:13px; color:#555555;">⏱️ <strong>Duration:</strong> {duration}</span>""")
+    if participants:
+        meta_spans.append(f"""<span style="display:inline-flex; align-items:center; gap:4px; font-size:13px; color:#555555;">👥 <strong>Participants:</strong> {', '.join(participants)}</span>""")
 
-    # 2. Numbered Topics & Inline Actions (Exact Plaud Style)
+    tags_html = ""
+    if tags:
+        tag_badges = "".join([f"""<span style="background:#EFF6FF; color:#2563EB; font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:12px; border:1px solid #BFDBFE; display:inline-block; margin-right:4px;">#{t}</span>""" for t in tags])
+        tags_html = f"""<div style="margin-top:6px;">{tag_badges}</div>"""
+
+    meta_row = ""
+    if meta_spans or tags_html:
+        meta_row = f"""<div style="margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid #E5E5E5;"><div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">{''.join(meta_spans)}</div>{tags_html}</div>"""
+
+    tldr_html = ""
+    if tldr:
+        tldr_html = f"""<div style="background:#F9FAFB; border-left:3px solid #2563EB; padding:14px 18px; border-radius:4px 8px 8px 4px; margin-bottom:24px;"><div style="font-size:12.5px; font-weight:700; color:#2563EB; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">⚡ Executive Summary</div><p style="font-size:14.5px; line-height:1.65; color:#1F2937; margin:0;">{tldr}</p></div>"""
+
+    # 2. Numbered Topics & Inline Actions
     topics_html = []
     for idx, t in enumerate(topics):
         t_num = t.get("n") or t.get("index", idx + 1)
         t_title = t.get("title", f"Topic {t_num}")
+        clean_t_title = re.sub(r"^\d+\.\s*", "", str(t_title)).strip()
         narrative = t.get("narrative") or t.get("details", "")
-        clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", str(narrative))
+        clean_narrative = re.sub(r"^\*\*(?:Core Topic & Focus|Key Arguments & Perspectives|Key Takeaways & Points|Consensus & Outcome|Context & Objective|Context|Objective|Speaker Perspective|[A-Z][a-z]+'s Perspective)[^\*:]*:\*\*\s*", "", str(narrative))
+        clean_narrative = re.sub(r"^[-*•]\s*\*\*[^*]+:\*\*\s*", "", clean_narrative)
+        clean_narrative = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean_narrative).strip()
+
+        decisions_html = ""
+        dec_list = t.get("decisions", [])
+        if dec_list:
+            dec_lis = "".join([f"""<li style="margin-bottom:3px;">{d}</li>""" for d in dec_list])
+            decisions_html = f"""<div style="margin:8px 0 12px 0; font-size:13.5px; color:#1F2937;"><strong style="color:#111827;">Decisions:</strong><ul style="margin:4px 0 0 18px; padding:0; color:#374151;">{dec_lis}</ul></div>"""
         
         t_actions = t.get("action_items", [])
         actions_html = ""
@@ -933,77 +1023,135 @@ def generate_printable_html(session_data: Dict[str, Any]) -> str:
                 due = a.get("due_date") or a.get("due_text", "")
                 due_str = f" {due}" if due and due != "—" else ""
                 items_li.append(f"""
-                <div style="font-size:14px; color:#1F2937; margin-bottom:6px; display:flex; align-items:baseline; gap:8px;">
-                    <span style="color:#4B5563; font-size:15px;">☐</span>
-                    <span>{desc} — <em style="color:#4B5563;">{owner}</em><span style="color:#6B7280; font-size:13px;">{due_str}</span></span>
+                <div style="font-size:13.5px; color:#1F2937; margin-bottom:6px; display:flex; align-items:baseline; gap:8px;">
+                    <span style="color:#4B5563; font-size:14px;">☐</span>
+                    <span>{desc} — <em style="color:#374151;">{owner}</em><span style="color:#6B7280; font-size:12.5px;">{due_str}</span></span>
                 </div>
                 """)
             actions_html = f"""
-            <div style="margin:10px 0 20px 0;">
-                <div style="font-size:14.5px; font-weight:bold; color:#111827; margin-bottom:8px;">Action Items</div>
+            <div style="margin-top:12px; padding:12px 16px; background:#F9FAFB; border-radius:6px; border:1px solid #E5E7EB;">
+                <div style="font-size:13px; font-weight:700; color:#111827; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.4px;">Action Items</div>
                 {''.join(items_li)}
             </div>
             """
 
         topics_html.append(f"""
-        <div style="margin-bottom:24px;">
-            <h2 style="font-size:18px; font-weight:700; color:#111827; margin:24px 0 10px 0;">{t_num}. {t_title}</h2>
-            <p style="font-size:14.5px; color:#374151; line-height:1.65; margin:0 0 12px 0;">{clean_narrative}</p>
+        <div style="margin-bottom:28px;">
+            <h2 style="font-size:19px; font-weight:700; color:#111111; border-bottom:1px solid #E5E5E5; padding-bottom:8px; margin-top:28px; margin-bottom:12px;">{t_num}. {clean_t_title}</h2>
+            <p style="font-size:14.5px; color:#1F2937; line-height:1.65; margin:0 0 10px 0;">{clean_narrative}</p>
+            {decisions_html}
             {actions_html}
         </div>
         """)
 
-    # AI Suggestions Callout (Exact Plaud Style)
+    # Open Questions
+    open_q_html = ""
+    if open_questions:
+        q_rows = []
+        for q in open_questions:
+            q_text = q.get("question", "") if isinstance(q, dict) else str(q)
+            q_by = q.get("raised_by", "") if isinstance(q, dict) else ""
+            by_str = f" — <em>{q_by}</em>" if q_by else ""
+            q_rows.append(f"""<div style="font-size:14px; color:#78350F; margin-bottom:6px; line-height:1.5;"><strong>• {q_text}</strong><span style="font-size:12.5px; color:#92400E;">{by_str}</span></div>""")
+        open_q_html = f"""<div style="border-left:3px solid #F59E0B; background:#FFFBEB; padding:16px 20px; border-radius:4px 8px 8px 4px; margin-top:28px; margin-bottom:24px;"><div style="font-size:15px; font-weight:700; color:#92400E; margin-bottom:8px;">❓ Open Questions</div>{''.join(q_rows)}</div>"""
+
+    # AI Suggestions Callout
     suggestions_html = ""
     if isinstance(ai_suggestions, dict):
         s_items = ai_suggestions.get("items", [])
         if s_items:
-            sugg_rows = [f"<div style='font-size:14px; color:#374151; line-height:1.6; margin-bottom:8px;'><strong>{i+1}. {it.get('title')}:</strong> {it.get('body')}</div>" for i, it in enumerate(s_items)]
+            sugg_rows = [f"<div style='font-size:14px; color:#374151; line-height:1.6; margin-bottom:8px;'><strong>{i+1}. {it.get('label') or it.get('title')}:</strong> {it.get('detail') or it.get('body')}</div>" for i, it in enumerate(s_items)]
         else:
             combined = ai_suggestions.get("unresolved", []) + ai_suggestions.get("gaps", []) + ai_suggestions.get("recommendations", [])
             sugg_rows = [f"<div style='font-size:14px; color:#374151; line-height:1.6; margin-bottom:8px;'><strong>{i+1}. Note:</strong> {txt}</div>" for i, txt in enumerate(combined)]
+    elif isinstance(ai_suggestions, list):
+        sugg_rows = []
+        for i, it in enumerate(ai_suggestions):
+            if isinstance(it, dict):
+                sugg_rows.append(f"<div style='font-size:14px; color:#374151; line-height:1.6; margin-bottom:8px;'><strong>{i+1}. {it.get('label') or it.get('title')}:</strong> {it.get('detail') or it.get('body')}</div>")
+            else:
+                sugg_rows.append(f"<div style='font-size:14px; color:#374151; line-height:1.6; margin-bottom:8px;'><strong>{i+1}. Note:</strong> {it}</div>")
+    else:
+        sugg_rows = []
 
-        if sugg_rows:
-            suggestions_html = f"""
-            <div style="border-left:3px solid #3B82F6; background:#F9FAFB; padding:18px 22px; border-radius:4px 8px 8px 4px; margin-top:32px; margin-bottom:24px;">
-                <div style="font-size:16px; font-weight:bold; color:#111827; margin-bottom:4px;">AI Suggestions</div>
-                <div style="font-size:13px; color:#6B7280; margin-bottom:12px; line-height:1.5;">AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:</div>
-                {''.join(sugg_rows)}
-            </div>
-            """
-
-    transcript_html = []
-    for s in transcript_segments:
-        transcript_html.append(f"""
-        <div style="font-size:12.5px; margin-bottom:6px; color:#374151;">
-            <span style="color:#2563EB; font-weight:bold;">[{s.get('timestamp', '00:00')}]</span>
-            <strong>{s.get('speaker', 'Speaker')}:</strong> {s.get('text', '')}
+    if sugg_rows:
+        suggestions_html = f"""
+        <div style="border-left:3px solid #3B82F6; background:#F9FAFB; padding:18px 22px; border-radius:4px 8px 8px 4px; margin-top:32px; margin-bottom:28px;">
+            <div style="font-size:16px; font-weight:bold; color:#111827; margin-bottom:4px;">AI Suggestions</div>
+            <div style="font-size:13px; color:#6B7280; margin-bottom:12px; line-height:1.5;">AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:</div>
+            {''.join(sugg_rows)}
         </div>
-        """)
+        """
 
-    return f"""<!DOCTYPE html>
+    # Build Markmap Markdown & JSON for embedding
+    markmap_markdown = build_markmap_md(session_data)
+    md_json_escaped = json.dumps(markmap_markdown)
+
+    mindmap_html = f"""<div style="margin-top:36px; margin-bottom:20px;">
+      <h2 style="font-size:19px; color:#111111; border-bottom:1px solid #e5e5e5; padding-bottom:8px; margin-top:28px;">Mind Map</h2>
+      <div style="margin-top:20px; border:1px solid #e5e5e5; border-radius:8px; padding:16px; background:#ffffff;">
+        <svg id="mindmap" style="width:100%; height:1000px; background:#ffffff;"></svg>
+        <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+          <button class="no-print" onclick="window.mm && window.mm.fit()" style="background:#f3f4f6; color:#374151; border:1px solid #d1d5db; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer;">🔍 Fit to Screen</button>
+        </div>
+      </div>
+      <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+      <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.18"></script>
+      <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.18"></script>
+      <script>
+        const md = {md_json_escaped};
+        const {{ root }} = new markmap.Transformer().transform(md);
+        window.mm = markmap.Markmap.create('#mindmap', {{
+          autoFit: true,
+          fitRatio: 0.92,
+          maxWidth: 360,
+          initialExpandLevel: 3,
+          spacingVertical: 10,
+          spacingHorizontal: 90,
+          duration: 300,
+        }}, root);
+        window.addEventListener('resize', () => window.mm.fit());
+        setTimeout(() => window.mm.fit(), 300);
+      </script>
+    </div>"""
+
+    return f"""<!doctype html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{title}</title>
+    <title>{clean_title}</title>
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 40px auto; max-width: 850px; color: #111827; line-height: 1.65; background: #FFF; padding: 0 20px; }}
-        h1 {{ font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 24px 0; letter-spacing: -0.5px; }}
+        body {{
+            background: #ffffff !important;
+            color: #111111 !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.65;
+            margin: 0;
+            padding: 32px;
+        }}
+        h1 {{ font-size: 26px; color: #111111; margin-bottom: 8px; font-weight: 800; }}
+        h2 {{ font-size: 19px; color: #111111; border-bottom: 1px solid #e5e5e5; padding-bottom: 8px; margin-top: 28px; font-weight: 700; }}
+        h3 {{ font-size: 15px; color: #333333; margin-top: 16px; font-weight: 600; }}
         @media print {{
-          body {{ background: #ffffff !important; color: #1a1a1a !important; margin: 15px; max-width: 100%; }}
-          h1, h2, h3, h4, h5, p, li, td, th, span, div, strong, em {{ color: #1a1a1a !important; }}
-          * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
-          h1, h2, h3 {{ page-break-after: avoid; }}
+            .no-print {{ display: none !important; }}
+            @page {{ size: A4; margin: 16mm; }}
+            body {{ padding: 0 !important; }}
+            h1, h2, h3 {{ page-break-after: avoid; }}
         }}
     </style>
 </head>
 <body>
-    <h1>{title}</h1>
+    <div style="display:flex; justify-content:flex-end; margin-bottom:20px;">
+        <button class="no-print" onclick="window.print()" style="background:#111827; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer;">📥 Download PDF</button>
+    </div>
+    <h1>{clean_title}</h1>
+    {meta_row}
+    {tldr_html}
     {''.join(topics_html)}
+    {open_q_html}
     {suggestions_html}
-    <hr style="border:none; border-top:1px solid #E5E7EB; margin:30px 0;">
-    <h2 style="font-size:18px; font-weight:700; color:#111827;">Transcript</h2>
-    {''.join(transcript_html) if transcript_html else '<p style="font-size:12px; color:#6B7280;">Transcript in turn format not available.</p>'}
+    {mindmap_html}
 </body>
 </html>"""
 
