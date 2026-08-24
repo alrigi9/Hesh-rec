@@ -71,58 +71,76 @@ Transcribe the dialogue faithfully with timestamps and speaker attribution:
 **[00:00:15] Speaker 2 (Name if identified):** [Accurate transcript...]
 """
 
-def build_markmap_md(summary: dict) -> str:
-    """Constructs clean hierarchical markdown for Markmap strictly from summary JSON."""
-    # 1. Root: Meeting Title
-    title = summary.get("title", "Meeting Summary")
-    lines = [f"# {title}"]
+def generate_detailed_markmap_md(session_data: dict) -> str:
+    """Dynamically builds deep hierarchical markdown for Markmap strictly from sections and action items, never using stale mindmap JSON."""
+    # Use title or summary title
+    title = session_data.get("title") or session_data.get("meeting_title") or "Meeting Summary"
+    clean_title = re.sub(r"^#+\s*", "", str(title)).strip() or "Meeting Summary"
+    lines = [f"# {clean_title}"]
     
-    # 2. Iterate through sections
-    sections = summary.get("sections", [])
+    sections = session_data.get("sections") or []
     if not sections:
-        sections = summary.get("numbered_topics", []) or summary.get("discussion_pillars", [])
+        sections = session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
         
+    has_section_actions = False
     for sec in sections:
         n = sec.get("n", "") or sec.get("index", "")
         t = sec.get("title", "")
-        sec_title = f"{n}. {t}" if n else t
-        lines.append(f"## {sec_title}")
+        clean_t = re.sub(r"^\d+\.\s*", "", str(t)).strip()
+        header = f"## {n}. {clean_t}" if n else f"## {clean_t}"
+        lines.append(header)
         
-        # Branch A: Full Narrative text
-        narrative = sec.get("narrative", "")
+        # Narrative branch
+        narrative = (sec.get("narrative") or sec.get("details") or "").strip()
         if narrative:
-            clean_narrative = " ".join(str(narrative).split())
-            lines.append(f"- {clean_narrative}")
+            clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", narrative)
+            clean_narrative = re.sub(r"^[-*•]\s*", "", clean_narrative)
+            # Flatten multi-line text into a single line for Markmap
+            clean_narrative = " ".join(clean_narrative.split())
+            if clean_narrative:
+                lines.append(f"- {clean_narrative}")
             
-        # Branch B: Action Items container and leaf tasks
-        action_items = sec.get("action_items", [])
+        # Action Items branch with individual task leaves
+        action_items = sec.get("action_items") or []
         if action_items:
+            has_section_actions = True
             lines.append("- Action Items")
-            for a in action_items:
-                task = (a.get("task") or a.get("description") or "").strip()
-                owner = (a.get("owner") or a.get("assignee") or "Unassigned").strip()
-                due = f" -- {a.get('due_date')}" if a.get("due_date") else (f" -- {a.get('due_text')}" if a.get("due_text") else "")
+            for item in action_items:
+                task = (item.get("task") or item.get("description") or "").strip()
+                owner = (item.get("owner") or item.get("assignee") or "Unassigned").strip()
+                due = f" -- {item.get('due_date')}" if item.get("due_date") else (f" -- {item.get('due_text')}" if item.get("due_text") else "")
                 lines.append(f"  - {task} -- {owner}{due}")
+
+    # Fallback to top-level action_items if not inside sections
+    if not has_section_actions and session_data.get("action_items"):
+        lines.append("## Action Items")
+        for item in session_data["action_items"]:
+            task = (item.get("task") or item.get("description") or "").strip()
+            owner = (item.get("owner") or item.get("assignee") or "Unassigned").strip()
+            due = f" -- {item.get('due_date')}" if item.get("due_date") else (f" -- {item.get('due_text')}" if item.get("due_text") else "")
+            lines.append(f"- {task} -- {owner}{due}")
                 
-    # 3. Optional AI Suggestions branch
-    if summary.get("ai_suggestions"):
+    ai_suggestions = session_data.get("ai_suggestions") or []
+    if ai_suggestions:
         lines.append("## AI Suggestions")
-        suggs = summary["ai_suggestions"]
-        if isinstance(suggs, list):
-            for x in suggs:
-                if isinstance(x, dict):
-                    lbl = x.get("label", "").strip()
-                    det = x.get("detail", "").strip()
+        if isinstance(ai_suggestions, list):
+            for sugg in ai_suggestions:
+                if isinstance(sugg, dict):
+                    lbl = sugg.get("label", "").strip()
+                    det = sugg.get("detail", "").strip()
                     lines.append(f"- **{lbl}**: {det}")
                 else:
-                    lines.append(f"- {x}")
-        elif isinstance(suggs, dict):
-            for x in suggs.get("items", []):
-                lbl = x.get("label", "").strip()
-                det = x.get("detail", "").strip()
+                    lines.append(f"- {sugg}")
+        elif isinstance(ai_suggestions, dict):
+            for sugg in ai_suggestions.get("items", []):
+                lbl = sugg.get("label", "").strip()
+                det = sugg.get("detail", "").strip()
                 lines.append(f"- **{lbl}**: {det}")
             
     return "\n".join(lines)
+
+
+build_markmap_md = generate_detailed_markmap_md
 
 
 class MeetingAnalyzer:
