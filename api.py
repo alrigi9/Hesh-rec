@@ -8,6 +8,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 import toml
@@ -139,11 +140,14 @@ async def process_audio(
             detail=f"Unsupported file format '{suffix}'. Allowed: {', '.join(allowed)}"
         )
 
-    # Save to local inputs dir
-    save_path = INPUTS_DIR / f"upload_{file.filename}"
+    # Save to local inputs dir with unique timestamped stream
+    clean_fname = Path(file.filename).name.replace(" ", "_")
+    timestamp_prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_path = INPUTS_DIR / f"upload_{timestamp_prefix}_{clean_fname}"
+
     try:
         with open(save_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            shutil.copyfileobj(file.file, buffer, length=1024 * 1024)
 
         ensure_secrets_loaded()
         groq_k = get_secret("GROQ_API_KEY")

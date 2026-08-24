@@ -6,7 +6,6 @@ Aesthetic: Ultra-fluid editorial layout, generous negative space, bold geometric
 """
 
 import re
-import streamlit as st
 
 # Design Tokens Dictionary (Google Design Inspired)
 LIGHT_TOKENS = {
@@ -1043,4 +1042,8 @@ def inject_theme(theme: str = "dark"):
       }})();
     </script>
     """
-    st.markdown(app_css, unsafe_allow_html=True)
+    try:
+        import streamlit as st
+        st.markdown(app_css, unsafe_allow_html=True)
+    except Exception:
+        pass

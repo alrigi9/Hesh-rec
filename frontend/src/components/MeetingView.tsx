@@ -1,0 +1,554 @@
+"use client";
+
+import React, { useState } from "react";
+import { 
+  FileText, 
+  CheckSquare, 
+  Network, 
+  MessageSquare, 
+  Clock, 
+  Calendar, 
+  Tag, 
+  Copy, 
+  Download, 
+  Printer, 
+  Check, 
+  User, 
+  Sparkles, 
+  Send,
+  Loader2,
+  AlertCircle,
+  HelpCircle,
+  ShieldCheck
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MeetingSession, ActionItem } from "@/types/meeting";
+import { MindmapView } from "@/components/MindmapView";
+import { askMeetingAssistant } from "@/lib/api";
+
+interface MeetingViewProps {
+  session: MeetingSession;
+  onSeekAudio?: (seconds: number) => void;
+}
+
+export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
+  const [activeTab, setActiveTab] = useState("summary");
+  const [copied, setCopied] = useState(false);
+  const [actionItems, setActionItems] = useState<ActionItem[]>(() => {
+    const items = [...(session.action_items || [])];
+    (session.sections || []).forEach((sec) => {
+      (sec.action_items || []).forEach((a) => {
+        if (!items.find((it) => it.task === a.task || it.description === a.description)) {
+          items.push(a);
+        }
+      });
+    });
+    return items.map((it, idx) => ({
+      ...it,
+      number: idx + 1,
+      status: it.status || "pending",
+      priority: it.priority || "MED",
+    }));
+  });
+
+  // Chat State
+  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const toggleActionStatus = (idx: number) => {
+    setActionItems((prev) =>
+      prev.map((item, i) =>
+        i === idx
+          ? {
+              ...item,
+              status: item.status === "completed" ? "pending" : "completed",
+            }
+          : item
+      )
+    );
+  };
+
+  const handleCopyMarkdown = () => {
+    const md = session.raw_markdown || `# ${session.title}\n\n${session.tldr || ""}`;
+    navigator.clipboard.writeText(md);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadJSON = () => {
+    const jsonStr = JSON.stringify(session, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(session.title || "meeting").replace(/[^a-z0-9]/gi, "_")}.json`;
+    a.click();
+  };
+
+  const handleSendChat = async (promptText?: string) => {
+    const query = promptText || chatInput.trim();
+    if (!query || chatLoading) return;
+
+    const newMessages = [...messages, { role: "user", content: query }];
+    setMessages(newMessages);
+    setChatInput("");
+    setChatLoading(true);
+
+    try {
+      const answer = await askMeetingAssistant(session, query, newMessages);
+      setMessages([...newMessages, { role: "assistant", content: answer }]);
+    } catch {
+      setMessages([
+        ...newMessages,
+        {
+          role: "assistant",
+          content: "Sorry, I encountered an issue analyzing this meeting context.",
+        },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const totalActions = actionItems.length;
+  const completedActions = actionItems.filter((a) => a.status === "completed").length;
+  const completionPercent = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
+
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-10">
+      {/* Editorial Header */}
+      <div className="space-y-4 mb-8">
+        <h1 className="text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading">
+          {session.title || "Meeting Summary"}
+        </h1>
+
+        {/* Floating Metadata Pills */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {session.metadata?.duration && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono">
+              <Clock className="w-3 h-3 text-[#ff5c47]" />
+              {session.metadata.duration}
+            </span>
+          )}
+          {session.meeting_date && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono">
+              <Calendar className="w-3 h-3 text-[#8b909a]" />
+              {session.meeting_date}
+            </span>
+          )}
+          {session.metadata?.model && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a]">
+              <Sparkles className="w-3 h-3 text-[#ff5c47]" />
+              {session.metadata.model}
+            </span>
+          )}
+          {(session.tags || []).map((t, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a]"
+            >
+              <Tag className="w-3 h-3 text-[#8b909a]" />
+              {t.replace(/^#/, "")}
+            </span>
+          ))}
+        </div>
+
+        {/* Action Toolbar */}
+        <div className="flex items-center gap-2 pt-2 border-b border-[#232529] pb-6">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCopyMarkdown}
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 mr-1.5 text-[#3ec98a]" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
+            {copied ? "Copied" : "Copy Markdown"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDownloadJSON}
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            JSON
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => window.print()}
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
+          >
+            <Printer className="w-3.5 h-3.5 mr-1.5" />
+            Print / PDF
+          </Button>
+        </div>
+      </div>
+
+      {/* 4 Dedicated Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-[#141517] border border-[#232529] p-1 rounded-full inline-flex gap-1">
+          <TabsTrigger
+            value="summary"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+          >
+            <FileText className="w-3.5 h-3.5 mr-1.5" />
+            Summary
+          </TabsTrigger>
+          <TabsTrigger
+            value="actions"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+          >
+            <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
+            Action Items ({totalActions})
+          </TabsTrigger>
+          <TabsTrigger
+            value="mindmap"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+          >
+            <Network className="w-3.5 h-3.5 mr-1.5" />
+            Mind Map
+          </TabsTrigger>
+          <TabsTrigger
+            value="transcript"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+          >
+            <Clock className="w-3.5 h-3.5 mr-1.5" />
+            Transcript
+          </TabsTrigger>
+          <TabsTrigger
+            value="chat"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+          >
+            <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+            Chat
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB 1: SUMMARY */}
+        <TabsContent value="summary" className="space-y-8 focus-visible:outline-none">
+          {/* Executive Brief */}
+          {session.tldr && (
+            <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 shadow-sm">
+              <div className="text-xs font-bold text-[#ff5c47] uppercase tracking-wider mb-2 font-heading">
+                Executive Brief
+              </div>
+              <p className="text-sm leading-relaxed text-[#f0f2f5]">{session.tldr}</p>
+            </div>
+          )}
+
+          {/* Discussion Pillars (Numbered Sections) */}
+          <div className="space-y-6">
+            {(session.sections || []).map((sec, idx) => {
+              const n = sec.n || idx + 1;
+              const cleanTitle = (sec.title || `Topic ${n}`).replace(/^\d+\.\s*/, "");
+
+              return (
+                <div
+                  key={idx}
+                  className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-4 shadow-sm"
+                >
+                  <h2 className="text-lg font-bold text-[#f0f2f5] font-heading">
+                    {n}. {cleanTitle}
+                  </h2>
+                  <p className="text-sm leading-relaxed text-[#f0f2f5]">{sec.narrative}</p>
+
+                  {/* Decisions */}
+                  {sec.decisions && sec.decisions.length > 0 && (
+                    <div className="p-4 bg-[#18191c] border border-[#232529] rounded-xl space-y-2">
+                      <div className="text-xs font-semibold text-[#f0f2f5]">Decisions Agreed:</div>
+                      <ul className="space-y-1 text-xs text-[#8b909a]">
+                        {sec.decisions.map((d, dIdx) => (
+                          <li key={dIdx} className="flex items-start gap-2">
+                            <span className="text-[#3ec98a] font-bold">•</span>
+                            <span>{d}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Inline Action Items */}
+                  {sec.action_items && sec.action_items.length > 0 && (
+                    <div className="space-y-2 pt-2">
+                      <div className="text-xs font-semibold text-[#8b909a] uppercase tracking-wider">
+                        Deliverables
+                      </div>
+                      <div className="space-y-1.5">
+                        {sec.action_items.map((act, aIdx) => (
+                          <div
+                            key={aIdx}
+                            className="flex items-center justify-between p-2.5 rounded-xl bg-[#18191c] border border-[#232529] text-xs text-[#f0f2f5]"
+                          >
+                            <span className="truncate">
+                              {act.task || act.description}
+                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#232529] text-[#8b909a]">
+                                {act.owner || act.assignee || "Team"}
+                              </span>
+                              {act.due_date && (
+                                <span className="text-[11px] font-mono text-[#8b909a]">
+                                  {act.due_date}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Open Questions */}
+          {session.open_questions && session.open_questions.length > 0 && (
+            <div className="bg-[#141517] border border-[#232529] border-l-4 border-l-[#f9ab00] rounded-2xl p-6 space-y-3">
+              <div className="text-xs font-bold text-[#f9ab00] uppercase tracking-wider flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4" />
+                Open Questions & Unresolved Items
+              </div>
+              <ul className="space-y-2 text-xs text-[#f0f2f5]">
+                {session.open_questions.map((q, idx) => {
+                  const qText = typeof q === "string" ? q : q.question;
+                  const raisedBy = typeof q === "object" ? q.raised_by : "";
+                  return (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-[#f9ab00] font-bold">•</span>
+                      <span>
+                        {qText}
+                        {raisedBy && <em className="text-[#8b909a] ml-1">({raisedBy})</em>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* TAB 2: ACTION ITEMS MANAGER */}
+        <TabsContent value="actions" className="space-y-6 focus-visible:outline-none">
+          {/* Progress Header */}
+          <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 flex items-center justify-between shadow-sm">
+            <div>
+              <div className="text-base font-semibold text-[#f0f2f5] font-heading">
+                Action Items Tracker
+              </div>
+              <div className="text-xs text-[#8b909a]">
+                {completedActions} of {totalActions} tasks completed ({completionPercent}%)
+              </div>
+            </div>
+            <div className="w-36 h-2 bg-[#232529] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#ff5c47] rounded-full transition-all duration-300"
+                style={{ width: `${completionPercent}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Checklist */}
+          <div className="space-y-2">
+            {actionItems.map((item, idx) => {
+              const isDone = item.status === "completed";
+              const taskText = item.task || item.description || "Deliverable";
+
+              return (
+                <div
+                  key={idx}
+                  onClick={() => toggleActionStatus(idx)}
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    isDone
+                      ? "bg-[#141517]/50 border-[#232529]/60 text-[#8b909a]"
+                      : "bg-[#141517] border-[#232529] text-[#f0f2f5] hover:border-[#2e3238]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                        isDone
+                          ? "bg-[#ff5c47] border-[#ff5c47] text-white"
+                          : "border-[#3e434c] bg-[#18191c]"
+                      }`}
+                    >
+                      {isDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    </div>
+                    <span className={`text-xs ${isDone ? "line-through text-[#8b909a]" : "font-medium"}`}>
+                      {taskText}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#1c1e22] border border-[#232529] text-[#8b909a]">
+                      {item.owner || item.assignee || "Team"}
+                    </span>
+                    {item.priority === "HIGH" && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#ff5c47]/10 text-[#ff5c47] border border-[#ff5c47]/20">
+                        HIGH
+                      </span>
+                    )}
+                    {item.due_date && (
+                      <span className="text-[11px] font-mono text-[#8b909a]">
+                        {item.due_date}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </TabsContent>
+
+        {/* TAB 3: MIND MAP */}
+        <TabsContent value="mindmap" className="focus-visible:outline-none">
+          <MindmapView session={session} />
+        </TabsContent>
+
+        {/* TAB 4: TRANSCRIPT */}
+        <TabsContent value="transcript" className="space-y-4 focus-visible:outline-none">
+          <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-3 shadow-sm">
+            <div className="text-xs font-semibold text-[#8b909a] uppercase tracking-wider mb-2">
+              Diarized Transcript
+            </div>
+
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+              {(session.transcript_segments || []).map((seg, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 rounded-xl bg-[#18191c] border border-[#232529] space-y-1.5 hover:border-[#2e3238] transition-colors"
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold px-2 py-0.5 rounded-full bg-[#232529] text-[#f0f2f5] text-[11px]">
+                        {seg.speaker || "Speaker 1"}
+                      </span>
+                      <span className="font-mono text-[11px] text-[#8b909a]">
+                        {seg.timestamp || "00:00"}
+                      </span>
+                    </div>
+
+                    {seg.seconds !== undefined && onSeekAudio && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onSeekAudio(seg.seconds || 0)}
+                        className="h-6 px-2 text-[11px] text-[#ff5c47] hover:bg-[#ff5c47]/10 rounded-full"
+                      >
+                        Play from here
+                      </Button>
+                    )}
+                  </div>
+                  <div className="text-xs leading-relaxed text-[#f0f2f5]">{seg.text}</div>
+                </div>
+              ))}
+
+              {(!session.transcript_segments || session.transcript_segments.length === 0) && (
+                <div className="p-8 text-center text-xs text-[#8b909a]">
+                  {session.full_transcript_text || "No transcript turns available."}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* TAB 5: CHAT ASSISTANT */}
+        <TabsContent value="chat" className="space-y-6 focus-visible:outline-none">
+          <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 min-h-[500px] flex flex-col justify-between shadow-sm">
+            {/* Messages Stream */}
+            <div className="space-y-4 overflow-y-auto max-h-[420px] pr-2">
+              {messages.length === 0 ? (
+                <div className="space-y-4 py-8">
+                  <div className="text-center space-y-1">
+                    <div className="w-10 h-10 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 flex items-center justify-center text-[#ff5c47] mx-auto">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div className="text-sm font-semibold text-[#f0f2f5] font-heading">
+                      Meeting Assistant
+                    </div>
+                    <div className="text-xs text-[#8b909a]">
+                      Ask specific questions grounded in this meeting transcript and decisions.
+                    </div>
+                  </div>
+
+                  {/* Clickable Starter Pills */}
+                  <div className="flex flex-wrap justify-center gap-2 pt-2">
+                    {[
+                      "What were the key decisions?",
+                      "List all action items with owners",
+                      "Summarize next steps and deadlines",
+                    ].map((prompt, pIdx) => (
+                      <button
+                        key={pIdx}
+                        onClick={() => handleSendChat(prompt)}
+                        className="px-3.5 py-1.5 rounded-full bg-[#18191c] border border-[#232529] text-xs text-[#8b909a] hover:text-[#f0f2f5] hover:border-[#ff5c47]/50 hover:bg-[#ff5c47]/5 transition-all"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                messages.map((m, mIdx) => (
+                  <div
+                    key={mIdx}
+                    className={`flex gap-3 ${
+                      m.role === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`p-3.5 rounded-2xl text-xs leading-relaxed max-w-[80%] ${
+                        m.role === "user"
+                          ? "bg-[#ff5c47] text-white rounded-br-none"
+                          : "bg-[#18191c] border border-[#232529] text-[#f0f2f5] rounded-bl-none"
+                      }`}
+                    >
+                      {m.content}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {chatLoading && (
+                <div className="flex items-center gap-2 text-xs text-[#8b909a] p-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#ff5c47]" />
+                  <span>Analyzing meeting context...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Pinned Pill Input */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendChat();
+              }}
+              className="relative mt-4"
+            >
+              <input
+                type="text"
+                placeholder="Ask a question about this meeting..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                disabled={chatLoading}
+                className="w-full h-11 pl-4 pr-12 bg-[#18191c] border border-[#232529] rounded-full text-xs text-[#f0f2f5] placeholder-[#8b909a] focus:outline-none focus:border-[#ff5c47]/60 transition-colors shadow-inner"
+              />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={chatLoading || !chatInput.trim()}
+                className="w-8 h-8 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white absolute right-1.5 top-1/2 -translate-y-1/2 shadow-sm"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </Button>
+            </form>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
