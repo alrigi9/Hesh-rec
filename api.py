@@ -321,6 +321,7 @@ async def get_user_profile(
 
 
 @app.post("/api/process-audio")
+@app.post("/api/transcribe")
 async def process_audio(
     file: UploadFile = File(...),
     template_type: str = Form("executive"),
