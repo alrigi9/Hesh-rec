@@ -15,6 +15,7 @@ interface AuthContextType {
   isAdmin: boolean;
   signIn: (email: string, pass: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, pass: string) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
+  signInWithGoogleIdToken: (idToken: string) => Promise<{ error: Error | null; data?: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -141,6 +142,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error, needsEmailConfirmation: false };
   };
 
+  const signInWithGoogleIdToken = async (idToken: string) => {
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: "google",
+      token: idToken,
+    });
+    if (!error && data.user) {
+      setUser(data.user);
+      setSession(data.session);
+      await loadProfile(data.user, data.session);
+    }
+    return { error, data };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -163,6 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         signIn,
         signUp,
+        signInWithGoogleIdToken,
         signOut,
         refreshProfile,
       }}
