@@ -9,6 +9,41 @@ const rawApiBase =
     : "http://localhost:8000";
 const API_BASE = rawApiBase.replace(/\/+$/, "");
 
+function formatErrorMessage(errData: any, status: number, statusText: string): string {
+  if (!errData) return `Request failed with status ${status}: ${statusText}`;
+  if (typeof errData === "string") return errData;
+
+  // Handle FastAPI validation error list: [{ loc: [...], msg: "...", type: "..." }]
+  if (Array.isArray(errData.detail)) {
+    const msgs = errData.detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).filter(Boolean);
+    if (msgs.length > 0) return msgs.join("; ");
+  }
+
+  if (typeof errData.detail === "string" && errData.detail.trim()) {
+    return errData.detail;
+  }
+  if (typeof errData.detail === "object" && errData.detail !== null) {
+    return errData.detail.msg || errData.detail.message || errData.detail.detail || JSON.stringify(errData.detail);
+  }
+
+  if (typeof errData.error === "string" && errData.error.trim()) {
+    return errData.error;
+  }
+  if (typeof errData.error === "object" && errData.error !== null) {
+    return errData.error.message || errData.error.detail || JSON.stringify(errData.error);
+  }
+
+  if (typeof errData.message === "string" && errData.message.trim()) {
+    return errData.message;
+  }
+
+  try {
+    return JSON.stringify(errData);
+  } catch {
+    return `Request failed with status ${status}: ${statusText}`;
+  }
+}
+
 async function safeReadResponse(res: Response): Promise<any> {
   const responseText = await res.text();
   let data: any = {};
@@ -19,9 +54,8 @@ async function safeReadResponse(res: Response): Promise<any> {
   }
 
   if (!res.ok) {
-    throw new Error(
-      data.detail || data.error || data.message || `Request failed with status ${res.status}`
-    );
+    const errorMsg = formatErrorMessage(data, res.status, res.statusText);
+    throw new Error(errorMsg);
   }
 
   return data;
@@ -104,35 +138,24 @@ export async function processAudioFile(
     return await safeReadResponse(response);
   }
 
-  // High-Speed Decoupled Pipeline (Works for 0.1MB - 50MB files seamlessly in <5s):
-  // 1. Direct high-speed Groq Whisper LPU speech-to-text from browser (~1s)
-  const groqKey =
-    process.env.NEXT_PUBLIC_GROQ_API_KEY ||
-    "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";
-
+  // 1. Step 1: Direct High-Speed Speech Transcription
   let transcriptText = "";
   let durationSeconds = 0;
   let formattedSegments: any[] = [];
 
+  // Try direct serverless transcription endpoint (/api/transcribe-direct)
   try {
-    const groqFormData = new FormData();
-    groqFormData.append("file", file, file.name);
-    groqFormData.append("model", "whisper-large-v3");
-    groqFormData.append("response_format", "verbose_json");
-    groqFormData.append("temperature", "0");
-    if (language === "ar") groqFormData.append("language", "ar");
-    if (language === "en") groqFormData.append("language", "en");
+    const transcribeFormData = new FormData();
+    transcribeFormData.append("file", file, file.name);
+    transcribeFormData.append("language", language);
 
-    const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+    const transcribeRes = await fetch("/api/transcribe-direct", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${groqKey}`,
-      },
-      body: groqFormData,
+      body: transcribeFormData,
     });
 
-    if (groqRes.ok) {
-      const groqData = await groqRes.json();
+    if (transcribeRes.ok) {
+      const groqData = await transcribeRes.json();
       transcriptText = (groqData.text || "").trim();
       durationSeconds = Number(groqData.duration || 0.0);
 
@@ -146,18 +169,18 @@ export async function processAudioFile(
         text: (seg.text || "").trim(),
       }));
     }
-  } catch (groqErr) {
-    console.warn("Client-side Groq transcription note, falling back to direct server route:", groqErr);
+  } catch (err) {
+    console.warn("Direct transcription endpoint note, falling back to full pipeline:", err);
   }
 
-  // 2. Synthesize Meeting Intelligence via Edge Route / Backend
+  // 2. Step 2: Synthesize Meeting Intelligence via /api/process-audio
   const synthFormData = new FormData();
   if (transcriptText) {
     synthFormData.append("transcript_text", transcriptText);
     synthFormData.append("transcript_segments", JSON.stringify(formattedSegments));
     synthFormData.append("duration_seconds", durationSeconds.toString());
   } else {
-    // If client direct transcription was skipped, include file directly
+    // If transcription was not pre-computed, include audio file directly
     synthFormData.append("file", file);
   }
   synthFormData.append("filename", file.name);
@@ -166,7 +189,7 @@ export async function processAudioFile(
   if (customTitle) synthFormData.append("custom_title", customTitle);
   if (userId) synthFormData.append("user_id", userId);
 
-  const endpoint = API_BASE && API_BASE !== "" ? `${API_BASE}/api/process-audio` : `/api/process-audio`;
+  const endpoint = "/api/process-audio";
   const response = await fetch(endpoint, {
     method: "POST",
     headers,
@@ -191,150 +214,239 @@ export async function fetchSessions(
     const res = await fetch(url, { headers });
     if (!res.ok) return [];
     const data = await safeReadResponse(res);
-    if (Array.isArray(data)) return data;
-    return data.sessions || [];
-  } catch (err) {
-    console.error("Error fetching sessions:", err);
+    return Array.isArray(data) ? data : data.sessions || [];
+  } catch {
     return [];
   }
 }
 
-export async function fetchSession(id: string): Promise<MeetingSession | null> {
+export async function fetchSessionById(
+  id: string,
+  token?: string
+): Promise<MeetingSession | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`);
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`, { headers });
     if (!res.ok) return null;
     return await safeReadResponse(res);
-  } catch (err) {
-    console.error("Error fetching session:", err);
+  } catch {
     return null;
   }
 }
 
-export const fetchSessionById = fetchSession;
-
-export async function toggleSessionPublic(
-  id: string,
-  isPublic: boolean
-): Promise<boolean> {
+export async function deleteSession(id: string, token?: string): Promise<boolean> {
   try {
-    const res = await fetch(
-      `${API_BASE}/api/sessions/${encodeURIComponent(id)}/public?is_public=${isPublic}`,
-      { method: "PATCH" }
-    );
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers,
+    });
     return res.ok;
   } catch {
     return false;
   }
 }
 
-export const togglePublicSession = toggleSessionPublic;
+export async function updateSessionTitle(
+  id: string,
+  title: string,
+  token?: string
+): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-export async function queryAssistant(
-  sessionData: any,
-  query: string,
-  history: Array<{ role: string; content: string }> = []
-): Promise<string> {
-  const response = await fetch(`${API_BASE}/api/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      session: sessionData,
-      session_data: sessionData,
-      query: query,
-      user_query: query,
-      messages: history,
-      chat_history: history,
-    }),
-  });
-
-  const data = await safeReadResponse(response);
-  return data.answer || "I could not generate an answer for that query.";
+    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ title }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
-export const askMeetingAssistant = queryAssistant;
+export async function togglePublicSession(
+  id: string,
+  isPublic: boolean,
+  token?: string
+): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
+    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ is_public: isPublic }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function askMeetingAssistant(
+  session: MeetingSession,
+  query: string,
+  messages: Array<{ role: string; content: string }> = []
+): Promise<string> {
+  try {
+    const res = await fetch(`/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session, query, messages }),
+    });
+
+    const data = await safeReadResponse(res);
+    return data.answer || "No response received.";
+  } catch (err: any) {
+    return `Assistant Error: ${err.message || "Failed to analyze meeting."}`;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Admin Portal API Helpers
+// ----------------------------------------------------------------------------
 export async function fetchAdminUsers(
   token?: string,
-  adminId?: string
+  adminUserId?: string
 ): Promise<{ users: AdminUserRecord[]; stats: AdminDashboardStats }> {
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  try {
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const url = adminId
-    ? `${API_BASE}/api/admin/users?admin_id=${encodeURIComponent(adminId)}`
-    : `${API_BASE}/api/admin/users`;
+    const url = adminUserId
+      ? `/api/admin/users?admin_user_id=${encodeURIComponent(adminUserId)}`
+      : `/api/admin/users`;
 
-  const res = await fetch(url, { headers });
-  return await safeReadResponse(res);
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      return {
+        users: [],
+        stats: {
+          total_users: 0,
+          total_minutes_processed: 0,
+          average_usage_per_user: 0,
+          system_limit_per_user: 300,
+        },
+      };
+    }
+    const data = await safeReadResponse(res);
+    if (Array.isArray(data)) {
+      const totUsers = data.length;
+      const totMin = data.reduce((acc: number, u: any) => acc + (u.minutes_used_this_month || 0), 0);
+      return {
+        users: data,
+        stats: {
+          total_users: totUsers,
+          total_minutes_processed: totMin,
+          average_usage_per_user: totUsers > 0 ? Math.round(totMin / totUsers) : 0,
+          system_limit_per_user: 300,
+        },
+      };
+    }
+    return {
+      users: data.users || [],
+      stats: data.stats || {
+        total_users: 0,
+        total_minutes_processed: 0,
+        average_usage_per_user: 0,
+        system_limit_per_user: 300,
+      },
+    };
+  } catch {
+    return {
+      users: [],
+      stats: {
+        total_users: 0,
+        total_minutes_processed: 0,
+        average_usage_per_user: 0,
+        system_limit_per_user: 300,
+      },
+    };
+  }
 }
 
 export async function updateAdminUserLimit(
-  targetUserId: string,
-  payload: { monthly_minutes_limit?: number; role?: string },
+  userId: string,
+  updates: { monthly_minutes_limit?: number; role?: string } | number,
   token?: string,
-  adminId?: string
+  adminUserId?: string
 ): Promise<boolean> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  // Try App Router endpoint first
-  const res = await fetch(`${API_BASE}/api/admin/quota`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      target_user_id: targetUserId,
-      monthly_minutes_limit: payload.monthly_minutes_limit,
-      admin_id: adminId,
-    }),
-  });
+    const bodyObj: any = {
+      user_id: userId,
+      admin_user_id: adminUserId,
+    };
+    if (typeof updates === "number") {
+      bodyObj.monthly_minutes_limit = updates;
+    } else if (typeof updates === "object" && updates !== null) {
+      if (updates.monthly_minutes_limit !== undefined) bodyObj.monthly_minutes_limit = updates.monthly_minutes_limit;
+      if (updates.role !== undefined) bodyObj.role = updates.role;
+    }
 
-  return res.ok;
+    const res = await fetch(`/api/admin/quota`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(bodyObj),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function resetAdminUserQuota(
-  targetUserId: string,
+  userId: string,
   token?: string,
-  adminId?: string
+  adminUserId?: string
 ): Promise<boolean> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}/api/admin/reset-quota`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      target_user_id: targetUserId,
-      admin_id: adminId,
-    }),
-  });
-
-  return res.ok;
+    const res = await fetch(`/api/admin/reset-quota`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ user_id: userId, admin_user_id: adminUserId }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function activateAdminUser(
-  targetUserId: string,
+  userId: string,
   token?: string,
-  adminId?: string
+  adminUserId?: string
 ): Promise<boolean> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}/api/admin/activate`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      target_user_id: targetUserId,
-      admin_id: adminId,
-    }),
-  });
-
-  return res.ok;
+    const res = await fetch(`/api/admin/activate`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ user_id: userId, admin_user_id: adminUserId, is_active: true }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
+
+export const updateUserQuota = updateAdminUserLimit;
+export const resetUserMonthlyUsage = resetAdminUserQuota;
+export const toggleUserActivation = activateAdminUser;
+
+

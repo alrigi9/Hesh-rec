@@ -139,7 +139,18 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       clearTimeout(stageTimer3);
       setLoading(false);
       
-      let msg = err instanceof Error ? err.message : "Failed to process media file.";
+      let msg = "Failed to process media file.";
+      if (typeof err === "string") {
+        msg = err;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      } else if (typeof err === "object" && err !== null) {
+        const anyErr = err as any;
+        msg = anyErr.detail || anyErr.message || anyErr.error || JSON.stringify(err);
+      }
+      if (typeof msg === "object") {
+        msg = JSON.stringify(msg);
+      }
       if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("Load failed")) {
         msg = "Server unreachable. Please check your connection or try again in a few moments.";
       }
