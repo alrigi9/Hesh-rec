@@ -10,58 +10,39 @@ from core.parser import save_report_files
 from core.ui import console, print_step, print_error
 
 def build_meeting_prompt(topic: str, current_date: str) -> str:
-    """Build the prompt instructions for Plaud clean document-first meeting intelligence."""
+    """Build the prompt instructions for exact Plaud document-first meeting intelligence."""
     return f"""You are an elite Executive Meeting & Speech Intelligence Analyst adhering strictly to the clean, document-first Plaud methodology.
 Your objective is to produce an elegant, narrative-first executive intelligence report from the provided audio/video meeting recording with ZERO redundant boilerplate labels.
 
 Analyze the entire recording thoroughly and generate the report adhering STRICTLY to the following clean Plaud document structure:
 
-# 🎙️ Meeting Intelligence Report: {topic}
-
-**Generated:** {current_date}
-**Duration:** [Estimated meeting duration, e.g. 00:45:20]
-**Identified Participants:** [List all identified participants, roles/titles if discernible from speech]
-
----
-
-## ⚡ Executive Summary
-[A crisp 2-3 sentence overarching executive summary capturing the strategic purpose, core breakthroughs, and major decisions of the session.]
-
----
+# {topic}
 
 ## 1. [First Core Topic Title]
 [A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution. DO NOT include boilerplate labels like 'Core Topic & Focus:' or 'Speaker Perspective:' or 'Context:'; write clean, continuous business prose.]
 
 ### Action Items
-- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
-- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
-
----
+- [ ] [Task description] — *[Assignee]* [Date if available]
+- [ ] [Task description] — *[Assignee]* [Date if available]
 
 ## 2. [Second Core Topic Title]
 [A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
 
 ### Action Items
-- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
-
----
+- [ ] [Task description] — *[Assignee]* [Date if available]
 
 ## 3. [Third Core Topic Title]
 [A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
 
 ### Action Items
-- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
+- [ ] [Task description] — *[Assignee]* [Date if available]
 
----
+## AI Suggestions
+> AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:
+1. **[Suggestion / Unresolved Issue Title]**: [Explanation of the issue or gap and recommendation]
+2. **[Suggestion / Unresolved Issue Title]**: [Explanation of the issue or gap and recommendation]
 
-## 💡 AI Suggestions
-> - **Unresolved Discussion Points:** [Key open questions, unresolved topics, or items deferred to future meetings]
-> - **Missing Deadlines & Ownership Gaps:** [Deliverables mentioned without firm dates, ambiguous owners, or dependency risks]
-> - **Strategic Follow-up Recommendations:** [Proactive recommendations and next steps for team leadership]
-
----
-
-## 🗺️ Visual Architecture (Mermaid Mindmap)
+## Visual Architecture (Mermaid Mindmap)
 
 CRITICAL RULES FOR MERMAID:
 - Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
@@ -77,12 +58,10 @@ mindmap
     ["2. Second Topic Title"]
       ["Narrative Focus Point"]
       ["Action: Deliverable description"]
-    ["💡 AI Suggestions"]
+    ["AI Suggestions"]
       ["Unresolved Point or Gap"]
       ["Strategic Recommendation"]
 ```
-
----
 
 ## 🗣️ Speaker Diarization & Complete Transcript
 

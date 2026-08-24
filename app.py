@@ -144,7 +144,7 @@ restore_persistent_session()
 # =============================================================================
 # PRODUCTION-GRADE SAAS DARK/LIGHT THEME SYSTEM
 # =============================================================================
-def apply_saas_theme(theme: str = "dark"):
+def apply_saas_theme(theme: str = "light"):
     if theme == "dark":
         css_vars = """
         :root {
@@ -172,17 +172,17 @@ def apply_saas_theme(theme: str = "dark"):
     else:
         css_vars = """
         :root {
-            --hesh-bg: #F8FAFC;
+            --hesh-bg: #FFFFFF;
             --hesh-surface: #FFFFFF;
-            --hesh-surface-hover: #F1F5F9;
-            --hesh-border: #E2E8F0;
-            --hesh-border-hover: #0284C7;
-            --hesh-text-primary: #0F172A;
-            --hesh-text-secondary: #475569;
-            --hesh-text-muted: #94A3B8;
-            --hesh-accent: #0284C7;
-            --hesh-accent-hover: #0369A1;
-            --hesh-accent-subtle: #E0F2FE;
+            --hesh-surface-hover: #F9FAFB;
+            --hesh-border: #E5E7EB;
+            --hesh-border-hover: #2563EB;
+            --hesh-text-primary: #111827;
+            --hesh-text-secondary: #374151;
+            --hesh-text-muted: #6B7280;
+            --hesh-accent: #2563EB;
+            --hesh-accent-hover: #1D4ED8;
+            --hesh-accent-subtle: #EFF6FF;
             --hesh-purple: #7E22CE;
             --hesh-purple-subtle: #F3E8FF;
             --hesh-emerald: #059669;
@@ -190,7 +190,7 @@ def apply_saas_theme(theme: str = "dark"):
             --hesh-rose: #E11D48;
             --hesh-rose-subtle: #FFE4E6;
             --hesh-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            --hesh-sidebar-bg: #FFFFFF;
+            --hesh-sidebar-bg: #F9FAFB;
         }
         """
 
@@ -419,185 +419,101 @@ def apply_saas_theme(theme: str = "dark"):
             margin-bottom: 14px;
         }}
 
-        /* Plaud Document-First Layout & Typography (Clean Crisp White/Light Document Container) */
-        .plaud-doc-container {{
-            background: #FFFFFF !important;
-            color: #1E293B !important;
-            border: 1px solid #E2E8F0 !important;
-            border-radius: 16px !important;
-            padding: 40px 48px !important;
-            margin-bottom: 24px !important;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06) !important;
-            max-width: 960px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-        }}
-        .plaud-doc-header {{
-            border-bottom: 1px solid #E2E8F0 !important;
-            padding-bottom: 18px !important;
-            margin-bottom: 24px !important;
+        /* Plaud Document-First Layout & Typography (Seamless, Clean, Light) */
+        .plaud-doc-wrap {{
+            max-width: 960px;
+            margin: 0;
+            padding: 10px 4px 40px 4px;
         }}
         .plaud-doc-title {{
-            font-size: 23px !important;
+            font-size: 26px !important;
             font-weight: 800 !important;
-            color: #0F172A !important;
-            line-height: 1.35 !important;
-            margin: 8px 0 6px 0 !important;
-        }}
-        .plaud-doc-meta {{
-            font-size: 12.5px !important;
-            color: #64748B !important;
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 12px !important;
-            align-items: center !important;
-        }}
-        .plaud-summary-box {{
-            background: #F8FAFC !important;
-            border: 1px solid #E2E8F0 !important;
-            border-left: 4px solid #0284C7 !important;
-            border-radius: 8px !important;
-            padding: 16px 20px !important;
-            margin-bottom: 26px !important;
-        }}
-        .plaud-summary-heading {{
-            font-size: 12px !important;
-            font-weight: 800 !important;
-            color: #0284C7 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.5px !important;
-            margin-bottom: 8px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 6px !important;
-        }}
-        .plaud-summary-text {{
-            font-size: 13.5px !important;
-            color: #334155 !important;
-            line-height: 1.65 !important;
-            margin: 0 !important;
+            color: #111827 !important;
+            line-height: 1.3 !important;
+            margin: 4px 0 24px 0 !important;
+            letter-spacing: -0.5px !important;
         }}
         .plaud-topic-block {{
-            margin-bottom: 26px !important;
-            padding-bottom: 22px !important;
-            border-bottom: 1px solid #E2E8F0 !important;
-        }}
-        .plaud-topic-block:last-of-type {{
-            border-bottom: none !important;
+            margin-bottom: 28px !important;
         }}
         .plaud-topic-heading {{
-            font-size: 16px !important;
+            font-size: 19px !important;
             font-weight: 700 !important;
-            color: #0F172A !important;
-            margin-bottom: 10px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 10px !important;
-        }}
-        .plaud-topic-num {{
-            background: #E0F2FE !important;
-            color: #0284C7 !important;
-            font-size: 12px !important;
-            font-weight: 800 !important;
-            padding: 2px 8px !important;
-            border-radius: 6px !important;
-            min-width: 24px !important;
-            text-align: center !important;
+            color: #111827 !important;
+            margin: 28px 0 10px 0 !important;
+            letter-spacing: -0.3px !important;
+            line-height: 1.4 !important;
         }}
         .plaud-narrative {{
-            font-size: 14px !important;
-            color: #334155 !important;
-            line-height: 1.72 !important;
-            margin-bottom: 12px !important;
+            font-size: 14.5px !important;
+            color: #374151 !important;
+            line-height: 1.65 !important;
+            margin: 0 0 14px 0 !important;
         }}
         .plaud-action-card {{
-            background: #F8FAFC !important;
-            border: 1px solid #E2E8F0 !important;
-            border-radius: 10px !important;
-            padding: 12px 16px !important;
-            margin-top: 10px !important;
+            margin: 10px 0 22px 0 !important;
         }}
         .plaud-action-heading {{
-            font-size: 11px !important;
-            font-weight: 800 !important;
-            color: #0284C7 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.5px !important;
-            margin-bottom: 8px !important;
+            font-size: 14.5px !important;
+            font-weight: 700 !important;
+            color: #111827 !important;
+            margin: 0 0 8px 0 !important;
         }}
         .plaud-action-item {{
             display: flex !important;
-            align-items: flex-start !important;
-            justify-content: space-between !important;
-            gap: 12px !important;
-            padding: 6px 0 !important;
-            border-bottom: 1px dashed #E2E8F0 !important;
-            font-size: 12.5px !important;
-        }}
-        .plaud-action-item:last-child {{
-            border-bottom: none !important;
+            align-items: baseline !important;
+            gap: 8px !important;
+            font-size: 14px !important;
+            color: #1F2937 !important;
+            margin-bottom: 6px !important;
         }}
         .plaud-action-check {{
-            color: #0284C7 !important;
-            font-weight: 800 !important;
-            margin-right: 6px !important;
-            font-size: 13px !important;
+            font-size: 15px !important;
+            color: #4B5563 !important;
+            user-select: none !important;
         }}
         .plaud-action-desc {{
-            color: #0F172A !important;
-            font-size: 13px !important;
-            font-weight: 500 !important;
-            flex: 1 !important;
+            color: #111827 !important;
+            font-size: 14px !important;
         }}
         .plaud-action-owner-due {{
-            font-size: 11.5px !important;
-            color: #64748B !important;
-            white-space: nowrap !important;
+            font-size: 13px !important;
+            color: #6B7280 !important;
         }}
         .plaud-suggestions-box {{
-            background: linear-gradient(135deg, #FFFBEB 0%, #FAF5FF 100%) !important;
-            border: 1px solid #FCD34D !important;
-            border-radius: 14px !important;
-            padding: 22px 26px !important;
-            margin-top: 28px !important;
-            margin-bottom: 16px !important;
+            border-left: 3px solid #3B82F6 !important;
+            background: #F9FAFB !important;
+            padding: 18px 22px !important;
+            border-radius: 4px 8px 8px 4px !important;
+            margin-top: 36px !important;
+            margin-bottom: 24px !important;
         }}
         .plaud-suggestions-header {{
-            font-size: 14.5px !important;
-            font-weight: 800 !important;
-            color: #B45309 !important;
+            font-size: 16px !important;
+            font-weight: 700 !important;
+            color: #111827 !important;
+            margin-bottom: 4px !important;
+        }}
+        .plaud-suggestions-subtext {{
+            font-size: 13px !important;
+            color: #6B7280 !important;
             margin-bottom: 14px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 8px !important;
+            line-height: 1.5 !important;
         }}
         .plaud-suggestion-entry {{
-            display: flex !important;
-            align-items: flex-start !important;
-            gap: 10px !important;
-            font-size: 13px !important;
+            font-size: 14px !important;
             line-height: 1.6 !important;
+            color: #374151 !important;
             margin-bottom: 10px !important;
-            color: #334155 !important;
         }}
         .plaud-suggestion-entry:last-child {{
             margin-bottom: 0 !important;
         }}
-        .plaud-sugg-tag {{
-            font-size: 11px !important;
-            font-weight: 700 !important;
-            padding: 2px 7px !important;
-            border-radius: 4px !important;
-            white-space: nowrap !important;
-        }}
-        .plaud-sugg-unresolved {{ background: #FFE4E6 !important; color: #E11D48 !important; }}
-        .plaud-sugg-gap {{ background: #FEF3C7 !important; color: #D97706 !important; }}
-        .plaud-sugg-rec {{ background: #D1FAE5 !important; color: #059669 !important; }}
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-apply_saas_theme(st.session_state.get("theme", "dark"))
+apply_saas_theme(st.session_state.get("theme", "light"))
 
 
 # =============================================================================
@@ -1608,32 +1524,17 @@ def render_meeting_detail_view(session_id: str):
     user_id = get_current_user_id()
 
     # -------------------------------------------------------------------------
-    # TAB 1: EXECUTIVE SUMMARY & PILLARS (CLEAN DENSITY)
-    # -------------------------------------------------------------------------
-    # -------------------------------------------------------------------------
-    # TAB 1: EXECUTIVE SUMMARY & NARRATIVE (PLAUD CLEAN DOCUMENT LAYOUT)
+    # TAB 1: MEETING SUMMARY (EXACT PLAUD 1:1 CLEAN DOCUMENT LAYOUT)
     # -------------------------------------------------------------------------
     with tab_summary:
-        exec_brief = data.get("executive_brief", [])
         topics = data.get("numbered_topics", []) or data.get("discussion_pillars", [])
         ai_suggestions = data.get("ai_suggestions", {})
         all_actions = data.get("action_items", [])
         
-        # 1. Executive Summary
-        summary_paragraphs = []
-        for p in exec_brief:
-            clean_p = p.lstrip("•*- ").strip()
-            clean_p = re.sub(r"^>\s*[•\-]?\s*", "", clean_p)
-            clean_p = re.sub(r"^\*\*(?:Meeting Purpose|Key Decisions Taken|Critical Highlights|Strategic Purpose|Core Thesis)[^\*:]*:\*\*\s*", "", clean_p)
-            clean_p = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean_p).strip()
-            if clean_p:
-                summary_paragraphs.append(f"<p class='plaud-summary-text' style='margin-bottom:6px;'>• {clean_p}</p>")
-        
-        exec_summary_html = ""
-        if summary_paragraphs:
-            exec_summary_html = f"""<div class="plaud-summary-box"><div class="plaud-summary-heading"><span>⚡ Executive Summary</span></div>{''.join(summary_paragraphs)}</div>"""
+        # Document Title (Large bold clean font, left-aligned)
+        doc_title_html = f"""<div class="plaud-doc-title">{title}</div>"""
 
-        # 2. Numbered Topics + Per-Topic Narrative + Inline Action Items
+        # Numbered Topic Sections + Narratives + Inline Action Items
         topics_html_list = []
         for idx, t in enumerate(topics):
             t_num = t.get("index", idx + 1)
@@ -1656,7 +1557,7 @@ def render_meeting_detail_view(session_id: str):
             if not clean_narrative:
                 clean_narrative = "The discussion covered key technical and operational priorities with agreed consensus across stakeholders."
 
-            # Inline Action Items
+            # Inline Action Items under this topic
             t_actions = t.get("action_items", [])
             if not t_actions and all_actions:
                 t_actions = [a for a in all_actions if f"Topic {t_num}" in a.get("notes", "") or clean_title.lower() in a.get("notes", "").lower()]
@@ -1667,41 +1568,48 @@ def render_meeting_detail_view(session_id: str):
                 for a in t_actions:
                     a_desc = a.get("description") or a.get("task") or "Deliverable"
                     a_owner = a.get("assignee") or a.get("owner") or "Team"
-                    a_due = a.get("due_date") or "Next Sprint"
+                    a_due = a.get("due_date") or ""
+                    a_due_str = f" {a_due}" if a_due and a_due != "—" else ""
                     a_done = a.get("status") == "completed"
                     check_icon = "☑" if a_done else "☐"
                     desc_style = "text-decoration: line-through; opacity: 0.65;" if a_done else ""
 
-                    action_rows.append(f"""<div class="plaud-action-item"><div style="display:flex; align-items:flex-start; flex:1;"><span class="plaud-action-check">{check_icon}</span><span class="plaud-action-desc" style="{desc_style}">{a_desc}</span></div><div class="plaud-action-owner-due"><em>{a_owner}</em> &nbsp;•&nbsp; <span>{a_due}</span></div></div>""")
+                    action_rows.append(f"""<div class="plaud-action-item"><span class="plaud-action-check">{check_icon}</span><span class="plaud-action-desc" style="{desc_style}">{a_desc}</span><span class="plaud-action-owner-due">— <em>{a_owner}</em>{a_due_str}</span></div>""")
 
                 actions_markup = f"""<div class="plaud-action-card"><div class="plaud-action-heading">Action Items</div>{''.join(action_rows)}</div>"""
 
-            topics_html_list.append(f"""<div class="plaud-topic-block"><div class="plaud-topic-heading"><span class="plaud-topic-num">{t_num}</span><span>{clean_title}</span></div><div class="plaud-narrative">{clean_narrative}</div>{actions_markup}</div>""")
+            topics_html_list.append(f"""<div class="plaud-topic-block"><div class="plaud-topic-heading">{t_num}. {clean_title}</div><div class="plaud-narrative">{clean_narrative}</div>{actions_markup}</div>""")
 
-        # 3. Dedicated AI Suggestions Callout Box
+        # AI Suggestions Callout Box at Bottom
         sugg_entries = []
         if isinstance(ai_suggestions, dict):
-            for u in ai_suggestions.get("unresolved", []):
-                sugg_entries.append(f"""<div class="plaud-suggestion-entry"><span class="plaud-sugg-tag plaud-sugg-unresolved">Unresolved</span><span>{u}</span></div>""")
-            for g in ai_suggestions.get("gaps", []):
-                sugg_entries.append(f"""<div class="plaud-suggestion-entry"><span class="plaud-sugg-tag plaud-sugg-gap">Action Gap</span><span>{g}</span></div>""")
-            for r in ai_suggestions.get("recommendations", []):
-                sugg_entries.append(f"""<div class="plaud-suggestion-entry"><span class="plaud-sugg-tag plaud-sugg-rec">Suggestion</span><span>{r}</span></div>""")
+            s_items = ai_suggestions.get("items", [])
+            if s_items:
+                for s_idx, item in enumerate(s_items):
+                    s_t = item.get("title", f"Suggestion {s_idx+1}")
+                    s_b = item.get("body", "")
+                    if s_b:
+                        sugg_entries.append(f"""<div class="plaud-suggestion-entry"><strong>{s_idx+1}. {s_t}</strong>: {s_b}</div>""")
+                    else:
+                        sugg_entries.append(f"""<div class="plaud-suggestion-entry"><strong>{s_idx+1}. {s_t}</strong></div>""")
+            else:
+                combined_suggs = ai_suggestions.get("unresolved", []) + ai_suggestions.get("gaps", []) + ai_suggestions.get("recommendations", [])
+                for s_idx, text in enumerate(combined_suggs):
+                    if ":" in text:
+                        p_t, p_b = text.split(":", 1)
+                        sugg_entries.append(f"""<div class="plaud-suggestion-entry"><strong>{s_idx+1}. {p_t.strip()}</strong>: {p_b.strip()}</div>""")
+                    else:
+                        sugg_entries.append(f"""<div class="plaud-suggestion-entry"><strong>{s_idx+1}. Note</strong>: {text}</div>""")
 
         if not sugg_entries:
-            sugg_entries.append("""<div class="plaud-suggestion-entry"><span class="plaud-sugg-tag plaud-sugg-unresolved">Unresolved</span><span>Confirm timeline dependencies and access credentials with external collaborators.</span></div>""")
-            sugg_entries.append("""<div class="plaud-suggestion-entry"><span class="plaud-sugg-tag plaud-sugg-rec">Suggestion</span><span>Review SOC 2 training quiz submissions prior to the next scheduled sprint sync.</span></div>""")
+            sugg_entries.append("""<div class="plaud-suggestion-entry"><strong>1. Timeline and Scope Dependencies</strong>: Confirm timeline dependencies and required permissions with external collaborators.</div>""")
+            sugg_entries.append("""<div class="plaud-suggestion-entry"><strong>2. Action Item Ownership</strong>: Ensure newly identified deliverables have explicit owners and target completion dates.</div>""")
 
-        ai_suggestions_markup = f"""<div class="plaud-suggestions-box"><div class="plaud-suggestions-header"><span>💡 AI Suggestions & Strategic Follow-ups</span></div>{''.join(sugg_entries)}</div>"""
+        ai_suggestions_markup = f"""<div class="plaud-suggestions-box"><div class="plaud-suggestions-header">AI Suggestions</div><div class="plaud-suggestions-subtext">AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:</div>{''.join(sugg_entries)}</div>"""
 
-        # Render Full Plaud Document Container with zero markdown indentation
-        doc_header = f"""<div class="plaud-doc-header"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><span class="saas-badge" style="background:#E0F2FE; color:#0284C7;">📄 Plaud Executive Document</span><span style="font-size:12px; color:#64748B;">⚡ {data.get('model_used', 'AI Intelligence')} • ⏱️ {meta.get('duration', 'N/A')}</span></div><div class="plaud-doc-title">{title}</div><div class="plaud-doc-meta"><span>📅 {meta.get('processed_at', datetime.now().strftime('%Y-%m-%d'))}</span><span>•</span><span>👥 {meta.get('speakers', 'Participants Identified')}</span></div></div>"""
-        
-        sections_heading = """<div style="font-size:13px; font-weight:800; color:#0284C7; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;">📖 Discussion Sections & Deliverables</div>"""
-        
-        full_doc_html = f"""<div class="plaud-doc-container">{doc_header}{exec_summary_html}{sections_heading}{''.join(topics_html_list)}{ai_suggestions_markup}</div>"""
-
-        st.markdown(full_doc_html, unsafe_allow_html=True)
+        # Render Exact Seamless Plaud Document View
+        full_plaud_html = f"""<div class="plaud-doc-wrap">{doc_title_html}{''.join(topics_html_list)}{ai_suggestions_markup}</div>"""
+        st.markdown(full_plaud_html, unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
     # TAB 2: INTERACTIVE ACTION ITEMS TRACKER (FULL MANAGEMENT SUITE)

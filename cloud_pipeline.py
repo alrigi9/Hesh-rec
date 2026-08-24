@@ -200,17 +200,7 @@ Spoken Transcript:
         return base_header + """
 Analyze the academic lecture thoroughly and generate the report adhering STRICTLY to this clean Plaud document structure:
 
-# 🎓 Academic Lecture Intelligence: {topic}
-
-**Duration:** {duration_str}
-**Instructors / Speakers:** [Identified speakers or instructor]
-
----
-
-## ⚡ Executive Summary
-[A crisp 2-3 sentence overarching summary capturing the central thesis, primary theoretical principle taught, and homework/exam focus.]
-
----
+# {topic}
 
 ## 1. [First Core Concept / Lecture Section]
 [A concise, highly readable executive narrative paragraph explaining the theoretical foundation, key context, instructor explanations, and core principle to master. DO NOT use boilerplate prefixes like 'Core Topic & Focus:' or 'Context:'; write continuous, natural academic prose.]
@@ -218,24 +208,18 @@ Analyze the academic lecture thoroughly and generate the report adhering STRICTL
 ### Action Items
 - [ ] [Specific study deliverable, assigned reading, or problem set] — *[Student / Study Group]* [Next Class / Exam]
 
----
-
 ## 2. [Second Core Concept / Lecture Section]
 [A concise, highly readable executive narrative paragraph explaining the concept, breakdown, and core principle to master.]
 
 ### Action Items
 - [ ] [Specific study deliverable or exam topic to review] — *[Student / Study Group]* [Next Class / Exam]
 
----
+## AI Suggestions
+> AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:
+1. **[Unresolved Academic Concept]**: [Explanation of the concept requiring clarification or study group follow-up]
+2. **[Exam / Reading Gap]**: [Explanation of missing reading or deadline]
 
-## 💡 AI Suggestions
-> - **Unresolved Discussion Points:** [Complex concepts requiring further office-hour clarification or unresolved student questions]
-> - **Missing Deadlines & Ownership Gaps:** [Ambiguities in assignment deadlines or submission criteria]
-> - **Strategic Follow-up Recommendations:** [High-yield exam review topics, study group focus areas, and recommended supplementary readings]
-
----
-
-## 🗺️ Visual Architecture (Mermaid Mindmap)
+## Visual Architecture (Mermaid Mindmap)
 
 CRITICAL RULES FOR MERMAID:
 - Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
@@ -244,14 +228,14 @@ CRITICAL RULES FOR MERMAID:
 - Strictly mirror the numbered sections and study deliverables:
 ```mermaid
 mindmap
-  root["Academic Lecture Intelligence"]
+  root["{topic}"]
     ["1. First Concept Title"]
       ["Core Theoretical Principle"]
       ["Action: Study deliverable"]
     ["2. Second Concept Title"]
       ["Core Theoretical Principle"]
       ["Action: Study deliverable"]
-    ["💡 AI Suggestions"]
+    ["AI Suggestions"]
       ["Exam Focus Area"]
       ["Recommended Reading"]
 ```
@@ -261,17 +245,7 @@ mindmap
         return base_header + """
 Analyze the brainstorming and ideation session thoroughly and generate the report adhering STRICTLY to this clean Plaud document structure:
 
-# 💡 Brainstorm & Ideation Report: {topic}
-
-**Duration:** {duration_str}
-**Participants:** [Identified participants]
-
----
-
-## ⚡ Executive Summary
-[A crisp 2-3 sentence overarching summary capturing the ideation challenge, the most promising creative breakthrough, and immediate experiment roadmaps.]
-
----
+# {topic}
 
 ## 1. [First Ideation Track / Challenge]
 [A concise, highly readable executive narrative paragraph explaining the problem addressed, the key creative proposals generated, trade-offs discussed, and consensus reached. DO NOT use boilerplate prefixes like 'Core Topic & Focus:' or 'Speaker Perspective:'; write continuous, natural prose.]
@@ -279,24 +253,18 @@ Analyze the brainstorming and ideation session thoroughly and generate the repor
 ### Action Items
 - [ ] [Prototype, mock, or research experiment deliverable] — *[Assignee / Team]* [Next Sprint / Target Date]
 
----
-
 ## 2. [Second Ideation Track / Challenge]
 [A concise, highly readable executive narrative paragraph explaining the proposals, trade-offs, and consensus reached.]
 
 ### Action Items
 - [ ] [Prototype, mock, or research experiment deliverable] — *[Assignee / Team]* [Next Sprint / Target Date]
 
----
+## AI Suggestions
+> AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:
+1. **[Unresolved Creative Track]**: [Explanation of creative conflict or unvalidated assumption]
+2. **[Missing Experiment Owner]**: [Explanation of experiment lacking clear timeline or owner]
 
-## 💡 AI Suggestions
-> - **Unresolved Discussion Points:** [Creative conflicts left open, discarded alternatives worth revisiting, or unvalidated assumptions]
-> - **Missing Deadlines & Ownership Gaps:** [Experiments proposed without designated owners or timeline constraints]
-> - **Strategic Follow-up Recommendations:** [Immediate prototype validation steps, user testing priorities, and technical feasibility spikes]
-
----
-
-## 🗺️ Visual Architecture (Mermaid Mindmap)
+## Visual Architecture (Mermaid Mindmap)
 
 CRITICAL RULES FOR MERMAID:
 - Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
@@ -305,69 +273,51 @@ CRITICAL RULES FOR MERMAID:
 - Strictly mirror the numbered tracks and experiments:
 ```mermaid
 mindmap
-  root["Brainstorming and Ideation"]
+  root["{topic}"]
     ["1. First Idea Track"]
       ["Key Breakthrough"]
       ["Action: Prototype Experiment"]
     ["2. Second Idea Track"]
       ["Key Breakthrough"]
       ["Action: Validation Test"]
-    ["💡 AI Suggestions"]
+    ["AI Suggestions"]
       ["Unvalidated Assumption"]
       ["Recommended Feasibility Spike"]
 ```
 """
 
     else:
-        # Default: Executive Meeting Template (Plaud Document Style)
+        # Default: Executive Meeting Template (Exact Plaud Document Style)
         return base_header + """
 Analyze the meeting transcript thoroughly and generate the report adhering STRICTLY to this clean Plaud document structure:
 
-# 🎙️ Meeting Intelligence Report: {topic}
-
-**Duration:** {duration_str}
-**Identified Participants:** [List all identified participants and roles]
-
----
-
-## ⚡ Executive Summary
-[A crisp 2-3 sentence overarching executive summary capturing the strategic purpose, core breakthroughs, and major decisions of the session.]
-
----
+# {topic}
 
 ## 1. [First Core Topic Title]
 [A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution. DO NOT include boilerplate labels like 'Core Topic & Focus:' or 'Speaker Perspective:' or 'Context:'; write clean, continuous business prose.]
 
 ### Action Items
-- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
-- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
-
----
+- [ ] [Task description] — *[Assignee]* [Date if available]
+- [ ] [Task description] — *[Assignee]* [Date if available]
 
 ## 2. [Second Core Topic Title]
 [A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
 
 ### Action Items
-- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
-
----
+- [ ] [Task description] — *[Assignee]* [Date if available]
 
 ## 3. [Third Core Topic Title]
 [A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
 
 ### Action Items
-- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
+- [ ] [Task description] — *[Assignee]* [Date if available]
 
----
+## AI Suggestions
+> AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:
+1. **[Suggestion / Unresolved Issue Title]**: [Explanation of the issue or gap and recommendation]
+2. **[Suggestion / Unresolved Issue Title]**: [Explanation of the issue or gap and recommendation]
 
-## 💡 AI Suggestions
-> - **Unresolved Discussion Points:** [Key open questions, unresolved topics, or items deferred to future meetings]
-> - **Missing Deadlines & Ownership Gaps:** [Deliverables mentioned without firm dates, ambiguous owners, or dependency risks]
-> - **Strategic Follow-up Recommendations:** [Proactive recommendations and next steps for team leadership]
-
----
-
-## 🗺️ Visual Architecture (Mermaid Mindmap)
+## Visual Architecture (Mermaid Mindmap)
 
 CRITICAL RULES FOR MERMAID:
 - Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
@@ -376,14 +326,14 @@ CRITICAL RULES FOR MERMAID:
 - Strictly mirror the numbered sections, sub-actions, and AI suggestions:
 ```mermaid
 mindmap
-  root["Meeting Title"]
+  root["{topic}"]
     ["1. First Topic Title"]
       ["Narrative Focus Point"]
       ["Action: Deliverable description"]
     ["2. Second Topic Title"]
       ["Narrative Focus Point"]
       ["Action: Deliverable description"]
-    ["💡 AI Suggestions"]
+    ["AI Suggestions"]
       ["Unresolved Point or Gap"]
       ["Strategic Recommendation"]
 ```
@@ -827,43 +777,56 @@ def parse_markdown_to_session_dict(
 
     # 3. AI Suggestions Callout Parsing
     ai_suggestions = {
+        "items": [],
         "unresolved": [],
         "gaps": [],
         "recommendations": [],
         "raw_text": ""
     }
-    sugg_match = re.search(r"## 💡 AI Suggestions\s*([\s\S]*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+    sugg_match = re.search(r"##\s*(?:💡\s*)?AI Suggestions\s*([\s\S]*?)(?=\n## |\Z)", raw_markdown, re.IGNORECASE)
     if not sugg_match:
-        sugg_match = re.search(r"### AI Suggestions\s*([\s\S]*?)(?=\n## |\n###|\Z)", raw_markdown, re.DOTALL)
+        sugg_match = re.search(r"###\s*(?:💡\s*)?AI Suggestions\s*([\s\S]*?)(?=\n## |\n###|\Z)", raw_markdown, re.IGNORECASE)
 
     if sugg_match:
         raw_sugg = sugg_match.group(1).strip()
         ai_suggestions["raw_text"] = raw_sugg
         for s_line in raw_sugg.splitlines():
-            s_line = s_line.strip().lstrip(">•*- ")
-            if not s_line:
+            s_line = s_line.strip().lstrip("> ")
+            if not s_line or s_line.startswith("AI has identified") or s_line.startswith("---"):
                 continue
-            if "unresolved" in s_line.lower():
-                clean_val = re.sub(r"^\*\*Unresolved[^\*:]*:\*\*\s*", "", s_line).strip()
-                if clean_val:
-                    ai_suggestions["unresolved"].append(clean_val)
-            elif "missing" in s_line.lower() or "gap" in s_line.lower():
-                clean_val = re.sub(r"^\*\*Missing[^\*:]*:\*\*\s*", "", s_line).strip()
-                if clean_val:
-                    ai_suggestions["gaps"].append(clean_val)
-            elif "recommend" in s_line.lower() or "follow-up" in s_line.lower():
-                clean_val = re.sub(r"^\*\*Strategic[^\*:]*:\*\*\s*", "", s_line).strip()
-                if clean_val:
-                    ai_suggestions["recommendations"].append(clean_val)
+            
+            # Pattern: 1. **Title**: Body or - **Title**: Body
+            m_s = re.match(r"^(?:\d+[\.\)]\s*|[-*•]\s*)?\*\*([^*]+)\*\*[:\s—-]*(.*)$", s_line)
+            if m_s:
+                s_title = m_s.group(1).strip()
+                s_body = m_s.group(2).strip()
+                if not s_body and ":" in s_title:
+                    parts = s_title.split(":", 1)
+                    s_title = parts[0].strip()
+                    s_body = parts[1].strip()
+                
+                full_desc = f"{s_title}: {s_body}" if s_body else s_title
+                ai_suggestions["items"].append({"title": s_title, "body": s_body, "text": full_desc})
+                
+                if "unresolved" in s_title.lower() or "conflict" in s_title.lower():
+                    ai_suggestions["unresolved"].append(full_desc)
+                elif "gap" in s_title.lower() or "missing" in s_title.lower() or "deadline" in s_title.lower() or "owner" in s_title.lower():
+                    ai_suggestions["gaps"].append(full_desc)
+                else:
+                    ai_suggestions["recommendations"].append(full_desc)
             else:
-                clean_val = re.sub(r"^\*\*[^*]+:\*\*\s*", "", s_line).strip()
-                if clean_val:
+                clean_val = s_line.lstrip("0123456789.-*• \t").strip()
+                if clean_val and len(clean_val) > 5:
+                    ai_suggestions["items"].append({"title": "Follow-up", "body": clean_val, "text": clean_val})
                     ai_suggestions["recommendations"].append(clean_val)
     else:
-        # Default fallback suggestions if section was omitted by LLM
+        # Default fallback suggestions
+        ai_suggestions["items"] = [
+            {"title": "Unresolved Discussion Points", "body": "Confirm exact timeline dependencies and access credentials with external collaborators.", "text": "Unresolved Discussion Points: Confirm timeline dependencies with external collaborators."},
+            {"title": "Action Item Gaps", "body": "Ensure newly identified deliverables have explicit owners and target completion dates.", "text": "Action Item Gaps: Ensure deliverables have explicit owners."}
+        ]
         ai_suggestions["unresolved"].append("Confirm exact timeline dependencies with external team members.")
         ai_suggestions["gaps"].append("Ensure all newly identified action deliverables have explicit owner confirmation.")
-        ai_suggestions["recommendations"].append("Schedule a 15-minute async checkpoint before the next major milestone.")
 
     # 4. Decisions
     decisions = []
@@ -1002,12 +965,12 @@ def generate_printable_html(session_data: Dict[str, Any]) -> str:
 
     brief_html = "".join([f"<p style='margin-bottom:6px;'>{p.lstrip('•*- ')}</p>" for p in exec_brief])
 
+    # 2. Numbered Topics & Inline Actions (Exact Plaud Style)
     topics_html = []
     for idx, t in enumerate(topics):
         t_num = t.get("index", idx + 1)
         t_title = t.get("title", f"Topic {t_num}")
         narrative = t.get("narrative") or t.get("details", "")
-        # Clean narrative of any leftover bold prefixes
         clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", narrative)
         
         t_actions = t.get("action_items", [])
@@ -1017,60 +980,53 @@ def generate_printable_html(session_data: Dict[str, Any]) -> str:
             for a in t_actions:
                 desc = a.get("description", "")
                 owner = a.get("assignee", "Team")
-                due = a.get("due_date", "Next Sprint")
+                due = a.get("due_date", "")
+                due_str = f" {due}" if due and due != "—" else ""
                 items_li.append(f"""
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 0; border-bottom:1px dashed #E2E8F0; font-size:12.5px;">
-                    <div><span style="color:#0284C7; font-weight:bold; margin-right:6px;">☐</span> {desc}</div>
-                    <div style="font-size:11px; color:#64748B;"><em>{owner}</em> • {due}</div>
+                <div style="font-size:14px; color:#1F2937; margin-bottom:6px; display:flex; align-items:baseline; gap:8px;">
+                    <span style="color:#4B5563; font-size:15px;">☐</span>
+                    <span>{desc} — <em style="color:#4B5563;">{owner}</em><span style="color:#6B7280; font-size:13px;">{due_str}</span></span>
                 </div>
                 """)
             actions_html = f"""
-            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px 14px; margin-top:10px;">
-                <div style="font-size:11px; font-weight:bold; color:#0284C7; text-transform:uppercase; margin-bottom:4px;">Action Items</div>
+            <div style="margin:10px 0 20px 0;">
+                <div style="font-size:14.5px; font-weight:bold; color:#111827; margin-bottom:8px;">Action Items</div>
                 {''.join(items_li)}
             </div>
             """
 
         topics_html.append(f"""
-        <div style="margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid #E2E8F0;">
-            <h3 style="font-size:15px; color:#0F172A; margin:0 0 8px 0; display:flex; align-items:center; gap:8px;">
-                <span style="background:#E0F2FE; color:#0284C7; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:bold;">{t_num}</span>
-                {t_title}
-            </h3>
-            <p style="font-size:13.5px; color:#334155; line-height:1.65; margin:0;">{clean_narrative}</p>
+        <div style="margin-bottom:24px;">
+            <h2 style="font-size:18px; font-weight:700; color:#111827; margin:24px 0 10px 0;">{t_num}. {t_title}</h2>
+            <p style="font-size:14.5px; color:#374151; line-height:1.65; margin:0 0 12px 0;">{clean_narrative}</p>
             {actions_html}
         </div>
         """)
 
-    # AI Suggestions Callout
+    # AI Suggestions Callout (Exact Plaud Style)
     suggestions_html = ""
     if isinstance(ai_suggestions, dict):
-        unresolved = ai_suggestions.get("unresolved", [])
-        gaps = ai_suggestions.get("gaps", [])
-        recs = ai_suggestions.get("recommendations", [])
-        if unresolved or gaps or recs:
-            sugg_items = []
-            for u in unresolved:
-                sugg_items.append(f"<li><strong>Unresolved Point:</strong> {u}</li>")
-            for g in gaps:
-                sugg_items.append(f"<li><strong>Missing Deadline / Gap:</strong> {g}</li>")
-            for r in recs:
-                sugg_items.append(f"<li><strong>Strategic Follow-up:</strong> {r}</li>")
+        s_items = ai_suggestions.get("items", [])
+        if s_items:
+            sugg_rows = [f"<div style='font-size:14px; color:#374151; line-height:1.6; margin-bottom:8px;'><strong>{i+1}. {it.get('title')}:</strong> {it.get('body')}</div>" for i, it in enumerate(s_items)]
+        else:
+            combined = ai_suggestions.get("unresolved", []) + ai_suggestions.get("gaps", []) + ai_suggestions.get("recommendations", [])
+            sugg_rows = [f"<div style='font-size:14px; color:#374151; line-height:1.6; margin-bottom:8px;'><strong>{i+1}. Note:</strong> {txt}</div>" for i, txt in enumerate(combined)]
 
+        if sugg_rows:
             suggestions_html = f"""
-            <div style="background:linear-gradient(135deg, #FEF3C7 0%, #F3E8FF 100%); border:1px solid #F59E0B; border-radius:10px; padding:16px 20px; margin-top:24px; margin-bottom:20px;">
-                <h3 style="font-size:14px; font-weight:800; color:#B45309; margin:0 0 8px 0;">💡 AI Suggestions & Strategic Follow-ups</h3>
-                <ul style="margin:0; padding-left:20px; font-size:13px; color:#451A03; line-height:1.6;">
-                    {''.join(sugg_items)}
-                </ul>
+            <div style="border-left:3px solid #3B82F6; background:#F9FAFB; padding:18px 22px; border-radius:4px 8px 8px 4px; margin-top:32px; margin-bottom:24px;">
+                <div style="font-size:16px; font-weight:bold; color:#111827; margin-bottom:4px;">AI Suggestions</div>
+                <div style="font-size:13px; color:#6B7280; margin-bottom:12px; line-height:1.5;">AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:</div>
+                {''.join(sugg_rows)}
             </div>
             """
 
     transcript_html = []
     for s in transcript_segments:
         transcript_html.append(f"""
-        <div style="font-size:12px; margin-bottom:6px;">
-            <span style="color:#0284C7; font-weight:bold;">[{s.get('timestamp', '00:00')}]</span>
+        <div style="font-size:12.5px; margin-bottom:6px; color:#374151;">
+            <span style="color:#2563EB; font-weight:bold;">[{s.get('timestamp', '00:00')}]</span>
             <strong>{s.get('speaker', 'Speaker')}:</strong> {s.get('text', '')}
         </div>
         """)
@@ -1079,34 +1035,20 @@ def generate_printable_html(session_data: Dict[str, Any]) -> str:
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{title} - Hesh-rec Document</title>
+    <title>{title}</title>
     <style>
-        body {{ font-family: 'Helvetica Neue', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; margin: 40px auto; max-width: 850px; color: #1E293B; line-height: 1.65; background: #FFF; }}
-        .doc-container {{ padding: 30px; border: 1px solid #E2E8F0; border-radius: 12px; }}
-        h1 {{ font-size: 22px; color: #0F172A; margin: 0 0 6px 0; }}
-        .meta {{ font-size: 12.5px; color: #64748B; margin-bottom: 20px; border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; }}
-        h2 {{ font-size: 14px; color: #0284C7; text-transform: uppercase; letter-spacing: 0.5px; margin: 20px 0 10px 0; }}
-        @media print {{ body {{ margin: 15px; max-width: 100%; }} .doc-container {{ border: none; padding: 0; }} }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 40px auto; max-width: 850px; color: #111827; line-height: 1.65; background: #FFF; padding: 0 20px; }}
+        h1 {{ font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 24px 0; letter-spacing: -0.5px; }}
+        @media print {{ body {{ margin: 15px; max-width: 100%; }} }}
     </style>
 </head>
 <body>
-    <div class="doc-container">
-        <h1>🎙️ {title}</h1>
-        <div class="meta">⏱️ Duration: {duration} | 📅 Date: {date_str} | ⚡ Model: {model_str}</div>
-
-        <h2>⚡ Executive Summary</h2>
-        <div style="background:#F8FAFC; border-left:3px solid #0284C7; padding:10px 14px; border-radius:4px; font-size:13.5px; color:#334155;">
-            {brief_html}
-        </div>
-
-        <h2>📖 Discussion Topics & Action Deliverables</h2>
-        {''.join(topics_html)}
-
-        {suggestions_html}
-
-        <h2>🗣️ Diarized Transcript</h2>
-        {''.join(transcript_html) if transcript_html else '<p style="font-size:12px; color:#64748B;">Transcript in turn format not available.</p>'}
-    </div>
+    <h1>{title}</h1>
+    {''.join(topics_html)}
+    {suggestions_html}
+    <hr style="border:none; border-top:1px solid #E5E7EB; margin:30px 0;">
+    <h2 style="font-size:18px; font-weight:700; color:#111827;">Transcript</h2>
+    {''.join(transcript_html) if transcript_html else '<p style="font-size:12px; color:#6B7280;">Transcript in turn format not available.</p>'}
 </body>
 </html>"""
 
