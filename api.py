@@ -93,11 +93,13 @@ app = FastAPI(
     version="2.6.0"
 )
 
-# Strict CORS Hardening
+# Strict & Broad CORS Hardening
 ALLOWED_ORIGINS = [
     "https://recmap.tech",
+    "https://www.recmap.tech",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:8000",
 ]
 
 app.add_middleware(
@@ -105,9 +107,22 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+
+@app.get("/")
+async def root():
+    """Root liveness status for Heroku dyno checks."""
+    return {
+        "status": "ok",
+        "service": "recmap-api",
+        "version": "3.0.0",
+        "health": "/api/health",
+        "docs": "/docs"
+    }
 
 INPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
