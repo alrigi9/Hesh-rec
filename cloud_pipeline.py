@@ -185,8 +185,8 @@ def build_intelligence_prompt(
     template_type: str = "executive"
 ) -> str:
     """Builds prompt tailored to the selected intelligence template."""
-    base_header = f"""You are an elite AI Meeting & Speech Intelligence Analyst powered by Plaud AI methodology.
-Your objective is to produce a structured, high-impact intelligence report from the provided transcript.
+    base_header = f"""You are an elite Executive Meeting & Speech Intelligence Analyst adhering strictly to the clean, document-first Plaud methodology.
+Your objective is to produce an elegant, narrative-first executive intelligence report from the provided transcript with ZERO redundant boilerplate labels.
 
 Topic/Title: {topic}
 Duration: {duration_str}
@@ -198,52 +198,40 @@ Spoken Transcript:
 
     if template_type == "academic":
         return base_header + """
-Analyze the academic lecture thoroughly and generate the report adhering STRICTLY to this Markdown structure:
+Analyze the academic lecture thoroughly and generate the report adhering STRICTLY to this clean Plaud document structure:
 
 # 🎓 Academic Lecture Intelligence: {topic}
 
 **Duration:** {duration_str}
+**Instructors / Speakers:** [Identified speakers or instructor]
 
 ---
 
-## ⚡ Executive Brief
-> • **Core Thesis & Subject:** [1 sentence summarizing the central thesis or concept taught]
-> • **Primary Academic Takeaway:** [1 sentence on the most critical principle or formula discussed]
-> • **Follow-up Study Requirement:** [1 sentence summarizing homework, assigned reading, or exam focus]
+## ⚡ Executive Summary
+[A crisp 2-3 sentence overarching summary capturing the central thesis, primary theoretical principle taught, and homework/exam focus.]
 
 ---
 
-## 🏛️ Key Discussion Pillars
+## 1. [First Core Concept / Lecture Section]
+[A concise, highly readable executive narrative paragraph explaining the theoretical foundation, key context, instructor explanations, and core principle to master. DO NOT use boilerplate prefixes like 'Core Topic & Focus:' or 'Context:'; write continuous, natural academic prose.]
 
-### 1. [00:00:00] [Conceptual Theme 1]
-- **Context & Definition:** [Summary of theoretical foundation]
-- **Key Explanations & Examples:** [Specific breakdown taught by instructor]
-- **Core Principle & Takeaway:** [Essential principle to master]
-
-### 2. [00:15:00] [Conceptual Theme 2]
-- **Context & Definition:** [Details]
-- **Key Explanations & Examples:** [Details]
-- **Core Principle & Takeaway:** [Details]
+### Action Items
+- [ ] [Specific study deliverable, assigned reading, or problem set] — *[Student / Study Group]* [Next Class / Exam]
 
 ---
 
-## 📋 Action Items Matrix
+## 2. [Second Core Concept / Lecture Section]
+[A concise, highly readable executive narrative paragraph explaining the concept, breakdown, and core principle to master.]
 
-Provide a structured table of important academic terms, formulas, and study deliverables mentioned.
-
-| # | Task Deliverable | Owner | Priority | Due Date | Acceptance Criteria & Notes |
-|---|------------------|-------|----------|----------|-----------------------------|
-| 1 | [Study deliverable or exam topic to review] | Student / Study Group | [HIGH / MED / LOW] | Next Class / Exam | [Key formulas, definitions or problem sets] |
+### Action Items
+- [ ] [Specific study deliverable or exam topic to review] — *[Student / Study Group]* [Next Class / Exam]
 
 ---
 
-## ⚖️ Decisions & Reversals
-
-### ✅ Final Decisions Approved
-1. **[00:00:00] [Confirmed Academic Principle]:** [Explanation of approved standard or guideline]
-
-### 🔄 Rejected & Overturned Ideas (Reversals)
-1. **[00:00:00] [Common Misconception Debunked]:** [Misconception clarified by lecturer]
+## 💡 AI Suggestions
+> - **Unresolved Discussion Points:** [Complex concepts requiring further office-hour clarification or unresolved student questions]
+> - **Missing Deadlines & Ownership Gaps:** [Ambiguities in assignment deadlines or submission criteria]
+> - **Strategic Follow-up Recommendations:** [High-yield exam review topics, study group focus areas, and recommended supplementary readings]
 
 ---
 
@@ -253,70 +241,58 @@ CRITICAL RULES FOR MERMAID:
 - Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
 - NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
 - Strictly adhere to valid Mermaid mindmap indentation.
-- You MUST construct the mindmap branches directly from the analyzed lecture content:
+- Strictly mirror the numbered sections and study deliverables:
 ```mermaid
 mindmap
   root["Academic Lecture Intelligence"]
-    ["🎯 Core Thesis"]
-      ["Foundational Concept"]
-      ["Primary Principle"]
-    ["🏛️ Theoretical Pillars"]
-      ["Concept Alpha"]
-      ["Concept Beta"]
-    ["⚖️ Exam Focus"]
-      ["Key Definition"]
-      ["Review Questions"]
-    ["📋 Study Deliverables"]
-      ["Assignment Alpha"]
+    ["1. First Concept Title"]
+      ["Core Theoretical Principle"]
+      ["Action: Study deliverable"]
+    ["2. Second Concept Title"]
+      ["Core Theoretical Principle"]
+      ["Action: Study deliverable"]
+    ["💡 AI Suggestions"]
+      ["Exam Focus Area"]
+      ["Recommended Reading"]
 ```
 """
 
     elif template_type == "brainstorm":
         return base_header + """
-Analyze the brainstorming and ideation session thoroughly and generate the report adhering STRICTLY to this Markdown structure:
+Analyze the brainstorming and ideation session thoroughly and generate the report adhering STRICTLY to this clean Plaud document structure:
 
 # 💡 Brainstorm & Ideation Report: {topic}
 
 **Duration:** {duration_str}
+**Participants:** [Identified participants]
 
 ---
 
-## ⚡ Executive Brief
-> • **Strategic Purpose:** [1 sentence summarizing the ideation challenge or innovation goal]
-> • **Key Breakthrough & Consensus:** [1 sentence highlighting the most promising creative concept]
-> • **Immediate Next Step:** [1 sentence on the first experiment or prototype to build]
+## ⚡ Executive Summary
+[A crisp 2-3 sentence overarching summary capturing the ideation challenge, the most promising creative breakthrough, and immediate experiment roadmaps.]
 
 ---
 
-## 🏛️ Key Discussion Pillars
+## 1. [First Ideation Track / Challenge]
+[A concise, highly readable executive narrative paragraph explaining the problem addressed, the key creative proposals generated, trade-offs discussed, and consensus reached. DO NOT use boilerplate prefixes like 'Core Topic & Focus:' or 'Speaker Perspective:'; write continuous, natural prose.]
 
-### 1. [00:00:00] [Ideation Track 1 Title]
-- **Context & Challenge:** [What creative problem is addressed]
-- **Key Ideas & Suggestions:** [Key proposals generated]
-- **Consensus & Outcome:** [Promising angles selected]
-
-### 2. [00:15:00] [Ideation Track 2 Title]
-- **Context & Challenge:** [Details]
-- **Key Ideas & Suggestions:** [Details]
-- **Consensus & Outcome:** [Details]
+### Action Items
+- [ ] [Prototype, mock, or research experiment deliverable] — *[Assignee / Team]* [Next Sprint / Target Date]
 
 ---
 
-## 📋 Action Items Matrix
+## 2. [Second Ideation Track / Challenge]
+[A concise, highly readable executive narrative paragraph explaining the proposals, trade-offs, and consensus reached.]
 
-| # | Task Deliverable | Owner | Priority | Due Date | Acceptance Criteria & Notes |
-|---|------------------|-------|----------|----------|-----------------------------|
-| 1 | [Prototype, mock, or research experiment deliverable] | [Owner or Team] | [HIGH / MED / LOW] | Next Sprint | [Success metrics or test criteria] |
+### Action Items
+- [ ] [Prototype, mock, or research experiment deliverable] — *[Assignee / Team]* [Next Sprint / Target Date]
 
 ---
 
-## ⚖️ Decisions & Reversals
-
-### ✅ Final Decisions Approved
-1. **[00:00:00] [Selected Concept / Idea]:** [Detailed explanation of why this idea won approval]
-
-### 🔄 Rejected & Overturned Ideas (Reversals)
-1. **[00:00:00] [Discarded Idea]:** [Idea proposed and why the team chose not to pursue it]
+## 💡 AI Suggestions
+> - **Unresolved Discussion Points:** [Creative conflicts left open, discarded alternatives worth revisiting, or unvalidated assumptions]
+> - **Missing Deadlines & Ownership Gaps:** [Experiments proposed without designated owners or timeline constraints]
+> - **Strategic Follow-up Recommendations:** [Immediate prototype validation steps, user testing priorities, and technical feasibility spikes]
 
 ---
 
@@ -326,75 +302,68 @@ CRITICAL RULES FOR MERMAID:
 - Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
 - NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
 - Strictly adhere to valid Mermaid mindmap indentation.
-- You MUST construct the mindmap branches directly from the analyzed ideation content:
+- Strictly mirror the numbered tracks and experiments:
 ```mermaid
 mindmap
   root["Brainstorming and Ideation"]
-    ["🎯 Core Challenge"]
-      ["User Need"]
-      ["Opportunity"]
-    ["🏛️ Idea Tracks"]
-      ["Concept One"]
-      ["Concept Two"]
-    ["⚖️ Approved Directions"]
-      ["Selected Direction"]
-    ["📋 Next Experiments"]
-      ["Prototype Alpha"]
-      ["Validation Test"]
+    ["1. First Idea Track"]
+      ["Key Breakthrough"]
+      ["Action: Prototype Experiment"]
+    ["2. Second Idea Track"]
+      ["Key Breakthrough"]
+      ["Action: Validation Test"]
+    ["💡 AI Suggestions"]
+      ["Unvalidated Assumption"]
+      ["Recommended Feasibility Spike"]
 ```
 """
 
     else:
-        # Default: Executive Meeting Template
+        # Default: Executive Meeting Template (Plaud Document Style)
         return base_header + """
-Analyze the meeting transcript thoroughly and generate the report adhering STRICTLY to this Markdown structure with ZERO fluff:
+Analyze the meeting transcript thoroughly and generate the report adhering STRICTLY to this clean Plaud document structure:
 
 # 🎙️ Meeting Intelligence Report: {topic}
 
 **Duration:** {duration_str}
-**Identified Participants:** [List all identified participants or speakers]
+**Identified Participants:** [List all identified participants and roles]
 
 ---
 
-## ⚡ Executive Brief
-> • 🎯 **Meeting Purpose:** [Exactly 1 crisp sentence summarizing why this meeting occurred and the core objective]
-> • 🔑 **Key Decisions Taken:** [1-2 concise bullet points with bold highlights summarizing major decisions agreed upon]
-> • ⚡ **Critical Highlights:** [2-3 short, high-impact bullet points with 1-2 sentence insights on key takeaways]
+## ⚡ Executive Summary
+[A crisp 2-3 sentence overarching executive summary capturing the strategic purpose, core breakthroughs, and major decisions of the session.]
 
 ---
 
-## 🏛️ Key Discussion Pillars
+## 1. [First Core Topic Title]
+[A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution. DO NOT include boilerplate labels like 'Core Topic & Focus:' or 'Speaker Perspective:' or 'Context:'; write clean, continuous business prose.]
 
-### 1. [00:00:00] [Pillar 1 Title]
-- **Core Topic & Focus:** [1-2 sentences on what was discussed]
-- **Key Takeaways & Points:**
-  - **Speaker Perspective:** [Concise insight]
-- **Consensus & Outcome:** [Clear 1-sentence agreed direction]
-
-### 2. [00:05:00] [Pillar 2 Title]
-- **Core Topic & Focus:** [1-2 sentences on what was discussed]
-- **Consensus & Outcome:** [Clear 1-sentence outcome]
+### Action Items
+- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
+- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
 
 ---
 
-## 📋 Action Items Matrix
+## 2. [Second Core Topic Title]
+[A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
 
-Provide a complete, actionable markdown table capturing all commitments, deliverables, owners, urgency, and deadlines mentioned.
-In the "Task Deliverable" column, write concrete, actionable descriptions.
-
-| # | Task Deliverable | Owner | Priority | Due Date | Acceptance Criteria & Notes |
-|---|------------------|-------|----------|----------|-----------------------------|
-| 1 | [Concrete task deliverable description] | [Specific Person or Team] | [HIGH / MED / LOW] | [YYYY-MM-DD or timeframe] | [Clear notes or criteria] |
+### Action Items
+- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
 
 ---
 
-## ⚖️ Decisions & Reversals
+## 3. [Third Core Topic Title]
+[A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
 
-### ✅ Final Decisions Approved
-1. **[Decision Title]:** [Crisp 1-sentence explanation of agreed decision and owner]
+### Action Items
+- [ ] [Concrete deliverable description] — *[Assignee]* [YYYY-MM-DD or timeframe]
 
-### 🔄 Rejected & Overturned Ideas (Reversals)
-1. **[Overturned Proposal]:** [What idea was rejected or reversed, and what alternative was adopted instead]
+---
+
+## 💡 AI Suggestions
+> - **Unresolved Discussion Points:** [Key open questions, unresolved topics, or items deferred to future meetings]
+> - **Missing Deadlines & Ownership Gaps:** [Deliverables mentioned without firm dates, ambiguous owners, or dependency risks]
+> - **Strategic Follow-up Recommendations:** [Proactive recommendations and next steps for team leadership]
 
 ---
 
@@ -404,24 +373,19 @@ CRITICAL RULES FOR MERMAID:
 - Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
 - NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
 - Strictly adhere to valid Mermaid mindmap indentation.
-- You MUST construct the mindmap branches directly from the extracted Meeting Title, Executive Brief, Discussion Pillars, Approved Decisions, and Action Items above:
+- Strictly mirror the numbered sections, sub-actions, and AI suggestions:
 ```mermaid
 mindmap
   root["Meeting Title"]
-    ["🎯 Executive Purpose"]
-      ["Core Strategic Objective"]
-      ["Critical Highlight"]
-    ["🏛️ Discussion Pillars"]
-      ["Pillar 1 Title"]
-        ["Key Outcome 1"]
-      ["Pillar 2 Title"]
-        ["Key Outcome 2"]
-    ["⚖️ Approved Decisions"]
-      ["Agreed Decision 1"]
-      ["Agreed Decision 2"]
-    ["📋 Action Deliverables"]
-      ["Task 1 (Owner - Priority)"]
-      ["Task 2 (Owner - Priority)"]
+    ["1. First Topic Title"]
+      ["Narrative Focus Point"]
+      ["Action: Deliverable description"]
+    ["2. Second Topic Title"]
+      ["Narrative Focus Point"]
+      ["Action: Deliverable description"]
+    ["💡 AI Suggestions"]
+      ["Unresolved Point or Gap"]
+      ["Strategic Recommendation"]
 ```
 """
 
@@ -632,67 +596,76 @@ def sanitize_mermaid_node(text: str, max_len: int = 55) -> str:
 
 def build_contextual_mindmap(session_data: Dict[str, Any], meeting_title: str = "Meeting Intelligence") -> str:
     """
-    Constructs a deterministic, 100% unified Mermaid mindmap directly derived
-    from the meeting title, executive brief, discussion pillars, decisions, and action items.
+    Constructs a deterministic, 100% unified tree-style Mermaid mindmap directly derived
+    from the numbered section titles, narrative highlights, inline action items, and AI suggestions.
     """
-    clean_root = sanitize_mermaid_node(meeting_title, max_len=45) or "Meeting Intelligence"
+    clean_root = sanitize_mermaid_node(meeting_title, max_len=42) or "Meeting Intelligence"
     lines = [
         "mindmap",
         f'  root["{clean_root}"]'
     ]
 
-    # 1. Executive Purpose
-    exec_brief = session_data.get("executive_brief", [])
-    if exec_brief:
-        lines.append('    ["🎯 Executive Purpose"]')
-        for b in exec_brief[:3]:
-            clean_b = re.sub(r"^[•\-\*\s]+(?:🎯|🔑|⚡)?\s*(?:Meeting Purpose|Key Decisions Taken|Critical Highlights|Strategic Purpose|Core Thesis)?[:\-]?\s*", "", str(b))
-            clean_b = sanitize_mermaid_node(clean_b, max_len=50)
-            if clean_b:
-                lines.append(f'      ["{clean_b}"]')
+    # 1. Numbered Topic Sections with Narrative Focus & Inline Actions
+    topics = session_data.get("discussion_pillars", []) or session_data.get("numbered_topics", [])
+    if topics:
+        for idx, t in enumerate(topics[:5]):
+            t_num = t.get("index", idx + 1)
+            raw_title = t.get("title", f"Topic {t_num}")
+            clean_title = sanitize_mermaid_node(raw_title, max_len=38)
+            # Remove any leading digits if already present
+            clean_title = re.sub(r"^\d+\.\s*", "", clean_title)
+            
+            lines.append(f'    ["{t_num}. {clean_title}"]')
+            
+            # Narrative highlight
+            narrative = t.get("narrative") or t.get("details", "")
+            if narrative:
+                first_sentence = re.split(r"[\.\n]", narrative)[0].strip()
+                clean_first = sanitize_mermaid_node(first_sentence, max_len=45)
+                if clean_first and clean_first.lower() != clean_title.lower():
+                    lines.append(f'      ["{clean_first}"]')
+            
+            # Inline Action Items under this topic
+            topic_actions = t.get("action_items", [])
+            for a in topic_actions[:2]:
+                desc = a.get("description") or a.get("task") or "Deliverable"
+                owner = a.get("assignee") or a.get("owner") or "Team"
+                clean_desc = sanitize_mermaid_node(desc, max_len=30)
+                clean_owner = sanitize_mermaid_node(owner, max_len=14)
+                if clean_desc:
+                    lines.append(f'      ["Action: {clean_desc} ({clean_owner})"]')
 
-    # 2. Discussion Pillars
-    pillars = session_data.get("discussion_pillars", [])
-    if pillars:
-        lines.append('    ["🏛️ Discussion Pillars"]')
-        for p in pillars[:4]:
-            p_title = sanitize_mermaid_node(p.get("title", "Topic Pillar"), max_len=40)
-            if p_title:
-                lines.append(f'      ["{p_title}"]')
-                details = p.get("details", "")
-                detail_points = [
-                    line.strip().lstrip("•*- ") 
-                    for line in details.splitlines() 
-                    if line.strip() and not line.strip().startswith("#")
-                ]
-                for dp in detail_points[:2]:
-                    clean_dp = re.sub(r"^(?:Core Topic|Key Takeaways|Consensus|Context|Speaker Perspective|Context & Objective)[\s&:\-]+", "", dp)
-                    clean_dp = sanitize_mermaid_node(clean_dp, max_len=45)
-                    if clean_dp and clean_dp.lower() != p_title.lower():
-                        lines.append(f'        ["{clean_dp}"]')
+    else:
+        # Fallback if no numbered topics: use executive brief & actions
+        exec_brief = session_data.get("executive_brief", [])
+        if exec_brief:
+            lines.append('    ["⚡ Executive Focus"]')
+            for b in exec_brief[:2]:
+                clean_b = sanitize_mermaid_node(b, max_len=45)
+                if clean_b:
+                    lines.append(f'      ["{clean_b}"]')
 
-    # 3. Approved Decisions
-    decisions = session_data.get("decisions", [])
-    if decisions:
+    # 2. AI Suggestions Branch
+    suggestions = session_data.get("ai_suggestions", {})
+    if isinstance(suggestions, dict):
+        sugg_list = suggestions.get("unresolved", []) + suggestions.get("gaps", []) + suggestions.get("recommendations", [])
+    elif isinstance(suggestions, list):
+        sugg_list = suggestions
+    else:
+        sugg_list = []
+
+    if sugg_list:
+        lines.append('    ["💡 AI Suggestions"]')
+        for s in sugg_list[:3]:
+            clean_s = sanitize_mermaid_node(s, max_len=45)
+            if clean_s:
+                lines.append(f'      ["{clean_s}"]')
+    elif session_data.get("decisions"):
         lines.append('    ["⚖️ Approved Decisions"]')
-        for d in decisions[:3]:
-            clean_d = re.sub(r"^\d+\.\s*|\[.*?\]", "", str(d))
-            clean_d = sanitize_mermaid_node(clean_d, max_len=48)
+        for d in session_data.get("decisions", [])[:2]:
+            clean_d = sanitize_mermaid_node(d, max_len=45)
             if clean_d:
                 lines.append(f'      ["{clean_d}"]')
-
-    # 4. Action Items & Deliverables
-    action_items = session_data.get("action_items", [])
-    if action_items:
-        lines.append('    ["📋 Action Deliverables"]')
-        for a in action_items[:4]:
-            desc = a.get("description") or a.get("task") or "Deliverable"
-            owner = a.get("assignee") or a.get("owner") or "Team"
-            prio = (a.get("priority") or "MED").upper()
-            clean_desc = sanitize_mermaid_node(desc, max_len=36)
-            clean_owner = sanitize_mermaid_node(owner, max_len=16)
-            if clean_desc:
-                lines.append(f'      ["{clean_desc} ({clean_owner} - {prio})"]')
 
     return "\n".join(lines)
 
@@ -702,100 +675,197 @@ def parse_markdown_to_session_dict(
     model_name: str,
     template_type: str = "executive"
 ) -> Dict[str, Any]:
-    """Parses standard markdown report into clean structured session dictionary."""
-    # 1. Executive Brief
+    """Parses clean Plaud-style markdown report into structured session dictionary."""
+    
+    # 1. Executive Summary
     exec_brief = []
-    exec_match = re.search(r"## ⚡ Executive Brief\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+    exec_match = re.search(r"## ⚡ Executive Summary\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+    if not exec_match:
+        exec_match = re.search(r"## ⚡ Executive Brief\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
     if exec_match:
         for line in exec_match.group(1).splitlines():
             line = line.strip()
             if line.startswith("> •") or line.startswith("> -") or line.startswith("•") or line.startswith("-"):
                 clean = re.sub(r"^>\s*[•\-]\s*", "• ", line).strip()
+                clean = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean).strip()
                 if clean:
                     exec_brief.append(clean)
+            elif line and not line.startswith("#") and not line.startswith("---") and not line.startswith(">"):
+                clean = re.sub(r"\*\*([^*]+)\*\*", r"\1", line).strip()
+                if clean:
+                    exec_brief.append(f"• {clean}")
 
-    # 2. Discussion Pillars
-    pillars = []
-    pillars_match = re.search(r"## 🏛️ Key Discussion Pillars\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
-    if pillars_match:
-        pillar_blocks = re.findall(r"###\s*(\d+\.\s*\[(.*?)\]\s*(.*?))\n(.*?)(?=\n###|\Z)", pillars_match.group(1), re.DOTALL)
-        for num_match, ts, title, details in pillar_blocks:
-            pillars.append({
-                "title": title.strip(),
-                "timestamp": ts.strip(),
-                "details": details.strip()
+    # 2. Numbered Topics & Per-Topic Narratives + Inline Action Items (Plaud Style)
+    numbered_topics = []
+    all_action_items = []
+    
+    # Regex to find all numbered H2 sections: e.g. ## 1. Topic Title ...
+    topic_sections = re.findall(r"^##\s+(\d+)\.\s*([^\n]+)\n([\s\S]*?)(?=^##\s+|\Z)", raw_markdown, re.MULTILINE)
+    
+    if topic_sections:
+        for num_str, title_str, body_str in topic_sections:
+            idx = int(num_str)
+            clean_title = title_str.strip()
+            
+            # Separate narrative from action items section
+            narrative_text = ""
+            inline_actions = []
+            
+            act_match = re.search(r"### Action Items\s*([\s\S]*?)(?=\n###|\n---|\Z)", body_str, re.IGNORECASE)
+            if act_match:
+                # Narrative is everything before ### Action Items
+                narrative_part = body_str[:act_match.start()].strip()
+                actions_part = act_match.group(1).strip()
+            else:
+                narrative_part = body_str.strip()
+                actions_part = ""
+
+            # Clean narrative: strip any leftover boilerplate labels like **Core Topic & Focus:**, etc.
+            narrative_lines = []
+            for line in narrative_part.splitlines():
+                line = line.strip()
+                if not line or line.startswith("---") or line.startswith("#"):
+                    continue
+                # Remove boilerplate labels
+                clean_line = re.sub(r"^\*\*(?:Core Topic & Focus|Key Arguments & Perspectives|Key Takeaways & Points|Consensus & Outcome|Context & Objective|Context|Objective|Speaker Perspective|[A-Z][a-z]+'s Perspective)[^\*:]*:\*\*\s*", "", line)
+                clean_line = re.sub(r"^[-*•]\s*\*\*[^*]+:\*\*\s*", "", clean_line)
+                clean_line = clean_line.strip()
+                if clean_line:
+                    narrative_lines.append(clean_line)
+            
+            narrative_text = " ".join(narrative_lines)
+
+            # Parse inline action items: - [ ] Task description — *Assignee* DueDate
+            if actions_part:
+                for a_line in actions_part.splitlines():
+                    a_line = a_line.strip()
+                    if not a_line or a_line.startswith("#") or a_line.startswith("---"):
+                        continue
+                    # Match: - [ ] Deliverable — *Assignee* DueDate
+                    m_act = re.match(r"^[-*•]?\s*(?:\[[\sxX]?\]|☐|☑)?\s*(.*?)(?:—|--|-)\s*\*?([^*—\n]+?)\*?\s+(?:(\d{4}-\d{2}-\d{2}|Next [A-Za-z]+|Today|ASAP|Post-[A-Za-z]+|Scheduled [A-Za-z]+|[A-Za-z0-9\s/]+))?$", a_line)
+                    if m_act:
+                        desc = m_act.group(1).strip().strip("[]*-• ")
+                        assignee = m_act.group(2).strip() if m_act.group(2) else "Team"
+                        due = m_act.group(3).strip() if m_act.group(3) else "Next Sprint"
+                    else:
+                        clean_a = re.sub(r"^[-*•\[\]\sxX☐☑]+\s*", "", a_line)
+                        desc = clean_a
+                        assignee = "Team"
+                        due = "Next Sprint"
+
+                    if desc and len(desc) > 3:
+                        act_obj = {
+                            "number": len(all_action_items) + 1,
+                            "description": desc,
+                            "assignee": assignee or "Team",
+                            "priority": "HIGH" if any(k in desc.lower() for k in ["high", "urgent", "p0", "soc 2"]) else "MED",
+                            "due_date": due or "Next Sprint",
+                            "notes": f"Topic {idx}: {clean_title}",
+                            "status": "pending"
+                        }
+                        inline_actions.append(act_obj)
+                        all_action_items.append(act_obj)
+
+            numbered_topics.append({
+                "index": idx,
+                "title": clean_title,
+                "narrative": narrative_text,
+                "action_items": inline_actions,
+                "timestamp": f"00:{(idx-1)*5:02d}:00",
+                "details": narrative_text
             })
 
-    # 3. Action Items Matrix (Multi-Strategy Robust Parsing)
-    action_items = []
-    
-    # Strategy A: Standard Action Items Table
-    table_match = re.search(r"## 📋 Action Items Matrix.*?\n(\|.*?\n\|[-:\s|]+\n)(.*?)(?=\n\n\S|---|##|\Z)", raw_markdown, re.DOTALL)
-    if not table_match:
-        table_match = re.search(r"(\|(?:\s*#\s*\|\s*Task Deliverable.*?\n)(.*?)(?=\n\n\S|---|##|\Z))", raw_markdown, re.DOTALL)
+    # Fallback to legacy discussion pillars if numbered topics were not found
+    if not numbered_topics:
+        pillars_match = re.search(r"## 🏛️ Key Discussion Pillars\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+        if pillars_match:
+            pillar_blocks = re.findall(r"###\s*(\d+\.\s*\[(.*?)\]\s*(.*?))\n(.*?)(?=\n###|\Z)", pillars_match.group(1), re.DOTALL)
+            for num_match, ts, title, details in pillar_blocks:
+                clean_lines = [re.sub(r"^\*\*[^*]+:\*\*\s*", "", l.strip()) for l in details.splitlines() if l.strip()]
+                clean_narrative = " ".join(clean_lines)
+                numbered_topics.append({
+                    "index": len(numbered_topics) + 1,
+                    "title": title.strip(),
+                    "timestamp": ts.strip(),
+                    "narrative": clean_narrative,
+                    "details": clean_narrative,
+                    "action_items": []
+                })
 
-    if table_match:
-        content_to_parse = table_match.group(2) if len(table_match.groups()) >= 2 else table_match.group(0)
-        rows = [r.strip() for r in content_to_parse.splitlines() if r.strip() and "|" in r and not re.match(r"^\|[\s\-:|]+\|$", r.strip())]
-        for r in rows:
-            cols = [c.strip() for c in r.split("|")[1:-1]]
-            if len(cols) >= 3:
-                num = len(action_items) + 1
-                desc = cols[1] if len(cols) > 1 and cols[0].isdigit() else cols[0]
-                assignee = cols[2] if len(cols) > 2 and cols[0].isdigit() else (cols[1] if len(cols) > 1 else "Team")
-                prio = cols[3].upper() if len(cols) > 3 and cols[0].isdigit() else "MED"
-                due = cols[4] if len(cols) > 4 and cols[0].isdigit() else (cols[2] if len(cols) > 2 else "Next Sprint")
-                notes = cols[5] if len(cols) > 5 and cols[0].isdigit() else "—"
+    # Strategy Fallback for Table Action Items if inline were not found
+    if not all_action_items:
+        table_match = re.search(r"## 📋 Action Items Matrix.*?\n(\|.*?\n\|[-:\s|]+\n)(.*?)(?=\n\n\S|---|##|\Z)", raw_markdown, re.DOTALL)
+        if not table_match:
+            table_match = re.search(r"(\|(?:\s*#\s*\|\s*Task Deliverable.*?\n)(.*?)(?=\n\n\S|---|##|\Z))", raw_markdown, re.DOTALL)
 
-                # Filter out header row if accidentally caught
-                if "task" in desc.lower() and "deliverable" in desc.lower():
-                    continue
+        if table_match:
+            content_to_parse = table_match.group(2) if len(table_match.groups()) >= 2 else table_match.group(0)
+            rows = [r.strip() for r in content_to_parse.splitlines() if r.strip() and "|" in r and not re.match(r"^\|[\s\-:|]+\|$", r.strip())]
+            for r in rows:
+                cols = [c.strip() for c in r.split("|")[1:-1]]
+                if len(cols) >= 3:
+                    num = len(all_action_items) + 1
+                    desc = cols[1] if len(cols) > 1 and cols[0].isdigit() else cols[0]
+                    assignee = cols[2] if len(cols) > 2 and cols[0].isdigit() else (cols[1] if len(cols) > 1 else "Team")
+                    prio = cols[3].upper() if len(cols) > 3 and cols[0].isdigit() else "MED"
+                    due = cols[4] if len(cols) > 4 and cols[0].isdigit() else (cols[2] if len(cols) > 2 else "Next Sprint")
+                    notes = cols[5] if len(cols) > 5 and cols[0].isdigit() else "—"
 
-                if desc and len(desc) > 3:
-                    action_items.append({
-                        "number": num,
-                        "description": desc,
-                        "assignee": assignee or "Team",
-                        "priority": "HIGH" if "HIGH" in prio else ("LOW" if "LOW" in prio else "MED"),
-                        "due_date": due or "Next Sprint",
-                        "notes": notes or "—"
-                    })
+                    if "task" in desc.lower() and "deliverable" in desc.lower():
+                        continue
 
-    # Strategy B: Fallback to Bulleted / Numbered Action Lists
-    if not action_items:
-        act_section = re.search(r"## 📋 Action Items.*?\n(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
-        if act_section:
-            for line in act_section.group(1).splitlines():
-                line = line.strip()
-                if not line or line.startswith("|"):
-                    continue
-                clean_line = re.sub(r"^\d+\.\s*|-\s*\[[\sxX]?\]\s*|-\s*", "", line).strip()
-                if clean_line and len(clean_line) > 5:
-                    owner = "Team"
-                    owner_m = re.search(r"(?:Owner|Assignee|Lead):\s*([^,;\(\)]+)", clean_line, re.IGNORECASE)
-                    if owner_m:
-                        owner = owner_m.group(1).strip()
-                    due = "Next Sprint"
-                    due_m = re.search(r"(?:Due|Deadline|Target):\s*([^,;\(\)]+)", clean_line, re.IGNORECASE)
-                    if due_m:
-                        due = due_m.group(1).strip()
-                    
-                    prio = "MED"
-                    if any(k in clean_line.lower() for k in ["high", "urgent", "critical", "p0", "p1"]):
-                        prio = "HIGH"
-                    elif any(k in clean_line.lower() for k in ["low", "p3", "optional"]):
-                        prio = "LOW"
+                    if desc and len(desc) > 3:
+                        all_action_items.append({
+                            "number": num,
+                            "description": desc,
+                            "assignee": assignee or "Team",
+                            "priority": "HIGH" if "HIGH" in prio else ("LOW" if "LOW" in prio else "MED"),
+                            "due_date": due or "Next Sprint",
+                            "notes": notes or "—",
+                            "status": "pending"
+                        })
 
-                    action_items.append({
-                        "number": len(action_items) + 1,
-                        "description": clean_line,
-                        "assignee": owner,
-                        "priority": prio,
-                        "due_date": due,
-                        "notes": "—"
-                    })
+    # 3. AI Suggestions Callout Parsing
+    ai_suggestions = {
+        "unresolved": [],
+        "gaps": [],
+        "recommendations": [],
+        "raw_text": ""
+    }
+    sugg_match = re.search(r"## 💡 AI Suggestions\s*([\s\S]*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+    if not sugg_match:
+        sugg_match = re.search(r"### AI Suggestions\s*([\s\S]*?)(?=\n## |\n###|\Z)", raw_markdown, re.DOTALL)
 
-    # 4. Decisions & Reversals
+    if sugg_match:
+        raw_sugg = sugg_match.group(1).strip()
+        ai_suggestions["raw_text"] = raw_sugg
+        for s_line in raw_sugg.splitlines():
+            s_line = s_line.strip().lstrip(">•*- ")
+            if not s_line:
+                continue
+            if "unresolved" in s_line.lower():
+                clean_val = re.sub(r"^\*\*Unresolved[^\*:]*:\*\*\s*", "", s_line).strip()
+                if clean_val:
+                    ai_suggestions["unresolved"].append(clean_val)
+            elif "missing" in s_line.lower() or "gap" in s_line.lower():
+                clean_val = re.sub(r"^\*\*Missing[^\*:]*:\*\*\s*", "", s_line).strip()
+                if clean_val:
+                    ai_suggestions["gaps"].append(clean_val)
+            elif "recommend" in s_line.lower() or "follow-up" in s_line.lower():
+                clean_val = re.sub(r"^\*\*Strategic[^\*:]*:\*\*\s*", "", s_line).strip()
+                if clean_val:
+                    ai_suggestions["recommendations"].append(clean_val)
+            else:
+                clean_val = re.sub(r"^\*\*[^*]+:\*\*\s*", "", s_line).strip()
+                if clean_val:
+                    ai_suggestions["recommendations"].append(clean_val)
+    else:
+        # Default fallback suggestions if section was omitted by LLM
+        ai_suggestions["unresolved"].append("Confirm exact timeline dependencies with external team members.")
+        ai_suggestions["gaps"].append("Ensure all newly identified action deliverables have explicit owner confirmation.")
+        ai_suggestions["recommendations"].append("Schedule a 15-minute async checkpoint before the next major milestone.")
+
+    # 4. Decisions
     decisions = []
     dec_match = re.search(r"### ✅ Final Decisions Approved\s*(.*?)(?=### 🔄|## |\Z)", raw_markdown, re.DOTALL)
     if not dec_match:
@@ -808,17 +878,7 @@ def parse_markdown_to_session_dict(
                 if clean and not clean.startswith("###"):
                     decisions.append(clean)
 
-    reversals = []
-    rev_match = re.search(r"### 🔄 Rejected & Overturned Ideas.*?\n(.*?)(?=## |\Z)", raw_markdown, re.DOTALL)
-    if rev_match:
-        for line in rev_match.group(1).splitlines():
-            line = line.strip()
-            if re.match(r"^\d+\.", line) or line.startswith("-"):
-                clean = re.sub(r"^\d+\.\s*|-\s*", "", line).strip()
-                if clean:
-                    reversals.append(clean)
-
-    # 5. Mermaid Mindmap Sanitization & Contextual Alignment
+    # 5. Mermaid Mindmap Sanitization & Tree Contextual Alignment
     mindmap = ""
     mm_match = re.search(r"```mermaid\s*(.*?)```", raw_markdown, re.DOTALL)
     if mm_match:
@@ -831,15 +891,16 @@ def parse_markdown_to_session_dict(
     parsed_result = {
         "template_type": template_type,
         "executive_brief": exec_brief,
-        "discussion_pillars": pillars,
-        "action_items": action_items,
+        "discussion_pillars": numbered_topics,
+        "numbered_topics": numbered_topics,
+        "action_items": all_action_items,
+        "ai_suggestions": ai_suggestions,
         "decisions": decisions,
-        "reversals": reversals,
+        "reversals": [],
         "raw_markdown": raw_markdown,
         "model_used": model_name
     }
 
-    # If mindmap is empty or contains placeholder boilerplate, construct contextual mindmap
     if not mindmap or len(mindmap) < 25 or is_boilerplate:
         title_match = re.search(r"#\s*🎙️?\s*(?:Meeting Intelligence Report:?|Academic Lecture Intelligence:?|Brainstorm & Ideation Report:?)?\s*(.*?)(?=\n|\Z)", raw_markdown)
         meeting_title = title_match.group(1).strip() if title_match and title_match.group(1).strip() else "Meeting Intelligence"
@@ -927,50 +988,89 @@ Answer the user's questions clearly, concisely, and accurately in the user's lan
 # 4. PRINTABLE HTML / PDF EXPORT GENERATOR
 # =============================================================================
 def generate_printable_html(session_data: Dict[str, Any]) -> str:
-    """Generates a standalone, beautiful HTML document suitable for browser print-to-PDF."""
+    """Generates a standalone, beautiful Plaud-styled HTML document suitable for browser print-to-PDF."""
     meta = session_data.get("metadata", {})
     title = meta.get("source_file", "Meeting Intelligence Report")
     duration = meta.get("duration", "N/A")
     date_str = meta.get("processed_at", datetime.now().strftime("%Y-%m-%d"))
     model_str = meta.get("model", "Hesh-rec AI")
     exec_brief = session_data.get("executive_brief", [])
-    pillars = session_data.get("discussion_pillars", [])
+    topics = session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
     action_items = session_data.get("action_items", [])
-    decisions = session_data.get("decisions", [])
-    reversals = session_data.get("reversals", [])
+    ai_suggestions = session_data.get("ai_suggestions", {})
     transcript_segments = session_data.get("transcript_segments", [])
 
-    brief_html = "".join([f"<li>{p.lstrip('•*- ')}</li>" for p in exec_brief])
+    brief_html = "".join([f"<p style='margin-bottom:6px;'>{p.lstrip('•*- ')}</p>" for p in exec_brief])
 
-    pillars_html = []
-    for p in pillars:
-        pillars_html.append(f"""
-        <div class="pillar">
-            <h3><span class="badge">{p.get('timestamp', '00:00')}</span> {p.get('title', 'Pillar')}</h3>
-            <p>{p.get('details', '').replace(chr(10), '<br>')}</p>
+    topics_html = []
+    for idx, t in enumerate(topics):
+        t_num = t.get("index", idx + 1)
+        t_title = t.get("title", f"Topic {t_num}")
+        narrative = t.get("narrative") or t.get("details", "")
+        # Clean narrative of any leftover bold prefixes
+        clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", narrative)
+        
+        t_actions = t.get("action_items", [])
+        actions_html = ""
+        if t_actions:
+            items_li = []
+            for a in t_actions:
+                desc = a.get("description", "")
+                owner = a.get("assignee", "Team")
+                due = a.get("due_date", "Next Sprint")
+                items_li.append(f"""
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 0; border-bottom:1px dashed #E2E8F0; font-size:12.5px;">
+                    <div><span style="color:#0284C7; font-weight:bold; margin-right:6px;">☐</span> {desc}</div>
+                    <div style="font-size:11px; color:#64748B;"><em>{owner}</em> • {due}</div>
+                </div>
+                """)
+            actions_html = f"""
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px 14px; margin-top:10px;">
+                <div style="font-size:11px; font-weight:bold; color:#0284C7; text-transform:uppercase; margin-bottom:4px;">Action Items</div>
+                {''.join(items_li)}
+            </div>
+            """
+
+        topics_html.append(f"""
+        <div style="margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid #E2E8F0;">
+            <h3 style="font-size:15px; color:#0F172A; margin:0 0 8px 0; display:flex; align-items:center; gap:8px;">
+                <span style="background:#E0F2FE; color:#0284C7; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:bold;">{t_num}</span>
+                {t_title}
+            </h3>
+            <p style="font-size:13.5px; color:#334155; line-height:1.65; margin:0;">{clean_narrative}</p>
+            {actions_html}
         </div>
         """)
 
-    action_rows = []
-    for a in action_items:
-        action_rows.append(f"""
-        <tr>
-            <td><strong>{a.get('description', '')}</strong></td>
-            <td>{a.get('assignee', 'Team')}</td>
-            <td><span class="prio prio-{a.get('priority', 'MED').lower()}">{a.get('priority', 'MED')}</span></td>
-            <td>{a.get('due_date', 'Next Sprint')}</td>
-            <td>{a.get('notes', '—')}</td>
-        </tr>
-        """)
+    # AI Suggestions Callout
+    suggestions_html = ""
+    if isinstance(ai_suggestions, dict):
+        unresolved = ai_suggestions.get("unresolved", [])
+        gaps = ai_suggestions.get("gaps", [])
+        recs = ai_suggestions.get("recommendations", [])
+        if unresolved or gaps or recs:
+            sugg_items = []
+            for u in unresolved:
+                sugg_items.append(f"<li><strong>Unresolved Point:</strong> {u}</li>")
+            for g in gaps:
+                sugg_items.append(f"<li><strong>Missing Deadline / Gap:</strong> {g}</li>")
+            for r in recs:
+                sugg_items.append(f"<li><strong>Strategic Follow-up:</strong> {r}</li>")
 
-    decisions_html = "".join([f"<li>{d}</li>" for d in decisions])
-    reversals_html = "".join([f"<li>{r}</li>" for r in reversals])
+            suggestions_html = f"""
+            <div style="background:linear-gradient(135deg, #FEF3C7 0%, #F3E8FF 100%); border:1px solid #F59E0B; border-radius:10px; padding:16px 20px; margin-top:24px; margin-bottom:20px;">
+                <h3 style="font-size:14px; font-weight:800; color:#B45309; margin:0 0 8px 0;">💡 AI Suggestions & Strategic Follow-ups</h3>
+                <ul style="margin:0; padding-left:20px; font-size:13px; color:#451A03; line-height:1.6;">
+                    {''.join(sugg_items)}
+                </ul>
+            </div>
+            """
 
     transcript_html = []
     for s in transcript_segments:
         transcript_html.append(f"""
-        <div class="turn">
-            <span class="time">[{s.get('timestamp', '00:00')}]</span>
+        <div style="font-size:12px; margin-bottom:6px;">
+            <span style="color:#0284C7; font-weight:bold;">[{s.get('timestamp', '00:00')}]</span>
             <strong>{s.get('speaker', 'Speaker')}:</strong> {s.get('text', '')}
         </div>
         """)
@@ -979,52 +1079,34 @@ def generate_printable_html(session_data: Dict[str, Any]) -> str:
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{title} - Hesh-rec Report</title>
+    <title>{title} - Hesh-rec Document</title>
     <style>
-        body {{ font-family: 'Helvetica Neue', Arial, sans-serif; margin: 40px; color: #1E293B; line-height: 1.6; }}
-        h1 {{ font-size: 24px; color: #0F172A; border-bottom: 2px solid #0284C7; padding-bottom: 8px; margin-bottom: 4px; }}
-        .meta {{ font-size: 13px; color: #64748B; margin-bottom: 24px; }}
-        .badge {{ background: #E0F2FE; color: #0284C7; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }}
-        h2 {{ font-size: 16px; color: #0284C7; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-top: 24px; }}
-        .pillar {{ background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 12px; margin-bottom: 12px; }}
-        .pillar h3 {{ margin: 0 0 6px 0; font-size: 14px; color: #0F172A; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }}
-        th, td {{ border: 1px solid #CBD5E1; padding: 8px 10px; text-align: left; }}
-        th {{ background: #F1F5F9; color: #475569; }}
-        .prio {{ padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; }}
-        .prio-high {{ background: #FFE4E6; color: #E11D48; }}
-        .prio-med {{ background: #FEF3C7; color: #D97706; }}
-        .prio-low {{ background: #D1FAE5; color: #059669; }}
-        .turn {{ font-size: 12px; margin-bottom: 6px; }}
-        .turn .time {{ color: #0284C7; font-weight: bold; }}
-        @media print {{ body {{ margin: 20px; }} }}
+        body {{ font-family: 'Helvetica Neue', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; margin: 40px auto; max-width: 850px; color: #1E293B; line-height: 1.65; background: #FFF; }}
+        .doc-container {{ padding: 30px; border: 1px solid #E2E8F0; border-radius: 12px; }}
+        h1 {{ font-size: 22px; color: #0F172A; margin: 0 0 6px 0; }}
+        .meta {{ font-size: 12.5px; color: #64748B; margin-bottom: 20px; border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; }}
+        h2 {{ font-size: 14px; color: #0284C7; text-transform: uppercase; letter-spacing: 0.5px; margin: 20px 0 10px 0; }}
+        @media print {{ body {{ margin: 15px; max-width: 100%; }} .doc-container {{ border: none; padding: 0; }} }}
     </style>
 </head>
 <body>
-    <h1>🎙️ {title}</h1>
-    <div class="meta">⏱️ Duration: {duration} | 📅 Date: {date_str} | ⚡ Model: {model_str}</div>
+    <div class="doc-container">
+        <h1>🎙️ {title}</h1>
+        <div class="meta">⏱️ Duration: {duration} | 📅 Date: {date_str} | ⚡ Model: {model_str}</div>
 
-    <h2>⚡ Executive Summary</h2>
-    <ul>{brief_html}</ul>
+        <h2>⚡ Executive Summary</h2>
+        <div style="background:#F8FAFC; border-left:3px solid #0284C7; padding:10px 14px; border-radius:4px; font-size:13.5px; color:#334155;">
+            {brief_html}
+        </div>
 
-    <h2>🏛️ Key Discussion Pillars</h2>
-    {''.join(pillars_html)}
+        <h2>📖 Discussion Topics & Action Deliverables</h2>
+        {''.join(topics_html)}
 
-    <h2>📋 Action Items Matrix</h2>
-    <table>
-        <thead>
-            <tr><th>Task Deliverable</th><th>Owner</th><th>Priority</th><th>Due Date</th><th>Acceptance Notes</th></tr>
-        </thead>
-        <tbody>
-            {''.join(action_rows)}
-        </tbody>
-    </table>
+        {suggestions_html}
 
-    {'<h2>✅ Approved Decisions</h2><ul>' + decisions_html + '</ul>' if decisions else ''}
-    {'<h2>🔄 Rejected Proposals & Reversals</h2><ul>' + reversals_html + '</ul>' if reversals else ''}
-
-    <h2>🗣️ Spoken Transcript</h2>
-    {''.join(transcript_html) if transcript_html else '<p>Transcript in turn format not available.</p>'}
+        <h2>🗣️ Diarized Transcript</h2>
+        {''.join(transcript_html) if transcript_html else '<p style="font-size:12px; color:#64748B;">Transcript in turn format not available.</p>'}
+    </div>
 </body>
 </html>"""
 

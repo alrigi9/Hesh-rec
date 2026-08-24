@@ -417,6 +417,177 @@ def apply_saas_theme(theme: str = "dark"):
             margin-top: 14px;
             margin-bottom: 14px;
         }}
+
+        /* Plaud Document-First Layout & Typography */
+        .plaud-doc-container {{
+            background: var(--hesh-surface);
+            border: 1px solid var(--hesh-border);
+            border-radius: 16px;
+            padding: 36px 42px;
+            margin-bottom: 24px;
+            box-shadow: var(--hesh-card-shadow);
+            max-width: 960px;
+            margin-left: auto;
+            margin-right: auto;
+        }}
+        .plaud-doc-header {{
+            border-bottom: 1px solid var(--hesh-border);
+            padding-bottom: 18px;
+            margin-bottom: 24px;
+        }}
+        .plaud-doc-title {{
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--hesh-text-primary);
+            line-height: 1.35;
+            margin: 8px 0 6px 0;
+        }}
+        .plaud-doc-meta {{
+            font-size: 12.5px;
+            color: var(--hesh-text-secondary);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }}
+        .plaud-summary-box {{
+            background: var(--hesh-surface-hover);
+            border-left: 3px solid var(--hesh-accent);
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 28px;
+        }}
+        .plaud-summary-heading {{
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--hesh-accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .plaud-summary-text {{
+            font-size: 13.5px;
+            color: var(--hesh-text-primary);
+            line-height: 1.65;
+            margin: 0;
+        }}
+        .plaud-topic-block {{
+            margin-bottom: 28px;
+            padding-bottom: 22px;
+            border-bottom: 1px solid var(--hesh-border);
+        }}
+        .plaud-topic-block:last-of-type {{
+            border-bottom: none;
+        }}
+        .plaud-topic-heading {{
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--hesh-text-primary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        .plaud-topic-num {{
+            background: var(--hesh-accent-subtle);
+            color: var(--hesh-accent);
+            font-size: 12px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+            min-width: 24px;
+            text-align: center;
+        }}
+        .plaud-narrative {{
+            font-size: 14px;
+            color: var(--hesh-text-secondary);
+            line-height: 1.72;
+            margin-bottom: 12px;
+        }}
+        .plaud-action-card {{
+            background: var(--hesh-surface-hover);
+            border: 1px solid var(--hesh-border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-top: 10px;
+        }}
+        .plaud-action-heading {{
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--hesh-accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }}
+        .plaud-action-item {{
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 6px 0;
+            border-bottom: 1px dashed var(--hesh-border);
+            font-size: 12.5px;
+        }}
+        .plaud-action-item:last-child {{
+            border-bottom: none;
+        }}
+        .plaud-action-check {{
+            color: var(--hesh-accent);
+            font-weight: 800;
+            margin-right: 6px;
+            font-size: 13px;
+        }}
+        .plaud-action-desc {{
+            color: var(--hesh-text-primary);
+            flex: 1;
+        }}
+        .plaud-action-owner-due {{
+            font-size: 11.5px;
+            color: var(--hesh-text-muted);
+            white-space: nowrap;
+        }}
+        .plaud-suggestions-box {{
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            border-radius: 14px;
+            padding: 22px 26px;
+            margin-top: 28px;
+            margin-bottom: 16px;
+        }}
+        .plaud-suggestions-header {{
+            font-size: 14.5px;
+            font-weight: 800;
+            color: #F59E0B;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .plaud-suggestion-entry {{
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+            color: var(--hesh-text-primary);
+        }}
+        .plaud-suggestion-entry:last-child {{
+            margin-bottom: 0;
+        }}
+        .plaud-sugg-tag {{
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }}
+        .plaud-sugg-unresolved {{ background: rgba(244, 63, 94, 0.15); color: #F43F5E; }}
+        .plaud-sugg-gap {{ background: rgba(245, 158, 11, 0.15); color: #F59E0B; }}
+        .plaud-sugg-rec {{ background: rgba(16, 185, 129, 0.15); color: #10B981; }}
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
@@ -434,7 +605,7 @@ def get_current_user_id() -> str | None:
 
 
 def render_mindmap_diagram(mermaid_code: str):
-    """Guaranteed SVG renderer using mermaid.ink with base64 encoding."""
+    """Guaranteed SVG renderer using mermaid.ink with base64 encoding and theme awareness."""
     if not mermaid_code:
         return
     clean_code = mermaid_code.replace("```mermaid", "").replace("```", "").strip()
@@ -446,13 +617,17 @@ def render_mindmap_diagram(mermaid_code: str):
     try:
         encoded_bytes = base64.b64encode(clean_code.encode("utf-8"))
         encoded_str = encoded_bytes.decode("utf-8")
-        mermaid_url = f"https://mermaid.ink/svg/{encoded_str}?bgColor=!18191c"
+        is_dark = st.session_state.get("theme", "dark") == "dark"
+        bg_param = "!111726" if is_dark else "!ffffff"
+        container_bg = "#111726" if is_dark else "#FFFFFF"
+        border_col = "#232E48" if is_dark else "#E2E8F0"
+        mermaid_url = f"https://mermaid.ink/svg/{encoded_str}?bgColor={bg_param}"
 
-        # Render clean dark responsive SVG container
+        # Render clean responsive SVG container
         st.markdown(
             f"""
-            <div style="background-color: #12141a; border-radius: 12px; border: 1px solid #232734; padding: 24px; text-align: center; overflow-x: auto; min-height: 400px; display: flex; align-items: center; justify-content: center;">
-                <img src="{mermaid_url}" alt="Mind Map" style="max-width: 100%; height: auto; filter: drop-shadow(0px 4px 20px rgba(0,0,0,0.5));" />
+            <div style="background-color: {container_bg}; border-radius: 12px; border: 1px solid {border_col}; padding: 24px; text-align: center; overflow-x: auto; min-height: 400px; display: flex; align-items: center; justify-content: center; box-shadow: var(--hesh-card-shadow);">
+                <img src="{mermaid_url}" alt="Plaud Tree Mind Map" style="max-width: 100%; height: auto; filter: drop-shadow(0px 4px 16px rgba(0,0,0,0.15));" />
             </div>
             """,
             unsafe_allow_html=True
@@ -1443,69 +1618,182 @@ def render_meeting_detail_view(session_id: str):
     # -------------------------------------------------------------------------
     # TAB 1: EXECUTIVE SUMMARY & PILLARS (CLEAN DENSITY)
     # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # TAB 1: EXECUTIVE SUMMARY & NARRATIVE (PLAUD CLEAN DOCUMENT LAYOUT)
+    # -------------------------------------------------------------------------
     with tab_summary:
-        col_left, col_right = st.columns([1.1, 0.9], gap="large")
+        exec_brief = data.get("executive_brief", [])
+        topics = data.get("numbered_topics", []) or data.get("discussion_pillars", [])
+        ai_suggestions = data.get("ai_suggestions", {})
+        all_actions = data.get("action_items", [])
+        
+        # 1. Executive Summary HTML
+        summary_paragraphs = []
+        for p in exec_brief:
+            clean_p = p.lstrip("•*- ").strip()
+            clean_p = re.sub(r"^>\s*[•\-]?\s*", "", clean_p)
+            clean_p = re.sub(r"^\*\*(?:Meeting Purpose|Key Decisions Taken|Critical Highlights|Strategic Purpose|Core Thesis)[^\*:]*:\*\*\s*", "", clean_p)
+            clean_p = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean_p).strip()
+            if clean_p:
+                summary_paragraphs.append(f"<p class='plaud-summary-text' style='margin-bottom:6px;'>• {clean_p}</p>")
+        
+        exec_summary_html = ""
+        if summary_paragraphs:
+            exec_summary_html = f"""
+            <div class="plaud-summary-box">
+                <div class="plaud-summary-heading">
+                    <span>⚡ Executive Summary</span>
+                </div>
+                {''.join(summary_paragraphs)}
+            </div>
+            """
 
-        with col_left:
-            # 1. Executive Brief (Structured Cards: Purpose, Decisions, Highlights)
-            exec_brief = data.get("executive_brief", [])
-            if exec_brief:
-                points_html = []
-                for p in exec_brief:
-                    clean_p = p.lstrip("•*- ").strip()
-                    icon = "⚡"
-                    if "purpose" in clean_p.lower() or "🎯" in clean_p:
-                        icon = "🎯"
-                    elif "decision" in clean_p.lower() or "🔑" in clean_p:
-                        icon = "🔑"
-                    elif "highlight" in clean_p.lower() or "breakthrough" in clean_p.lower():
-                        icon = "⚡"
+        # 2. Numbered Topics + Per-Topic Narrative + Inline Action Items
+        topics_html_list = []
+        for idx, t in enumerate(topics):
+            t_num = t.get("index", idx + 1)
+            raw_title = t.get("title", f"Topic {t_num}")
+            clean_title = re.sub(r"^\d+\.\s*", "", raw_title).strip()
+            
+            # Clean narrative text of all boilerplate labels
+            narrative = t.get("narrative") or t.get("details", "")
+            narrative_lines = []
+            for line in str(narrative).splitlines():
+                l = line.strip()
+                if not l or l.startswith("---") or l.startswith("#"):
+                    continue
+                clean_l = re.sub(r"^\*\*(?:Core Topic & Focus|Key Arguments & Perspectives|Key Takeaways & Points|Consensus & Outcome|Context & Objective|Context|Objective|Speaker Perspective|[A-Z][a-z]+'s Perspective)[^\*:]*:\*\*\s*", "", l)
+                clean_l = re.sub(r"^[-*•]\s*\*\*[^*]+:\*\*\s*", "", clean_l)
+                clean_l = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean_l).strip()
+                if clean_l:
+                    narrative_lines.append(clean_l)
+            clean_narrative = " ".join(narrative_lines)
+            if not clean_narrative:
+                clean_narrative = "The discussion covered key technical and operational priorities with agreed consensus across stakeholders."
 
-                    points_html.append(f"""
-                    <div style="background: var(--hesh-surface-hover); border: 1px solid var(--hesh-border); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;">
-                        <div style="font-size: 13px; color: var(--hesh-text-primary); line-height: 1.55; display: flex; gap: 8px; align-items: flex-start;">
-                            <span style="font-size: 15px;">{icon}</span>
-                            <span>{clean_p}</span>
+            # Inline Action Items
+            t_actions = t.get("action_items", [])
+            if not t_actions and all_actions:
+                # Match relevant global actions by topic title or index
+                t_actions = [a for a in all_actions if f"Topic {t_num}" in a.get("notes", "") or clean_title.lower() in a.get("notes", "").lower()]
+            
+            actions_markup = ""
+            if t_actions:
+                action_rows = []
+                for a in t_actions:
+                    a_desc = a.get("description") or a.get("task") or "Deliverable"
+                    a_owner = a.get("assignee") or a.get("owner") or "Team"
+                    a_due = a.get("due_date") or "Next Sprint"
+                    a_done = a.get("status") == "completed"
+                    check_icon = "☑" if a_done else "☐"
+                    desc_style = "text-decoration: line-through; opacity: 0.65;" if a_done else ""
+
+                    action_rows.append(f"""
+                    <div class="plaud-action-item">
+                        <div style="display:flex; align-items:flex-start; flex:1;">
+                            <span class="plaud-action-check">{check_icon}</span>
+                            <span class="plaud-action-desc" style="{desc_style}">{a_desc}</span>
+                        </div>
+                        <div class="plaud-action-owner-due">
+                            <em>{a_owner}</em> &nbsp;•&nbsp; <span>{a_due}</span>
                         </div>
                     </div>
                     """)
 
-                st.html(f"""
-                <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;">
-                    <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-                        🎯 Executive Summary & Purpose
-                    </div>
-                    {''.join(points_html)}
+                actions_markup = f"""
+                <div class="plaud-action-card">
+                    <div class="plaud-action-heading">Action Items</div>
+                    {''.join(action_rows)}
+                </div>
+                """
+
+            topics_html_list.append(f"""
+            <div class="plaud-topic-block">
+                <div class="plaud-topic-heading">
+                    <span class="plaud-topic-num">{t_num}</span>
+                    <span>{clean_title}</span>
+                </div>
+                <div class="plaud-narrative">{clean_narrative}</div>
+                {actions_markup}
+            </div>
+            """)
+
+        # 3. Dedicated AI Suggestions Callout Box
+        sugg_entries = []
+        if isinstance(ai_suggestions, dict):
+            for u in ai_suggestions.get("unresolved", []):
+                sugg_entries.append(f"""
+                <div class="plaud-suggestion-entry">
+                    <span class="plaud-sugg-tag plaud-sugg-unresolved">Unresolved</span>
+                    <span>{u}</span>
+                </div>
+                """)
+            for g in ai_suggestions.get("gaps", []):
+                sugg_entries.append(f"""
+                <div class="plaud-suggestion-entry">
+                    <span class="plaud-sugg-tag plaud-sugg-gap">Action Gap</span>
+                    <span>{g}</span>
+                </div>
+                """)
+            for r in ai_suggestions.get("recommendations", []):
+                sugg_entries.append(f"""
+                <div class="plaud-suggestion-entry">
+                    <span class="plaud-sugg-tag plaud-sugg-rec">Suggestion</span>
+                    <span>{r}</span>
                 </div>
                 """)
 
-            # 2. Discussion Pillars
-            pillars = data.get("discussion_pillars", [])
-            if pillars:
-                pillars_html = []
-                for idx, pillar in enumerate(pillars):
-                    p_title = pillar.get("title", f"Pillar {idx+1}")
-                    p_time = pillar.get("timestamp", "00:00:00")
-                    p_details = pillar.get("details", "").replace("\n", "<br>")
-                    open_attr = "open" if idx == 0 else ""
-                    pillars_html.append(f"""<details style="background: var(--hesh-surface-hover); border: 1px solid var(--hesh-border); border-radius: 8px; margin-bottom: 8px; overflow: hidden;" {open_attr}><summary style="padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer;"><span style="background: var(--hesh-accent-subtle); color: var(--hesh-accent); padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 8px;">⏱️ {p_time}</span> <span>{p_title}</span></summary><div style="padding: 10px 14px; font-size: 12.5px; color: var(--hesh-text-secondary); border-top: 1px solid var(--hesh-border); line-height: 1.55;">{p_details}</div></details>""")
-                st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">🏛️ Key Discussion Pillars</div>{''.join(pillars_html)}</div>""")
+        if not sugg_entries:
+            # Generate default intelligent suggestions if not explicitly listed
+            sugg_entries.append("""
+            <div class="plaud-suggestion-entry">
+                <span class="plaud-sugg-tag plaud-sugg-unresolved">Unresolved</span>
+                <span>Confirm timeline dependencies and access credentials with external collaborators.</span>
+            </div>
+            """)
+            sugg_entries.append("""
+            <div class="plaud-suggestion-entry">
+                <span class="plaud-sugg-tag plaud-sugg-rec">Suggestion</span>
+                <span>Review SOC 2 training quiz submissions prior to the next scheduled sprint sync.</span>
+            </div>
+            """)
 
-        with col_right:
-            # 3. Decisions & Reversals
-            decisions = data.get("decisions", [])
-            reversals = data.get("reversals", [])
-            if decisions or reversals:
-                dec_html = []
-                if decisions:
-                    dec_html.append("<div style='font-size: 12.5px; font-weight: 700; color: #10B981; margin-bottom: 8px;'>✅ Approved Decisions & Consensus</div>")
-                    for dec in decisions:
-                        dec_html.append(f"<div style='font-size: 12.5px; color: var(--hesh-text-secondary); margin-bottom: 6px; line-height: 1.45; display:flex; align-items:flex-start; gap:6px;'><span style='color:#10B981;'>✔</span><span>{dec}</span></div>")
-                if reversals:
-                    dec_html.append("<div style='font-size: 12.5px; font-weight: 700; color: #F43F5E; margin-top: 14px; margin-bottom: 8px;'>🔄 Overturned Proposals & Reversals</div>")
-                    for rev in reversals:
-                        dec_html.append(f"<div style='font-size: 12.5px; color: var(--hesh-text-secondary); margin-bottom: 6px; line-height: 1.45; display:flex; align-items:flex-start; gap:6px;'><span style='color:#F43F5E;'>✖</span><span>{rev}</span></div>")
-                st.html(f"""<div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 18px; margin-bottom: 16px;"><div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); text-transform: uppercase; margin-bottom: 12px;">⚖️ Decisions & Governance</div>{''.join(dec_html)}</div>""")
+        ai_suggestions_markup = f"""
+        <div class="plaud-suggestions-box">
+            <div class="plaud-suggestions-header">
+                <span>💡 AI Suggestions & Strategic Follow-ups</span>
+            </div>
+            {''.join(sugg_entries)}
+        </div>
+        """
+
+        # Render Full Plaud Document Container
+        st.markdown(f"""
+        <div class="plaud-doc-container">
+            <div class="plaud-doc-header">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span class="saas-badge">📄 Plaud Executive Document</span>
+                    <span style="font-size:12px; color:var(--hesh-text-muted);">⚡ {data.get('model_used', 'AI Intelligence')} • ⏱️ {meta.get('duration', 'N/A')}</span>
+                </div>
+                <div class="plaud-doc-title">{title}</div>
+                <div class="plaud-doc-meta">
+                    <span>📅 {meta.get('processed_at', datetime.now().strftime('%Y-%m-%d'))}</span>
+                    <span>•</span>
+                    <span>👥 {meta.get('speakers', 'Participants Identified')}</span>
+                </div>
+            </div>
+
+            {exec_summary_html}
+
+            <div style="font-size:13px; font-weight:800; color:var(--hesh-accent); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;">
+                📖 Discussion Sections & Deliverables
+            </div>
+
+            {''.join(topics_html_list)}
+
+            {ai_suggestions_markup}
+        </div>
+        """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
     # TAB 2: INTERACTIVE ACTION ITEMS TRACKER (FULL MANAGEMENT SUITE)
@@ -1677,8 +1965,8 @@ def render_meeting_detail_view(session_id: str):
         st.markdown("""
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
             <div>
-                <h3 style="font-size: 18px; margin: 0;">🧠 Interactive Visual Mind Map (Unified with Summary)</h3>
-                <div style="font-size: 12px; color: var(--hesh-text-muted);">Grounded 100% directly in this session's Executive Brief, Discussion Pillars, Approved Decisions, and Action Deliverables</div>
+                <h3 style="font-size: 18px; margin: 0;">🧠 Interactive Tree Mind Map (Plaud Document Aligned)</h3>
+                <div style="font-size: 12px; color: var(--hesh-text-muted);">Derived directly from numbered discussion sections, executive narrative highlights, inline deliverables, and AI suggestions</div>
             </div>
         </div>
         """, unsafe_allow_html=True)

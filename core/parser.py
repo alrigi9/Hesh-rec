@@ -120,7 +120,30 @@ def extract_decisions_and_reversals(markdown_text: str) -> dict:
     return result
 
 def extract_pillars(markdown_text: str) -> list[dict]:
-    """Extract key discussion pillars with titles and timestamps."""
+    """Extract key discussion pillars with titles and timestamps (supports Plaud numbered sections and legacy pillars)."""
+    # 1. Check for Plaud numbered sections: ## 1. Topic Title ...
+    topic_sections = re.findall(r"^##\s+(\d+)\.\s*([^\n]+)\n([\s\S]*?)(?=^##\s+|\Z)", markdown_text, re.MULTILINE)
+    if topic_sections:
+        pillars = []
+        for num_str, title_str, body_str in topic_sections:
+            idx = int(num_str)
+            clean_title = title_str.strip()
+            # Narrative is text before ### Action Items or ---
+            act_match = re.search(r"### Action Items\s*([\s\S]*?)(?=\n###|\n---|\Z)", body_str, re.IGNORECASE)
+            narrative_part = body_str[:act_match.start()].strip() if act_match else body_str.strip()
+            clean_lines = [re.sub(r"^\*\*[^*]+:\*\*\s*", "", l.strip()) for l in narrative_part.splitlines() if l.strip() and not l.strip().startswith("#")]
+            narrative_text = " ".join(clean_lines)
+
+            pillars.append({
+                "index": idx,
+                "title": clean_title,
+                "timestamp": f"00:{(idx-1)*5:02d}:00",
+                "details": narrative_text,
+                "narrative": narrative_text
+            })
+        return pillars
+
+    # 2. Fallback to legacy discussion pillars
     body = extract_section_content(markdown_text, ["Discussion Pillars", "Pillars", "Key Topics"])
     if not body:
         return []
@@ -144,10 +167,37 @@ def extract_pillars(markdown_text: str) -> list[dict]:
         pillars.append({
             "title": clean_title,
             "timestamp": timestamp,
-            "details": details
+            "details": details,
+            "narrative": details
         })
 
     return pillars
+
+def extract_ai_suggestions(markdown_text: str) -> dict:
+    """Extract AI suggestions callout box content."""
+    sugg_match = re.search(r"## 💡 AI Suggestions\s*([\s\S]*?)(?=\n## |\Z)", markdown_text, re.DOTALL)
+    if not sugg_match:
+        sugg_match = re.search(r"### AI Suggestions\s*([\s\S]*?)(?=\n## |\n###|\Z)", markdown_text, re.DOTALL)
+    
+    result = {"unresolved": [], "gaps": [], "recommendations": []}
+    if sugg_match:
+        for line in sugg_match.group(1).splitlines():
+            s_line = line.strip().lstrip(">•*- ")
+            if not s_line:
+                continue
+            if "unresolved" in s_line.lower():
+                clean_val = re.sub(r"^\*\*Unresolved[^\*:]*:\*\*\s*", "", s_line).strip()
+                if clean_val:
+                    result["unresolved"].append(clean_val)
+            elif "missing" in s_line.lower() or "gap" in s_line.lower():
+                clean_val = re.sub(r"^\*\*Missing[^\*:]*:\*\*\s*", "", s_line).strip()
+                if clean_val:
+                    result["gaps"].append(clean_val)
+            elif "recommend" in s_line.lower() or "follow-up" in s_line.lower():
+                clean_val = re.sub(r"^\*\*Strategic[^\*:]*:\*\*\s*", "", s_line).strip()
+                if clean_val:
+                    result["recommendations"].append(clean_val)
+    return result
 
 def extract_dialogue_transcript(markdown_text: str) -> list[dict]:
     """Extract speaker-diarized dialogue turns with timestamps and content."""
@@ -174,10 +224,30 @@ def parse_report_to_json(markdown_text: str, metadata: dict) -> dict:
     action_table_body = extract_section_content(markdown_text, ["Action Items", "Tasks", "Action Matrix"])
     action_items = extract_markdown_table(action_table_body) if action_table_body else []
 
+    # If action table is empty, parse inline actions: - [ ] Task — *Assignee* DueDate
+    if not action_items:
+        for a_line in markdown_text.splitlines():
+            a_line = a_line.strip()
+            if "- [" in a_line or "☐" in a_line:
+                m_act = re.match(r"^[-*•]?\s*(?:\[[\sxX]?\]|☐|☑)?\s*(.*?)(?:—|--|-)\s*\*?([^*—\n]+?)\*?\s+(?:(\d{4}-\d{2}-\d{2}|Next [A-Za-z]+|Today|ASAP|[A-Za-z0-9\s/]+))?$", a_line)
+                if m_act:
+                    desc = m_act.group(1).strip().strip("[]*-• ")
+                    owner = m_act.group(2).strip() if m_act.group(2) else "Team"
+                    due = m_act.group(3).strip() if m_act.group(3) else "Next Sprint"
+                    if desc and len(desc) > 3:
+                        action_items.append({
+                            "task": desc,
+                            "assignee": owner,
+                            "priority": "MED",
+                            "due_date": due,
+                            "notes": "—"
+                        })
+
     brief_lines = extract_executive_brief(markdown_text)
     decisions_data = extract_decisions_and_reversals(markdown_text)
     mindmap_str = extract_mermaid_mindmap(markdown_text)
     pillars = extract_pillars(markdown_text)
+    ai_suggestions = extract_ai_suggestions(markdown_text)
     dialogues = extract_dialogue_transcript(markdown_text)
 
     structured_json = {
@@ -187,7 +257,9 @@ def parse_report_to_json(markdown_text: str, metadata: dict) -> dict:
         },
         "executive_brief": brief_lines,
         "discussion_pillars": pillars,
+        "numbered_topics": pillars,
         "action_items": action_items,
+        "ai_suggestions": ai_suggestions,
         "decisions": decisions_data.get("final_decisions", []),
         "reversals": decisions_data.get("reversals_and_rejected", []),
         "mermaid_mindmap": mindmap_str,
