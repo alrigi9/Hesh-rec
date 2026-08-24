@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MeetingSession } from "@/types/meeting";
+import { formatMeetingTitle } from "@/lib/utils";
 
 interface SidebarProps {
   sessions: MeetingSession[];
@@ -112,7 +113,7 @@ export function Sidebar({
                 }`}
               >
                 <div className="font-medium text-[12.5px] truncate text-[#f0f2f5] flex items-center justify-between">
-                  <span className="truncate">{s.title || "Untitled Session"}</span>
+                  <span className="truncate">{formatMeetingTitle(s.title, s.meeting_date)}</span>
                   {isActive && (
                     <span className="w-1.5 h-1.5 rounded-full bg-[#ff5c47] shrink-0" />
                   )}

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { 
   FileText, 
   CheckSquare, 
@@ -13,20 +14,20 @@ import {
   Download, 
   Printer, 
   Check, 
-  User, 
   Sparkles, 
   Send,
   Loader2,
-  AlertCircle,
   HelpCircle,
-  ShieldCheck
+  Lightbulb,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MeetingSession, ActionItem } from "@/types/meeting";
+import { MeetingSession, ActionItem, MeetingSection, TranscriptSegment } from "@/types/meeting";
 import { MindmapView } from "@/components/MindmapView";
 import { askMeetingAssistant } from "@/lib/api";
+import { formatMeetingTitle } from "@/lib/utils";
 
 interface MeetingViewProps {
   session: MeetingSession;
@@ -34,13 +35,37 @@ interface MeetingViewProps {
 }
 
 export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
+  // Console debugging for inspecting exact API payloads in DevTools
+  console.log("Current Active Session Data:", session);
+
   const [activeTab, setActiveTab] = useState("summary");
   const [copied, setCopied] = useState(false);
+
+  // Robust data key fallbacks
+  const summaryText = session.executive_summary || session.tldr || session.summary || "";
+  const pillars: MeetingSection[] = (session.discussion_pillars && session.discussion_pillars.length > 0)
+    ? session.discussion_pillars
+    : (session.sections || []);
+  const rawActions: ActionItem[] = session.action_items || [];
+  const transcriptSegments: TranscriptSegment[] = Array.isArray(session.transcript_segments)
+    ? session.transcript_segments
+    : (Array.isArray(session.transcript) ? session.transcript : []);
+  const fullTranscriptText = typeof session.transcript === "string"
+    ? session.transcript
+    : (session.full_transcript_text || "");
+
+  // Strategic Insights / AI Suggestions extraction
+  const rawSuggestions: any = session.strategic_insights || session.ai_suggestions;
+  const strategicItems: Array<{ label?: string; title?: string; detail?: string; body?: string; text?: string }> = Array.isArray(rawSuggestions)
+    ? rawSuggestions
+    : (Array.isArray(rawSuggestions?.items) ? rawSuggestions.items : []);
+
+  // Action Items Consolidation
   const [actionItems, setActionItems] = useState<ActionItem[]>(() => {
-    const items = [...(session.action_items || [])];
-    (session.sections || []).forEach((sec) => {
+    const items = [...rawActions];
+    pillars.forEach((sec) => {
       (sec.action_items || []).forEach((a) => {
-        if (!items.find((it) => it.task === a.task || it.description === a.description)) {
+        if (!items.find((it) => (it.task && it.task === a.task) || (it.description && it.description === a.description))) {
           items.push(a);
         }
       });
@@ -53,10 +78,45 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
     }));
   });
 
+  // Sync action items when session changes
+  useEffect(() => {
+    const items = [...(session.action_items || [])];
+    const currentPillars = (session.discussion_pillars && session.discussion_pillars.length > 0)
+      ? session.discussion_pillars
+      : (session.sections || []);
+    
+    currentPillars.forEach((sec) => {
+      (sec.action_items || []).forEach((a) => {
+        if (!items.find((it) => (it.task && it.task === a.task) || (it.description && it.description === a.description))) {
+          items.push(a);
+        }
+      });
+    });
+    setActionItems(
+      items.map((it, idx) => ({
+        ...it,
+        number: idx + 1,
+        status: it.status || "pending",
+        priority: it.priority || "MED",
+      }))
+    );
+    // Reset to summary tab when switching sessions
+    setActiveTab("summary");
+    setMessages([]);
+  }, [session.metadata?.session_id, session.title, session.id]);
+
   // Chat State
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+
+  // Title cleaner
+  const rawTitle = session.title || "Meeting Summary";
+  const cleanTitle = rawTitle
+    .replace(/^Upload \d+ \d+\s*/i, "")
+    .replace(/^upload_\d+_\d+_\s*/i, "")
+    .replace(/^session_\d+_\d+_\s*/i, "");
+  const displayTitle = formatMeetingTitle(cleanTitle, session.meeting_date || session.date);
 
   const toggleActionStatus = (idx: number) => {
     setActionItems((prev) =>
@@ -72,7 +132,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
   };
 
   const handleCopyMarkdown = () => {
-    const md = session.raw_markdown || `# ${session.title}\n\n${session.tldr || ""}`;
+    const md = session.raw_markdown || `# ${displayTitle}\n\n${summaryText || ""}`;
     navigator.clipboard.writeText(md);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -84,7 +144,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(session.title || "meeting").replace(/[^a-z0-9]/gi, "_")}.json`;
+    a.download = `${displayTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.json`;
     a.click();
   };
 
@@ -116,27 +176,34 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
   const totalActions = actionItems.length;
   const completedActions = actionItems.filter((a) => a.status === "completed").length;
   const completionPercent = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
+  const displayDate = session.meeting_date || session.date;
+  const displayDuration = session.metadata?.duration || session.duration || (session.duration_minutes ? `${session.duration_minutes}m` : null);
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
       {/* Editorial Header */}
-      <div className="space-y-4 mb-8">
+      <motion.div 
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="space-y-4 mb-8"
+      >
         <h1 className="text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading">
-          {session.title || "Meeting Summary"}
+          {displayTitle}
         </h1>
 
         {/* Floating Metadata Pills */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          {session.metadata?.duration && (
+          {displayDuration && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono">
               <Clock className="w-3 h-3 text-[#ff5c47]" />
-              {session.metadata.duration}
+              {displayDuration}
             </span>
           )}
-          {session.meeting_date && (
+          {displayDate && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono">
               <Calendar className="w-3 h-3 text-[#8b909a]" />
-              {session.meeting_date}
+              {displayDate}
             </span>
           )}
           {session.metadata?.model && (
@@ -162,7 +229,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
             size="sm"
             variant="outline"
             onClick={handleCopyMarkdown}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] transition-colors"
           >
             {copied ? <Check className="w-3.5 h-3.5 mr-1.5 text-[#3ec98a]" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
             {copied ? "Copied" : "Copy Markdown"}
@@ -171,7 +238,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
             size="sm"
             variant="outline"
             onClick={handleDownloadJSON}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] transition-colors"
           >
             <Download className="w-3.5 h-3.5 mr-1.5" />
             JSON
@@ -180,244 +247,322 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
             size="sm"
             variant="outline"
             onClick={() => window.print()}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] transition-colors"
           >
             <Printer className="w-3.5 h-3.5 mr-1.5" />
             Print / PDF
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* 4 Dedicated Tabs */}
+      {/* Tabs Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-[#141517] border border-[#232529] p-1 rounded-full inline-flex gap-1">
           <TabsTrigger
             value="summary"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
           >
             <FileText className="w-3.5 h-3.5 mr-1.5" />
             Summary
           </TabsTrigger>
           <TabsTrigger
             value="actions"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
           >
             <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
             Action Items ({totalActions})
           </TabsTrigger>
           <TabsTrigger
             value="mindmap"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
           >
             <Network className="w-3.5 h-3.5 mr-1.5" />
             Mind Map
           </TabsTrigger>
           <TabsTrigger
             value="transcript"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
           >
             <Clock className="w-3.5 h-3.5 mr-1.5" />
             Transcript
           </TabsTrigger>
           <TabsTrigger
             value="chat"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a]"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
           >
             <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
             Chat
           </TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: SUMMARY */}
+        {/* TAB 1: SUMMARY (Default Visible directly under tab bar) */}
         <TabsContent value="summary" className="space-y-8 focus-visible:outline-none">
-          {/* Executive Brief */}
-          {session.tldr && (
-            <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 shadow-sm">
-              <div className="text-xs font-bold text-[#ff5c47] uppercase tracking-wider mb-2 font-heading">
-                Executive Brief
-              </div>
-              <p className="text-sm leading-relaxed text-[#f0f2f5]">{session.tldr}</p>
-            </div>
-          )}
-
-          {/* Discussion Pillars (Numbered Sections) */}
-          <div className="space-y-6">
-            {(session.sections || []).map((sec, idx) => {
-              const n = sec.n || idx + 1;
-              const cleanTitle = (sec.title || `Topic ${n}`).replace(/^\d+\.\s*/, "");
-
-              return (
-                <div
-                  key={idx}
-                  className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-4 shadow-sm"
-                >
-                  <h2 className="text-lg font-bold text-[#f0f2f5] font-heading">
-                    {n}. {cleanTitle}
-                  </h2>
-                  <p className="text-sm leading-relaxed text-[#f0f2f5]">{sec.narrative}</p>
-
-                  {/* Decisions */}
-                  {sec.decisions && sec.decisions.length > 0 && (
-                    <div className="p-4 bg-[#18191c] border border-[#232529] rounded-xl space-y-2">
-                      <div className="text-xs font-semibold text-[#f0f2f5]">Decisions Agreed:</div>
-                      <ul className="space-y-1 text-xs text-[#8b909a]">
-                        {sec.decisions.map((d, dIdx) => (
-                          <li key={dIdx} className="flex items-start gap-2">
-                            <span className="text-[#3ec98a] font-bold">•</span>
-                            <span>{d}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Inline Action Items */}
-                  {sec.action_items && sec.action_items.length > 0 && (
-                    <div className="space-y-2 pt-2">
-                      <div className="text-xs font-semibold text-[#8b909a] uppercase tracking-wider">
-                        Deliverables
-                      </div>
-                      <div className="space-y-1.5">
-                        {sec.action_items.map((act, aIdx) => (
-                          <div
-                            key={aIdx}
-                            className="flex items-center justify-between p-2.5 rounded-xl bg-[#18191c] border border-[#232529] text-xs text-[#f0f2f5]"
-                          >
-                            <span className="truncate">
-                              {act.task || act.description}
-                            </span>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#232529] text-[#8b909a]">
-                                {act.owner || act.assignee || "Team"}
-                              </span>
-                              {act.due_date && (
-                                <span className="text-[11px] font-mono text-[#8b909a]">
-                                  {act.due_date}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-8"
+          >
+            {/* Executive Summary Card */}
+            {summaryText && (
+              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 shadow-sm">
+                <div className="text-xs font-bold text-[#ff5c47] uppercase tracking-wider mb-2 font-heading">
+                  Executive Brief
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Open Questions */}
-          {session.open_questions && session.open_questions.length > 0 && (
-            <div className="bg-[#141517] border border-[#232529] border-l-4 border-l-[#f9ab00] rounded-2xl p-6 space-y-3">
-              <div className="text-xs font-bold text-[#f9ab00] uppercase tracking-wider flex items-center gap-1.5">
-                <HelpCircle className="w-4 h-4" />
-                Open Questions & Unresolved Items
+                <p className="text-sm leading-relaxed text-[#f0f2f5] whitespace-pre-line">{summaryText}</p>
               </div>
-              <ul className="space-y-2 text-xs text-[#f0f2f5]">
-                {session.open_questions.map((q, idx) => {
-                  const qText = typeof q === "string" ? q : q.question;
-                  const raisedBy = typeof q === "object" ? q.raised_by : "";
+            )}
+
+            {/* Key Discussion Pillars / Sections */}
+            {pillars.length > 0 && (
+              <div className="space-y-6">
+                {pillars.map((sec, idx) => {
+                  const n = sec.n || idx + 1;
+                  const cleanSecTitle = (sec.title || `Topic ${n}`).replace(/^\d+\.\s*/, "");
+
                   return (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-[#f9ab00] font-bold">•</span>
-                      <span>
-                        {qText}
-                        {raisedBy && <em className="text-[#8b909a] ml-1">({raisedBy})</em>}
-                      </span>
-                    </li>
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: idx * 0.05 }}
+                      className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-4 shadow-sm hover:border-[#2e3238] transition-colors"
+                    >
+                      <h2 className="text-lg font-bold text-[#f0f2f5] font-heading">
+                        {n}. {cleanSecTitle}
+                      </h2>
+                      {sec.narrative && (
+                        <p className="text-sm leading-relaxed text-[#f0f2f5] whitespace-pre-line">{sec.narrative}</p>
+                      )}
+
+                      {/* Decisions */}
+                      {sec.decisions && sec.decisions.length > 0 && (
+                        <div className="p-4 bg-[#18191c] border border-[#232529] rounded-xl space-y-2">
+                          <div className="text-xs font-semibold text-[#f0f2f5]">Decisions Agreed:</div>
+                          <ul className="space-y-1 text-xs text-[#8b909a]">
+                            {sec.decisions.map((d, dIdx) => (
+                              <li key={dIdx} className="flex items-start gap-2">
+                                <span className="text-[#3ec98a] font-bold">•</span>
+                                <span>{d}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Inline Action Items */}
+                      {sec.action_items && sec.action_items.length > 0 && (
+                        <div className="space-y-2 pt-2">
+                          <div className="text-xs font-semibold text-[#8b909a] uppercase tracking-wider">
+                            Deliverables
+                          </div>
+                          <div className="space-y-1.5">
+                            {sec.action_items.map((act, aIdx) => (
+                              <div
+                                key={aIdx}
+                                className="flex items-center justify-between p-2.5 rounded-xl bg-[#18191c] border border-[#232529] text-xs text-[#f0f2f5]"
+                              >
+                                <span className="truncate">
+                                  {act.task || act.description}
+                                </span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#232529] text-[#8b909a]">
+                                    {act.owner || act.assignee || "Team"}
+                                  </span>
+                                  {act.due_date && (
+                                    <span className="text-[11px] font-mono text-[#8b909a]">
+                                      {act.due_date}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
                   );
                 })}
-              </ul>
-            </div>
-          )}
+              </div>
+            )}
+
+            {/* Strategic Insights / AI Suggestions */}
+            {strategicItems.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-4 shadow-sm"
+              >
+                <div className="text-xs font-bold text-[#ff5c47] uppercase tracking-wider flex items-center gap-1.5">
+                  <Lightbulb className="w-4 h-4 text-[#ff5c47]" />
+                  Strategic Insights & Recommendations
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {strategicItems.map((item, idx) => {
+                    const itemTitle = item.label || item.title || "Insight";
+                    const itemDetail = item.detail || item.body || item.text || "";
+                    return (
+                      <div key={idx} className="p-3.5 rounded-xl bg-[#18191c] border border-[#232529] space-y-1">
+                        <div className="text-xs font-semibold text-[#f0f2f5]">{itemTitle}</div>
+                        {itemDetail && <p className="text-xs text-[#8b909a] leading-relaxed">{itemDetail}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Open Questions */}
+            {session.open_questions && session.open_questions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-[#141517] border border-[#232529] border-l-4 border-l-[#f9ab00] rounded-2xl p-6 space-y-3"
+              >
+                <div className="text-xs font-bold text-[#f9ab00] uppercase tracking-wider flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4" />
+                  Open Questions & Unresolved Items
+                </div>
+                <ul className="space-y-2 text-xs text-[#f0f2f5]">
+                  {session.open_questions.map((q, idx) => {
+                    const qText = typeof q === "string" ? q : q.question;
+                    const raisedBy = typeof q === "object" ? q.raised_by : "";
+                    return (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-[#f9ab00] font-bold">•</span>
+                        <span>
+                          {qText}
+                          {raisedBy && <em className="text-[#8b909a] ml-1">({raisedBy})</em>}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </motion.div>
+            )}
+
+            {/* Fallback if no structured sections exist yet */}
+            {!summaryText && pillars.length === 0 && session.raw_markdown && (
+              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-4">
+                <pre className="text-xs text-[#f0f2f5] whitespace-pre-wrap font-sans leading-relaxed">
+                  {session.raw_markdown}
+                </pre>
+              </div>
+            )}
+          </motion.div>
         </TabsContent>
 
         {/* TAB 2: ACTION ITEMS MANAGER */}
         <TabsContent value="actions" className="space-y-6 focus-visible:outline-none">
-          {/* Progress Header */}
-          <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 flex items-center justify-between shadow-sm">
-            <div>
-              <div className="text-base font-semibold text-[#f0f2f5] font-heading">
-                Action Items Tracker
-              </div>
-              <div className="text-xs text-[#8b909a]">
-                {completedActions} of {totalActions} tasks completed ({completionPercent}%)
-              </div>
-            </div>
-            <div className="w-36 h-2 bg-[#232529] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#ff5c47] rounded-full transition-all duration-300"
-                style={{ width: `${completionPercent}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Checklist */}
-          <div className="space-y-2">
-            {actionItems.map((item, idx) => {
-              const isDone = item.status === "completed";
-              const taskText = item.task || item.description || "Deliverable";
-
-              return (
-                <div
-                  key={idx}
-                  onClick={() => toggleActionStatus(idx)}
-                  className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                    isDone
-                      ? "bg-[#141517]/50 border-[#232529]/60 text-[#8b909a]"
-                      : "bg-[#141517] border-[#232529] text-[#f0f2f5] hover:border-[#2e3238]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                        isDone
-                          ? "bg-[#ff5c47] border-[#ff5c47] text-white"
-                          : "border-[#3e434c] bg-[#18191c]"
-                      }`}
-                    >
-                      {isDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                    </div>
-                    <span className={`text-xs ${isDone ? "line-through text-[#8b909a]" : "font-medium"}`}>
-                      {taskText}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#1c1e22] border border-[#232529] text-[#8b909a]">
-                      {item.owner || item.assignee || "Team"}
-                    </span>
-                    {item.priority === "HIGH" && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#ff5c47]/10 text-[#ff5c47] border border-[#ff5c47]/20">
-                        HIGH
-                      </span>
-                    )}
-                    {item.due_date && (
-                      <span className="text-[11px] font-mono text-[#8b909a]">
-                        {item.due_date}
-                      </span>
-                    )}
-                  </div>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            {/* Progress Header */}
+            <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 flex items-center justify-between shadow-sm">
+              <div>
+                <div className="text-base font-semibold text-[#f0f2f5] font-heading">
+                  Action Items Tracker
                 </div>
-              );
-            })}
-          </div>
+                <div className="text-xs text-[#8b909a]">
+                  {completedActions} of {totalActions} tasks completed ({completionPercent}%)
+                </div>
+              </div>
+              <div className="w-36 h-2 bg-[#232529] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#ff5c47] rounded-full transition-all duration-300"
+                  style={{ width: `${completionPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Checklist */}
+            <div className="space-y-2">
+              {actionItems.map((item, idx) => {
+                const isDone = item.status === "completed";
+                const taskText = item.task || item.description || "Deliverable";
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => toggleActionStatus(idx)}
+                    className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                      isDone
+                        ? "bg-[#141517]/50 border-[#232529]/60 text-[#8b909a]"
+                        : "bg-[#141517] border-[#232529] text-[#f0f2f5] hover:border-[#2e3238]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                          isDone
+                            ? "bg-[#ff5c47] border-[#ff5c47] text-white"
+                            : "border-[#3e434c] bg-[#18191c]"
+                        }`}
+                      >
+                        {isDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
+                      <span className={`text-xs ${isDone ? "line-through text-[#8b909a]" : "font-medium"}`}>
+                        {taskText}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#1c1e22] border border-[#232529] text-[#8b909a]">
+                        {item.owner || item.assignee || "Team"}
+                      </span>
+                      {item.priority === "HIGH" && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#ff5c47]/10 text-[#ff5c47] border border-[#ff5c47]/20">
+                          HIGH
+                        </span>
+                      )}
+                      {item.due_date && (
+                        <span className="text-[11px] font-mono text-[#8b909a]">
+                          {item.due_date}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {actionItems.length === 0 && (
+                <div className="p-8 text-center text-xs text-[#8b909a] bg-[#141517] border border-[#232529] rounded-2xl">
+                  No action items identified for this session.
+                </div>
+              )}
+            </div>
+          </motion.div>
         </TabsContent>
 
         {/* TAB 3: MIND MAP */}
         <TabsContent value="mindmap" className="focus-visible:outline-none">
-          <MindmapView session={session} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.99 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <MindmapView session={session} />
+          </motion.div>
         </TabsContent>
 
         {/* TAB 4: TRANSCRIPT */}
         <TabsContent value="transcript" className="space-y-4 focus-visible:outline-none">
-          <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-3 shadow-sm">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-3 shadow-sm"
+          >
             <div className="text-xs font-semibold text-[#8b909a] uppercase tracking-wider mb-2">
               Diarized Transcript
             </div>
 
             <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
-              {(session.transcript_segments || []).map((seg, idx) => (
+              {transcriptSegments.map((seg, idx) => (
                 <div
                   key={idx}
                   className="p-3 rounded-xl bg-[#18191c] border border-[#232529] space-y-1.5 hover:border-[#2e3238] transition-colors"
@@ -447,18 +592,23 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
                 </div>
               ))}
 
-              {(!session.transcript_segments || session.transcript_segments.length === 0) && (
+              {transcriptSegments.length === 0 && (
                 <div className="p-8 text-center text-xs text-[#8b909a]">
-                  {session.full_transcript_text || "No transcript turns available."}
+                  {fullTranscriptText || "No transcript turns available."}
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
         </TabsContent>
 
         {/* TAB 5: CHAT ASSISTANT */}
         <TabsContent value="chat" className="space-y-6 focus-visible:outline-none">
-          <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 min-h-[500px] flex flex-col justify-between shadow-sm">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-[#141517] border border-[#232529] rounded-2xl p-6 min-h-[500px] flex flex-col justify-between shadow-sm"
+          >
             {/* Messages Stream */}
             <div className="space-y-4 overflow-y-auto max-h-[420px] pr-2">
               {messages.length === 0 ? (
@@ -546,7 +696,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
                 <Send className="w-3.5 h-3.5" />
               </Button>
             </form>
-          </div>
+          </motion.div>
         </TabsContent>
       </Tabs>
     </div>

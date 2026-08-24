@@ -53,17 +53,30 @@ export interface MeetingSession {
   id?: string;
   title: string;
   meeting_date?: string;
+  date?: string;
   duration_minutes?: number;
+  duration?: string;
+  template?: string;
   participants?: string[];
   tags?: string[];
   tldr?: string;
+  executive_summary?: string;
+  summary?: string;
   sections?: MeetingSection[];
+  discussion_pillars?: MeetingSection[];
   action_items?: ActionItem[];
   open_questions?: (string | { question: string; raised_by?: string })[];
   ai_suggestions?:
-    | { items?: AISuggestionItem[] }
+    | { items?: AISuggestionItem[]; unresolved?: string[]; gaps?: string[]; recommendations?: string[] }
     | AISuggestionItem[]
     | string[];
+  strategic_insights?:
+    | { items?: AISuggestionItem[]; unresolved?: string[]; gaps?: string[]; recommendations?: string[] }
+    | AISuggestionItem[]
+    | string[];
+  mindmap_markdown?: string;
+  mindmap?: any;
+  transcript?: string | TranscriptSegment[];
   transcript_segments?: TranscriptSegment[];
   full_transcript_text?: string;
   metadata?: MeetingMetadata;
