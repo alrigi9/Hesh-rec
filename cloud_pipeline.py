@@ -178,364 +178,103 @@ def transcribe_audio_groq(
 # =============================================================================
 # 2. INTELLIGENCE PROMPTS & SUMMARY TEMPLATES
 # =============================================================================
+# 2. STRUCTURED JSON INTELLIGENCE PROMPT & EXTRACTION PIPELINE
+# =============================================================================
 def build_intelligence_prompt(
     topic: str,
     transcript_text: str,
     duration_str: str,
+    meeting_date_iso: Optional[str] = None,
     template_type: str = "executive"
 ) -> str:
-    """Builds prompt tailored to the selected intelligence template."""
-    base_header = f"""You are an elite Executive Meeting & Speech Intelligence Analyst adhering strictly to the clean, document-first Plaud methodology.
-Your objective is to produce an elegant, narrative-first executive intelligence report from the provided transcript with ZERO redundant boilerplate labels.
+    """Builds exact structured JSON prompt for meeting intelligence."""
+    if not meeting_date_iso:
+        meeting_date_iso = datetime.now().strftime("%Y-%m-%d")
 
-Topic/Title: {topic}
+    return f"""You are an expert meeting analyst producing a structured record of a recorded meeting. You will receive a diarized transcript. It may be messy, contain filler, cross-talk, ASR errors, and mixed languages (English/Arabic).
+
+Return ONE valid JSON object and nothing else. No markdown fences, no commentary.
+
+MEETING_DATE: {meeting_date_iso}
+Topic/Focus: {topic}
 Duration: {duration_str}
+
 Spoken Transcript:
 \"\"\"
 {transcript_text}
 \"\"\"
-"""
 
-    if template_type == "academic":
-        return base_header + """
-Analyze the academic lecture thoroughly and generate the report adhering STRICTLY to this clean Plaud document structure:
+=====================  ABSOLUTE RULES  =====================
 
-# {topic}
+R1. GROUNDING. Use only what is in the transcript. Never invent a decision, owner, number, or date. If something was not said, it does not appear.
+R2. LANGUAGE. Output is always professional English, regardless of the transcript's language.
+R3. DATES. You are given MEETING_DATE ({meeting_date_iso}). Resolve every relative date against it and output ISO format YYYY-MM-DD.
+R4. NAMES & ACRONYMS. Preserve exact speaker names from the transcript. Fix ASR spellings of technical terms and keep acronyms fully uppercase: SOC 2, ISO, DLP, BYOD, MFA, API, PDF, UI, VPN, QR.
+R5. SPECIFICITY IS THE WHOLE JOB. Every task must carry the concrete details a person needs to do it without replaying the recording: document numbers, slide numbers, version numbers, tool names, durations, thresholds, counts. A task under 8 words is almost always too vague — expand it.
+R6. GRANULARITY. Extract EVERY committed task. One task = one thing a person can tick off. Never bundle two deliverables into one line.
+R7. FULL SENTENCES. Section narratives are complete sentences in past tense. Never open with a bare gerund fragment.
+R8. NO TEMPLATE LEAKAGE. Never emit scaffolding labels like "Core Topic and Focus", "Key Points", "Discussion", "Overview" as content.
 
-## 1. [First Core Concept / Lecture Section]
-[A concise, highly readable executive narrative paragraph explaining the theoretical foundation, key context, instructor explanations, and core principle to master. DO NOT use boilerplate prefixes like 'Core Topic & Focus:' or 'Context:'; write continuous, natural academic prose.]
+=====================  OUTPUT SCHEMA  =====================
 
-### Action Items
-- [ ] [Specific study deliverable, assigned reading, or problem set] — *[Student / Study Group]* [Next Class / Exam]
-
-## 2. [Second Core Concept / Lecture Section]
-[A concise, highly readable executive narrative paragraph explaining the concept, breakdown, and core principle to master.]
-
-### Action Items
-- [ ] [Specific study deliverable or exam topic to review] — *[Student / Study Group]* [Next Class / Exam]
-
-## AI Suggestions
-> AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:
-1. **[Unresolved Academic Concept]**: [Explanation of the concept requiring clarification or study group follow-up]
-2. **[Exam / Reading Gap]**: [Explanation of missing reading or deadline]
-
-## Visual Architecture (Mermaid Mindmap)
-
-CRITICAL RULES FOR MERMAID:
-- Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
-- NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
-- Strictly adhere to valid Mermaid mindmap indentation.
-- Strictly mirror the numbered sections and study deliverables:
-```mermaid
-mindmap
-  root["{topic}"]
-    ["1. First Concept Title"]
-      ["Core Theoretical Principle"]
-      ["Action: Study deliverable"]
-    ["2. Second Concept Title"]
-      ["Core Theoretical Principle"]
-      ["Action: Study deliverable"]
-    ["AI Suggestions"]
-      ["Exam Focus Area"]
-      ["Recommended Reading"]
-```
-"""
-
-    elif template_type == "brainstorm":
-        return base_header + """
-Analyze the brainstorming and ideation session thoroughly and generate the report adhering STRICTLY to this clean Plaud document structure:
-
-# {topic}
-
-## 1. [First Ideation Track / Challenge]
-[A concise, highly readable executive narrative paragraph explaining the problem addressed, the key creative proposals generated, trade-offs discussed, and consensus reached. DO NOT use boilerplate prefixes like 'Core Topic & Focus:' or 'Speaker Perspective:'; write continuous, natural prose.]
-
-### Action Items
-- [ ] [Prototype, mock, or research experiment deliverable] — *[Assignee / Team]* [Next Sprint / Target Date]
-
-## 2. [Second Ideation Track / Challenge]
-[A concise, highly readable executive narrative paragraph explaining the proposals, trade-offs, and consensus reached.]
-
-### Action Items
-- [ ] [Prototype, mock, or research experiment deliverable] — *[Assignee / Team]* [Next Sprint / Target Date]
-
-## AI Suggestions
-> AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:
-1. **[Unresolved Creative Track]**: [Explanation of creative conflict or unvalidated assumption]
-2. **[Missing Experiment Owner]**: [Explanation of experiment lacking clear timeline or owner]
-
-## Visual Architecture (Mermaid Mindmap)
-
-CRITICAL RULES FOR MERMAID:
-- Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
-- NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
-- Strictly adhere to valid Mermaid mindmap indentation.
-- Strictly mirror the numbered tracks and experiments:
-```mermaid
-mindmap
-  root["{topic}"]
-    ["1. First Idea Track"]
-      ["Key Breakthrough"]
-      ["Action: Prototype Experiment"]
-    ["2. Second Idea Track"]
-      ["Key Breakthrough"]
-      ["Action: Validation Test"]
-    ["AI Suggestions"]
-      ["Unvalidated Assumption"]
-      ["Recommended Feasibility Spike"]
-```
-"""
-
-    else:
-        # Default: Executive Meeting Template (Exact Plaud Document Style)
-        return base_header + """
-Analyze the meeting transcript thoroughly and generate the report adhering STRICTLY to this clean Plaud document structure:
-
-# {topic}
-
-## 1. [First Core Topic Title]
-[A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution. DO NOT include boilerplate labels like 'Core Topic & Focus:' or 'Speaker Perspective:' or 'Context:'; write clean, continuous business prose.]
-
-### Action Items
-- [ ] [Task description] — *[Assignee]* [Date if available]
-- [ ] [Task description] — *[Assignee]* [Date if available]
-
-## 2. [Second Core Topic Title]
-[A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
-
-### Action Items
-- [ ] [Task description] — *[Assignee]* [Date if available]
-
-## 3. [Third Core Topic Title]
-[A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
-
-### Action Items
-- [ ] [Task description] — *[Assignee]* [Date if available]
-
-## AI Suggestions
-> AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:
-1. **[Suggestion / Unresolved Issue Title]**: [Explanation of the issue or gap and recommendation]
-2. **[Suggestion / Unresolved Issue Title]**: [Explanation of the issue or gap and recommendation]
-
-## Visual Architecture (Mermaid Mindmap)
-
-CRITICAL RULES FOR MERMAID:
-- Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
-- NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
-- Strictly adhere to valid Mermaid mindmap indentation.
-- Strictly mirror the numbered sections, sub-actions, and AI suggestions:
-```mermaid
-mindmap
-  root["{topic}"]
-    ["1. First Topic Title"]
-      ["Narrative Focus Point"]
-      ["Action: Deliverable description"]
-    ["2. Second Topic Title"]
-      ["Narrative Focus Point"]
-      ["Action: Deliverable description"]
-    ["AI Suggestions"]
-      ["Unresolved Point or Gap"]
-      ["Strategic Recommendation"]
-```
-"""
+{{
+  "title": "MM-DD Meeting: <Topic A, B, and Topic C>",
+  "meeting_date": "YYYY-MM-DD",
+  "duration_minutes": <int or null>,
+  "participants": ["<name as spoken>", ...],
+  "tags": ["<2-4 domain tags>"],
+  "tldr": "<3-4 sentences>",
+  "sections": [
+    {{
+      "n": 1,
+      "title": "<Specific topic title>",
+      "narrative": "<4-7 full sentences>",
+      "decisions": ["<Resolved decision>"],
+      "action_items": [
+        {{
+          "id": "A1",
+          "task": "<Fully specific task>",
+          "owner": "<Exact name>",
+          "co_owners": [],
+          "due_date": "YYYY-MM-DD or null",
+          "due_text": "<text or null>",
+          "priority": "HIGH | MED | LOW",
+          "context": "<one sentence context>",
+          "blocked_by": null
+        }}
+      ]
+    }}
+  ],
+  "open_questions": [
+    {{
+      "question": "<Question raised>",
+      "raised_by": "<name>"
+    }}
+  ],
+  "ai_suggestions": [
+    {{
+      "label": "<Issue name>",
+      "detail": "<Specific, concrete gap, risk, and recommendation>"
+    }}
+  ],
+  "mindmap": {{
+    "root": "<Meeting topic, MAX 40 chars>",
+    "branches": [
+      {{
+        "label": "<MAX 30 chars>",
+        "children": [
+          {{ "label": "<MAX 30 chars>", "children": [] }}
+        ]
+      }}
+    ]
+  }}
+}}"""
 
 
-def extract_intelligence_gemini(
-    topic: str,
-    transcript_text: str,
-    duration_str: str,
-    model_name: str = DEFAULT_GEMINI_MODEL,
-    template_type: str = "executive"
-) -> Dict[str, Any]:
-    """Extracts executive brief, pillars, actions, decisions, and mindmap using Gemini (with Groq fallback)."""
-    client = get_gemini_client()
-    groq_client = get_groq_client()
-    prompt = build_intelligence_prompt(topic, transcript_text, duration_str, template_type=template_type)
-
-    resp_text = None
-    used_model = model_name
-    candidates = [model_name] + [m for m in MODEL_CANDIDATES if m != model_name]
-
-    # 1. Try Gemini
-    if client:
-        for candidate in candidates:
-            try:
-                print(f"[*] Calling Gemini ({candidate}) for Meeting Intelligence...", flush=True)
-                resp = client.models.generate_content(
-                    model=candidate,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        temperature=0.15,
-                        max_output_tokens=4000
-                    )
-                )
-                if resp and resp.text:
-                    resp_text = resp.text.strip()
-                    used_model = f"Gemini ({candidate})"
-                    break
-            except Exception as e:
-                print(f"[!] Gemini Model {candidate} Error: {e}", flush=True)
-                continue
-
-    # 2. Fallback to Groq LPU if Gemini is unavailable or rate-limited
-    if not resp_text and groq_client:
-        groq_models = ["qwen/qwen3.6-27b", "openai/gpt-oss-120b", "groq/compound"]
-        for g_model in groq_models:
-            try:
-                print(f"[*] Calling Groq LPU ({g_model}) for Meeting Intelligence...", flush=True)
-                g_resp = groq_client.chat.completions.create(
-                    model=g_model,
-                    messages=[
-                        {"role": "system", "content": "You are an elite Executive Meeting Intelligence AI Analyst. Adhere strictly to the requested markdown format."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    max_tokens=4000,
-                    temperature=0.15
-                )
-                if g_resp and g_resp.choices and g_resp.choices[0].message.content:
-                    raw = g_resp.choices[0].message.content.strip()
-                    clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-                    if clean:
-                        resp_text = clean
-                        used_model = f"Groq ({g_model})"
-                        break
-            except Exception as ge:
-                print(f"[!] Groq Model {g_model} Error: {ge}", flush=True)
-                continue
-
-    if not resp_text:
-        raise RuntimeError("Failed to generate intelligence report from all available AI providers.")
-
-    return parse_markdown_to_session_dict(resp_text, used_model, template_type=template_type)
-
-
-def parse_markdown_to_session_dict(
-    raw_markdown: str,
-    model_name: str,
-    template_type: str = "executive"
-) -> Dict[str, Any]:
-    """Parses standard markdown report into clean structured session dictionary."""
-    # 1. Executive Brief
-    exec_brief = []
-    exec_match = re.search(r"## ⚡ Executive Brief\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
-    if exec_match:
-        for line in exec_match.group(1).splitlines():
-            line = line.strip()
-            if line.startswith("> •") or line.startswith("> -") or line.startswith("•") or line.startswith("-"):
-                clean = re.sub(r"^>\s*[•\-]\s*", "• ", line).strip()
-                if clean:
-                    exec_brief.append(clean)
-
-    # 2. Discussion Pillars
-    pillars = []
-    pillars_match = re.search(r"## 🏛️ Key Discussion Pillars\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
-    if pillars_match:
-        pillar_blocks = re.findall(r"###\s*(\d+\.\s*\[(.*?)\]\s*(.*?))\n(.*?)(?=\n###|\Z)", pillars_match.group(1), re.DOTALL)
-        for num_match, ts, title, details in pillar_blocks:
-            pillars.append({
-                "title": title.strip(),
-                "timestamp": ts.strip(),
-                "details": details.strip()
-            })
-
-    # 3. Action Items Matrix (Multi-Strategy Robust Parsing)
-    action_items = []
-    
-    # Strategy A: Standard Action Items Table
-    table_match = re.search(r"## 📋 Action Items Matrix.*?\n(\|.*?\n\|[-:\s|]+\n)(.*?)(?=\n\n\S|---|##|\Z)", raw_markdown, re.DOTALL)
-    if not table_match:
-        table_match = re.search(r"(\|(?:\s*#\s*\|\s*Task Deliverable.*?\n)(.*?)(?=\n\n\S|---|##|\Z))", raw_markdown, re.DOTALL)
-
-    if table_match:
-        content_to_parse = table_match.group(2) if len(table_match.groups()) >= 2 else table_match.group(0)
-        rows = [r.strip() for r in content_to_parse.splitlines() if r.strip() and "|" in r and not re.match(r"^\|[\s\-:|]+\|$", r.strip())]
-        for r in rows:
-            cols = [c.strip() for c in r.split("|")[1:-1]]
-            if len(cols) >= 3:
-                num = len(action_items) + 1
-                desc = cols[1] if len(cols) > 1 and cols[0].isdigit() else cols[0]
-                assignee = cols[2] if len(cols) > 2 and cols[0].isdigit() else (cols[1] if len(cols) > 1 else "Team")
-                prio = cols[3].upper() if len(cols) > 3 and cols[0].isdigit() else "MED"
-                due = cols[4] if len(cols) > 4 and cols[0].isdigit() else (cols[2] if len(cols) > 2 else "Next Sprint")
-                notes = cols[5] if len(cols) > 5 and cols[0].isdigit() else "—"
-
-                # Filter out header row if accidentally caught
-                if "task" in desc.lower() and "deliverable" in desc.lower():
-                    continue
-
-                if desc and len(desc) > 3:
-                    action_items.append({
-                        "number": num,
-                        "description": desc,
-                        "assignee": assignee or "Team",
-                        "priority": "HIGH" if "HIGH" in prio else ("LOW" if "LOW" in prio else "MED"),
-                        "due_date": due or "Next Sprint",
-                        "notes": notes or "—"
-                    })
-
-    # Strategy B: Fallback to Bulleted / Numbered Action Lists
-    if not action_items:
-        act_section = re.search(r"## 📋 Action Items.*?\n(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
-        if act_section:
-            for line in act_section.group(1).splitlines():
-                line = line.strip()
-                if not line or line.startswith("|"):
-                    continue
-                # Matches: 1. [Task] - Owner: X or - [ ] Task
-                clean_line = re.sub(r"^\d+\.\s*|-\s*\[[\sxX]?\]\s*|-\s*", "", line).strip()
-                if clean_line and len(clean_line) > 5:
-                    owner = "Team"
-                    owner_m = re.search(r"(?:Owner|Assignee|Lead):\s*([^,;\(\)]+)", clean_line, re.IGNORECASE)
-                    if owner_m:
-                        owner = owner_m.group(1).strip()
-                    due = "Next Sprint"
-                    due_m = re.search(r"(?:Due|Deadline|Target):\s*([^,;\(\)]+)", clean_line, re.IGNORECASE)
-                    if due_m:
-                        due = due_m.group(1).strip()
-                    
-                    prio = "MED"
-                    if any(k in clean_line.lower() for k in ["high", "urgent", "critical", "p0", "p1"]):
-                        prio = "HIGH"
-                    elif any(k in clean_line.lower() for k in ["low", "p3", "optional"]):
-                        prio = "LOW"
-
-                    action_items.append({
-                        "number": len(action_items) + 1,
-                        "description": clean_line,
-                        "assignee": owner,
-                        "priority": prio,
-                        "due_date": due,
-                        "notes": "—"
-                    })
-
-    # 4. Decisions & Reversals
-    decisions = []
-    dec_match = re.search(r"### ✅ Final Decisions Approved\s*(.*?)(?=### 🔄|## |\Z)", raw_markdown, re.DOTALL)
-    if not dec_match:
-        dec_match = re.search(r"## ⚖️ Decisions.*?\n(.*?)(?=### 🔄|## |\Z)", raw_markdown, re.DOTALL)
-    if dec_match:
-        for line in dec_match.group(1).splitlines():
-            line = line.strip()
-            if re.match(r"^\d+\.", line) or line.startswith("-"):
-                clean = re.sub(r"^\d+\.\s*|-\s*", "", line).strip()
-                if clean and not clean.startswith("###"):
-                    decisions.append(clean)
-
-    reversals = []
-    rev_match = re.search(r"### 🔄 Rejected & Overturned Ideas.*?\n(.*?)(?=## |\Z)", raw_markdown, re.DOTALL)
-    if rev_match:
-        for line in rev_match.group(1).splitlines():
-            line = line.strip()
-            if re.match(r"^\d+\.", line) or line.startswith("-"):
-                clean = re.sub(r"^\d+\.\s*|-\s*", "", line).strip()
-                if clean:
-                    reversals.append(clean)
-
-def sanitize_mermaid_node(text: str, max_len: int = 55) -> str:
+def sanitize_mermaid_node(text: str, max_len: int = 45) -> str:
     """Sanitizes strings for strict compatibility inside Mermaid mindmap nodes."""
     if not text:
         return ""
-    # Strip markdown formatting, brackets, parens, quotes, colons
     clean = re.sub(r"[\*#_`\"'\{\}\(\)\[\]<>\\]", " ", str(text))
     clean = clean.replace("&", " and ").replace(":", " - ")
     clean = re.sub(r"\s+", " ", clean).strip()
@@ -544,80 +283,309 @@ def sanitize_mermaid_node(text: str, max_len: int = 55) -> str:
     return clean
 
 
+def convert_structured_mindmap_to_mermaid(mindmap_dict: Any, fallback_title: str = "Meeting Intelligence") -> str:
+    """Converts structured JSON mindmap object into valid Mermaid mindmap syntax."""
+    if not isinstance(mindmap_dict, dict) or not mindmap_dict.get("root"):
+        clean_root = sanitize_mermaid_node(fallback_title, max_len=40) or "Meeting Intelligence"
+        return f"""mindmap\n  root["{clean_root}"]\n    ["Overview"]\n      ["Key Points"]"""
+
+    root_val = sanitize_mermaid_node(mindmap_dict.get("root", fallback_title), max_len=40)
+    lines = [
+        "mindmap",
+        f'  root["{root_val}"]'
+    ]
+    branches = mindmap_dict.get("branches", [])
+    if isinstance(branches, list):
+        for b in branches:
+            if isinstance(b, dict):
+                b_lbl = sanitize_mermaid_node(b.get("label", "Topic"), max_len=30)
+                if b_lbl:
+                    lines.append(f'    ["{b_lbl}"]')
+                    children = b.get("children", [])
+                    if isinstance(children, list):
+                        for c in children:
+                            if isinstance(c, dict):
+                                c_lbl = sanitize_mermaid_node(c.get("label", "Point"), max_len=30)
+                            else:
+                                c_lbl = sanitize_mermaid_node(str(c), max_len=30)
+                            if c_lbl:
+                                lines.append(f'      ["{c_lbl}"]')
+            elif isinstance(b, str):
+                b_lbl = sanitize_mermaid_node(b, max_len=30)
+                if b_lbl:
+                    lines.append(f'    ["{b_lbl}"]')
+
+    return "\n".join(lines)
+
+
+def convert_structured_json_to_markdown(json_obj: Dict[str, Any]) -> str:
+    """Generates clean Plaud-style markdown document from structured JSON."""
+    lines = []
+    title = json_obj.get("title", "Meeting Report")
+    lines.append(f"# {title}\n")
+    
+    m_date = json_obj.get("meeting_date", "")
+    dur = json_obj.get("duration_minutes")
+    parts = json_obj.get("participants", [])
+    tags = json_obj.get("tags", [])
+    
+    meta_items = []
+    if m_date:
+        meta_items.append(f"**Date:** {m_date}")
+    if dur:
+        meta_items.append(f"**Duration:** {dur} min")
+    if parts:
+        meta_items.append(f"**Participants:** {', '.join(parts)}")
+    if tags:
+        meta_items.append(f"**Tags:** {', '.join(tags)}")
+    if meta_items:
+        lines.append(" • ".join(meta_items) + "\n")
+        
+    tldr = json_obj.get("tldr", "")
+    if tldr:
+        lines.append(f"{tldr}\n")
+        
+    for sec in json_obj.get("sections", []):
+        n = sec.get("n", 1)
+        stitle = sec.get("title", "")
+        lines.append(f"## {n}. {stitle}\n")
+        narrative = sec.get("narrative", "")
+        if narrative:
+            lines.append(f"{narrative}\n")
+            
+        decs = sec.get("decisions", [])
+        if decs:
+            lines.append("**Decisions:**")
+            for d in decs:
+                lines.append(f"- {d}")
+            lines.append("")
+            
+        actions = sec.get("action_items", [])
+        if actions:
+            lines.append("### Action Items")
+            for a in actions:
+                t = a.get("task", "")
+                o = a.get("owner", "Team")
+                due = a.get("due_date") or a.get("due_text") or ""
+                due_s = f" {due}" if due and due != "—" else ""
+                lines.append(f"- [ ] {t} — *{o}*{due_s}")
+            lines.append("")
+            
+    open_q = json_obj.get("open_questions", [])
+    if open_q:
+        lines.append("## Open Questions")
+        for q in open_q:
+            q_txt = q.get("question", "")
+            r_by = q.get("raised_by", "")
+            lines.append(f"- **{q_txt}** (Raised by: {r_by})")
+        lines.append("")
+        
+    suggs = json_obj.get("ai_suggestions", [])
+    if suggs:
+        lines.append("## AI Suggestions")
+        lines.append("> AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:\n")
+        for idx, s in enumerate(suggs):
+            lbl = s.get("label", "")
+            det = s.get("detail", "")
+            lines.append(f"{idx+1}. **{lbl}**: {det}")
+        lines.append("")
+        
+    return "\n".join(lines)
+
+
 def build_contextual_mindmap(session_data: Dict[str, Any], meeting_title: str = "Meeting Intelligence") -> str:
-    """
-    Constructs a deterministic, 100% unified tree-style Mermaid mindmap directly derived
-    from the numbered section titles, narrative highlights, inline action items, and AI suggestions.
-    """
-    clean_root = sanitize_mermaid_node(meeting_title, max_len=42) or "Meeting Intelligence"
+    """Fallback mindmap builder for legacy session dictionaries."""
+    clean_root = sanitize_mermaid_node(meeting_title, max_len=40) or "Meeting Intelligence"
     lines = [
         "mindmap",
         f'  root["{clean_root}"]'
     ]
 
-    # 1. Numbered Topic Sections with Narrative Focus & Inline Actions
-    topics = session_data.get("discussion_pillars", []) or session_data.get("numbered_topics", [])
+    topics = session_data.get("discussion_pillars", []) or session_data.get("numbered_topics", []) or session_data.get("sections", [])
     if topics:
         for idx, t in enumerate(topics[:5]):
-            t_num = t.get("index", idx + 1)
+            t_num = t.get("index") or t.get("n", idx + 1)
             raw_title = t.get("title", f"Topic {t_num}")
-            clean_title = sanitize_mermaid_node(raw_title, max_len=38)
-            # Remove any leading digits if already present
+            clean_title = sanitize_mermaid_node(raw_title, max_len=30)
             clean_title = re.sub(r"^\d+\.\s*", "", clean_title)
-            
             lines.append(f'    ["{t_num}. {clean_title}"]')
             
-            # Narrative highlight
             narrative = t.get("narrative") or t.get("details", "")
             if narrative:
                 first_sentence = re.split(r"[\.\n]", narrative)[0].strip()
-                clean_first = sanitize_mermaid_node(first_sentence, max_len=45)
+                clean_first = sanitize_mermaid_node(first_sentence, max_len=30)
                 if clean_first and clean_first.lower() != clean_title.lower():
                     lines.append(f'      ["{clean_first}"]')
             
-            # Inline Action Items under this topic
             topic_actions = t.get("action_items", [])
             for a in topic_actions[:2]:
-                desc = a.get("description") or a.get("task") or "Deliverable"
-                owner = a.get("assignee") or a.get("owner") or "Team"
-                clean_desc = sanitize_mermaid_node(desc, max_len=30)
-                clean_owner = sanitize_mermaid_node(owner, max_len=14)
+                desc = a.get("task") or a.get("description") or "Deliverable"
+                owner = a.get("owner") or a.get("assignee") or "Team"
+                clean_desc = sanitize_mermaid_node(desc, max_len=24)
+                clean_owner = sanitize_mermaid_node(owner, max_len=12)
                 if clean_desc:
                     lines.append(f'      ["Action: {clean_desc} ({clean_owner})"]')
 
-    else:
-        # Fallback if no numbered topics: use executive brief & actions
-        exec_brief = session_data.get("executive_brief", [])
-        if exec_brief:
-            lines.append('    ["⚡ Executive Focus"]')
-            for b in exec_brief[:2]:
-                clean_b = sanitize_mermaid_node(b, max_len=45)
-                if clean_b:
-                    lines.append(f'      ["{clean_b}"]')
-
-    # 2. AI Suggestions Branch
-    suggestions = session_data.get("ai_suggestions", {})
-    if isinstance(suggestions, dict):
-        sugg_list = suggestions.get("unresolved", []) + suggestions.get("gaps", []) + suggestions.get("recommendations", [])
-    elif isinstance(suggestions, list):
-        sugg_list = suggestions
-    else:
-        sugg_list = []
-
-    if sugg_list:
-        lines.append('    ["💡 AI Suggestions"]')
-        for s in sugg_list[:3]:
-            clean_s = sanitize_mermaid_node(s, max_len=45)
-            if clean_s:
-                lines.append(f'      ["{clean_s}"]')
-    elif session_data.get("decisions"):
-        lines.append('    ["⚖️ Approved Decisions"]')
-        for d in session_data.get("decisions", [])[:2]:
-            clean_d = sanitize_mermaid_node(d, max_len=45)
-            if clean_d:
-                lines.append(f'      ["{clean_d}"]')
-
     return "\n".join(lines)
+
+
+def parse_json_or_repair(raw_text: str) -> Dict[str, Any]:
+    """Robust parser for JSON response from LLM, with repair logic."""
+    text = raw_text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text)
+        text = text.strip()
+
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+
+    # Extract outer JSON object
+    first_brace = text.find("{")
+    last_brace = text.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        json_slice = text[first_brace:last_brace + 1]
+        try:
+            return json.loads(json_slice)
+        except Exception:
+            cleaned = re.sub(r",\s*([\]}])", r"\1", json_slice)
+            try:
+                return json.loads(cleaned)
+            except Exception:
+                pass
+
+    # Fallback to markdown parser if string was purely markdown
+    return parse_markdown_to_session_dict(raw_text, "fallback_parser")
+
+
+def process_structured_meeting_json(
+    json_data: Dict[str, Any],
+    model_name: str,
+    raw_response: str = ""
+) -> Dict[str, Any]:
+    """Converts the structured JSON meeting model into the unified session data dictionary."""
+    title = json_data.get("title", "Meeting Intelligence")
+    meeting_date = json_data.get("meeting_date", datetime.now().strftime("%Y-%m-%d"))
+    duration_minutes = json_data.get("duration_minutes")
+    participants = json_data.get("participants", [])
+    tags = json_data.get("tags", [])
+    tldr = json_data.get("tldr", "")
+    
+    sections = json_data.get("sections", [])
+    open_questions = json_data.get("open_questions", [])
+    ai_suggestions = json_data.get("ai_suggestions", [])
+    mindmap_obj = json_data.get("mindmap", {})
+
+    # 1. Executive Brief (derived from TLDR)
+    exec_brief = [s.strip() for s in tldr.split(". ") if s.strip()] if isinstance(tldr, str) else []
+
+    # 2. Numbered Topics & Action Items
+    numbered_topics = []
+    all_action_items = []
+    all_decisions = []
+
+    for idx, sec in enumerate(sections):
+        n = sec.get("n", idx + 1)
+        sec_title = sec.get("title", f"Section {n}")
+        sec_narrative = sec.get("narrative", "")
+        sec_decisions = sec.get("decisions", [])
+        all_decisions.extend(sec_decisions)
+
+        sec_actions = []
+        for a in sec.get("action_items", []):
+            task_desc = a.get("task") or a.get("description") or "Deliverable"
+            owner = a.get("owner") or a.get("assignee") or "Team"
+            due = a.get("due_date") or a.get("due_text") or "Next Sprint"
+            due_text = a.get("due_text") or a.get("due_date") or ""
+            prio = (a.get("priority") or "MED").upper()
+            if "HIGH" in prio or "P0" in prio:
+                prio = "HIGH"
+            elif "LOW" in prio or "P2" in prio:
+                prio = "LOW"
+            else:
+                prio = "MED"
+
+            act_dict = {
+                "number": len(all_action_items) + 1,
+                "id": a.get("id", f"A{len(all_action_items) + 1}"),
+                "task": task_desc,
+                "description": task_desc,
+                "owner": owner,
+                "assignee": owner,
+                "co_owners": a.get("co_owners", []),
+                "due_date": due,
+                "due_text": due_text,
+                "priority": prio,
+                "context": a.get("context", ""),
+                "blocked_by": a.get("blocked_by"),
+                "status": "pending",
+                "notes": f"Section {n}: {sec_title}"
+            }
+            sec_actions.append(act_dict)
+            all_action_items.append(act_dict)
+
+        topic_entry = {
+            "index": n,
+            "n": n,
+            "title": sec_title,
+            "narrative": sec_narrative,
+            "decisions": sec_decisions,
+            "action_items": sec_actions,
+            "details": sec_narrative
+        }
+        numbered_topics.append(topic_entry)
+
+    # 3. Format AI Suggestions for backwards compatibility
+    sugg_dict = {
+        "items": [],
+        "unresolved": [],
+        "gaps": [],
+        "recommendations": []
+    }
+    if isinstance(ai_suggestions, list):
+        for s in ai_suggestions:
+            lbl = s.get("label", "Suggestion") if isinstance(s, dict) else "Note"
+            det = s.get("detail", str(s)) if isinstance(s, dict) else str(s)
+            full_txt = f"{lbl}: {det}" if det else lbl
+            sugg_dict["items"].append({"label": lbl, "title": lbl, "detail": det, "body": det, "text": full_txt})
+            
+            if any(k in lbl.lower() for k in ["unresolved", "open", "question", "conflict"]):
+                sugg_dict["unresolved"].append(full_txt)
+            elif any(k in lbl.lower() for k in ["gap", "missing", "deadline", "owner"]):
+                sugg_dict["gaps"].append(full_txt)
+            else:
+                sugg_dict["recommendations"].append(full_txt)
+
+    # 4. Generate Mermaid Mindmap
+    mermaid_mindmap = convert_structured_mindmap_to_mermaid(mindmap_obj, fallback_title=title)
+
+    # 5. Generate Markdown representation
+    raw_markdown = convert_structured_json_to_markdown(json_data)
+
+    return {
+        "title": title,
+        "meeting_date": meeting_date,
+        "duration_minutes": duration_minutes,
+        "participants": participants,
+        "tags": tags,
+        "tldr": tldr,
+        "sections": numbered_topics,
+        "numbered_topics": numbered_topics,
+        "discussion_pillars": numbered_topics,
+        "action_items": all_action_items,
+        "decisions": all_decisions,
+        "open_questions": open_questions,
+        "ai_suggestions": sugg_dict,
+        "raw_suggestions_list": ai_suggestions,
+        "mindmap": mindmap_obj,
+        "mermaid_mindmap": mermaid_mindmap,
+        "executive_brief": exec_brief,
+        "raw_markdown": raw_markdown,
+        "raw_json": json_data,
+        "model_used": model_name
+    }
 
 
 def parse_markdown_to_session_dict(
@@ -625,7 +593,7 @@ def parse_markdown_to_session_dict(
     model_name: str,
     template_type: str = "executive"
 ) -> Dict[str, Any]:
-    """Parses clean Plaud-style markdown report into structured session dictionary."""
+    """Parses clean Plaud-style markdown report into structured session dictionary (fallback)."""
     
     # 1. Executive Summary
     exec_brief = []
@@ -645,11 +613,10 @@ def parse_markdown_to_session_dict(
                 if clean:
                     exec_brief.append(f"• {clean}")
 
-    # 2. Numbered Topics & Per-Topic Narratives + Inline Action Items (Plaud Style)
+    # 2. Numbered Topics & Per-Topic Narratives + Inline Action Items
     numbered_topics = []
     all_action_items = []
     
-    # Regex to find all numbered H2 sections: e.g. ## 1. Topic Title ...
     topic_sections = re.findall(r"^##\s+(\d+)\.\s*([^\n]+)\n([\s\S]*?)(?=^##\s+|\Z)", raw_markdown, re.MULTILINE)
     
     if topic_sections:
@@ -657,41 +624,32 @@ def parse_markdown_to_session_dict(
             idx = int(num_str)
             clean_title = title_str.strip()
             
-            # Separate narrative from action items section
-            narrative_text = ""
-            inline_actions = []
-            
             act_match = re.search(r"### Action Items\s*([\s\S]*?)(?=\n###|\n---|\Z)", body_str, re.IGNORECASE)
             if act_match:
-                # Narrative is everything before ### Action Items
                 narrative_part = body_str[:act_match.start()].strip()
                 actions_part = act_match.group(1).strip()
             else:
                 narrative_part = body_str.strip()
                 actions_part = ""
 
-            # Clean narrative: strip any leftover boilerplate labels like **Core Topic & Focus:**, etc.
             narrative_lines = []
             for line in narrative_part.splitlines():
                 line = line.strip()
                 if not line or line.startswith("---") or line.startswith("#"):
                     continue
-                # Remove boilerplate labels
                 clean_line = re.sub(r"^\*\*(?:Core Topic & Focus|Key Arguments & Perspectives|Key Takeaways & Points|Consensus & Outcome|Context & Objective|Context|Objective|Speaker Perspective|[A-Z][a-z]+'s Perspective)[^\*:]*:\*\*\s*", "", line)
-                clean_line = re.sub(r"^[-*•]\s*\*\*[^*]+:\*\*\s*", "", clean_line)
-                clean_line = clean_line.strip()
+                clean_line = re.sub(r"^[-*•]\s*\*\*[^*]+:\*\*\s*", "", clean_line).strip()
                 if clean_line:
                     narrative_lines.append(clean_line)
             
             narrative_text = " ".join(narrative_lines)
+            inline_actions = []
 
-            # Parse inline action items: - [ ] Task description — *Assignee* DueDate
             if actions_part:
                 for a_line in actions_part.splitlines():
                     a_line = a_line.strip()
                     if not a_line or a_line.startswith("#") or a_line.startswith("---"):
                         continue
-                    # Match: - [ ] Deliverable — *Assignee* DueDate
                     m_act = re.match(r"^[-*•]?\s*(?:\[[\sxX]?\]|☐|☑)?\s*(.*?)(?:—|--|-)\s*\*?([^*—\n]+?)\*?\s+(?:(\d{4}-\d{2}-\d{2}|Next [A-Za-z]+|Today|ASAP|Post-[A-Za-z]+|Scheduled [A-Za-z]+|[A-Za-z0-9\s/]+))?$", a_line)
                     if m_act:
                         desc = m_act.group(1).strip().strip("[]*-• ")
@@ -706,10 +664,14 @@ def parse_markdown_to_session_dict(
                     if desc and len(desc) > 3:
                         act_obj = {
                             "number": len(all_action_items) + 1,
+                            "id": f"A{len(all_action_items) + 1}",
+                            "task": desc,
                             "description": desc,
                             "assignee": assignee or "Team",
+                            "owner": assignee or "Team",
                             "priority": "HIGH" if any(k in desc.lower() for k in ["high", "urgent", "p0", "soc 2"]) else "MED",
                             "due_date": due or "Next Sprint",
+                            "due_text": due or "Next Sprint",
                             "notes": f"Topic {idx}: {clean_title}",
                             "status": "pending"
                         }
@@ -718,62 +680,13 @@ def parse_markdown_to_session_dict(
 
             numbered_topics.append({
                 "index": idx,
+                "n": idx,
                 "title": clean_title,
                 "narrative": narrative_text,
                 "action_items": inline_actions,
-                "timestamp": f"00:{(idx-1)*5:02d}:00",
+                "decisions": [],
                 "details": narrative_text
             })
-
-    # Fallback to legacy discussion pillars if numbered topics were not found
-    if not numbered_topics:
-        pillars_match = re.search(r"## 🏛️ Key Discussion Pillars\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
-        if pillars_match:
-            pillar_blocks = re.findall(r"###\s*(\d+\.\s*\[(.*?)\]\s*(.*?))\n(.*?)(?=\n###|\Z)", pillars_match.group(1), re.DOTALL)
-            for num_match, ts, title, details in pillar_blocks:
-                clean_lines = [re.sub(r"^\*\*[^*]+:\*\*\s*", "", l.strip()) for l in details.splitlines() if l.strip()]
-                clean_narrative = " ".join(clean_lines)
-                numbered_topics.append({
-                    "index": len(numbered_topics) + 1,
-                    "title": title.strip(),
-                    "timestamp": ts.strip(),
-                    "narrative": clean_narrative,
-                    "details": clean_narrative,
-                    "action_items": []
-                })
-
-    # Strategy Fallback for Table Action Items if inline were not found
-    if not all_action_items:
-        table_match = re.search(r"## 📋 Action Items Matrix.*?\n(\|.*?\n\|[-:\s|]+\n)(.*?)(?=\n\n\S|---|##|\Z)", raw_markdown, re.DOTALL)
-        if not table_match:
-            table_match = re.search(r"(\|(?:\s*#\s*\|\s*Task Deliverable.*?\n)(.*?)(?=\n\n\S|---|##|\Z))", raw_markdown, re.DOTALL)
-
-        if table_match:
-            content_to_parse = table_match.group(2) if len(table_match.groups()) >= 2 else table_match.group(0)
-            rows = [r.strip() for r in content_to_parse.splitlines() if r.strip() and "|" in r and not re.match(r"^\|[\s\-:|]+\|$", r.strip())]
-            for r in rows:
-                cols = [c.strip() for c in r.split("|")[1:-1]]
-                if len(cols) >= 3:
-                    num = len(all_action_items) + 1
-                    desc = cols[1] if len(cols) > 1 and cols[0].isdigit() else cols[0]
-                    assignee = cols[2] if len(cols) > 2 and cols[0].isdigit() else (cols[1] if len(cols) > 1 else "Team")
-                    prio = cols[3].upper() if len(cols) > 3 and cols[0].isdigit() else "MED"
-                    due = cols[4] if len(cols) > 4 and cols[0].isdigit() else (cols[2] if len(cols) > 2 else "Next Sprint")
-                    notes = cols[5] if len(cols) > 5 and cols[0].isdigit() else "—"
-
-                    if "task" in desc.lower() and "deliverable" in desc.lower():
-                        continue
-
-                    if desc and len(desc) > 3:
-                        all_action_items.append({
-                            "number": num,
-                            "description": desc,
-                            "assignee": assignee or "Team",
-                            "priority": "HIGH" if "HIGH" in prio else ("LOW" if "LOW" in prio else "MED"),
-                            "due_date": due or "Next Sprint",
-                            "notes": notes or "—",
-                            "status": "pending"
-                        })
 
     # 3. AI Suggestions Callout Parsing
     ai_suggestions = {
@@ -795,18 +708,12 @@ def parse_markdown_to_session_dict(
             if not s_line or s_line.startswith("AI has identified") or s_line.startswith("---"):
                 continue
             
-            # Pattern: 1. **Title**: Body or - **Title**: Body
             m_s = re.match(r"^(?:\d+[\.\)]\s*|[-*•]\s*)?\*\*([^*]+)\*\*[:\s—-]*(.*)$", s_line)
             if m_s:
                 s_title = m_s.group(1).strip()
                 s_body = m_s.group(2).strip()
-                if not s_body and ":" in s_title:
-                    parts = s_title.split(":", 1)
-                    s_title = parts[0].strip()
-                    s_body = parts[1].strip()
-                
                 full_desc = f"{s_title}: {s_body}" if s_body else s_title
-                ai_suggestions["items"].append({"title": s_title, "body": s_body, "text": full_desc})
+                ai_suggestions["items"].append({"label": s_title, "title": s_title, "detail": s_body, "body": s_body, "text": full_desc})
                 
                 if "unresolved" in s_title.lower() or "conflict" in s_title.lower():
                     ai_suggestions["unresolved"].append(full_desc)
@@ -814,63 +721,106 @@ def parse_markdown_to_session_dict(
                     ai_suggestions["gaps"].append(full_desc)
                 else:
                     ai_suggestions["recommendations"].append(full_desc)
-            else:
-                clean_val = s_line.lstrip("0123456789.-*• \t").strip()
-                if clean_val and len(clean_val) > 5:
-                    ai_suggestions["items"].append({"title": "Follow-up", "body": clean_val, "text": clean_val})
-                    ai_suggestions["recommendations"].append(clean_val)
-    else:
-        # Default fallback suggestions
-        ai_suggestions["items"] = [
-            {"title": "Unresolved Discussion Points", "body": "Confirm exact timeline dependencies and access credentials with external collaborators.", "text": "Unresolved Discussion Points: Confirm timeline dependencies with external collaborators."},
-            {"title": "Action Item Gaps", "body": "Ensure newly identified deliverables have explicit owners and target completion dates.", "text": "Action Item Gaps: Ensure deliverables have explicit owners."}
-        ]
-        ai_suggestions["unresolved"].append("Confirm exact timeline dependencies with external team members.")
-        ai_suggestions["gaps"].append("Ensure all newly identified action deliverables have explicit owner confirmation.")
 
-    # 4. Decisions
-    decisions = []
-    dec_match = re.search(r"### ✅ Final Decisions Approved\s*(.*?)(?=### 🔄|## |\Z)", raw_markdown, re.DOTALL)
-    if not dec_match:
-        dec_match = re.search(r"## ⚖️ Decisions.*?\n(.*?)(?=### 🔄|## |\Z)", raw_markdown, re.DOTALL)
-    if dec_match:
-        for line in dec_match.group(1).splitlines():
-            line = line.strip()
-            if re.match(r"^\d+\.", line) or line.startswith("-"):
-                clean = re.sub(r"^\d+\.\s*|-\s*", "", line).strip()
-                if clean and not clean.startswith("###"):
-                    decisions.append(clean)
-
-    # 5. Mermaid Mindmap Sanitization & Tree Contextual Alignment
-    mindmap = ""
-    mm_match = re.search(r"```mermaid\s*(.*?)```", raw_markdown, re.DOTALL)
-    if mm_match:
-        mindmap = mm_match.group(1).strip()
-    
-    is_boilerplate = any(b in mindmap.lower() for b in [
-        "strategic direction", "concept alpha", "academic lecture intelligence", "key milestone", "theme analysis", "opportunity", "concept one"
-    ])
+    title_match = re.search(r"#\s*(.*?)(?=\n|\Z)", raw_markdown)
+    meeting_title = title_match.group(1).strip() if title_match and title_match.group(1).strip() else "Meeting Intelligence"
 
     parsed_result = {
+        "title": meeting_title,
         "template_type": template_type,
         "executive_brief": exec_brief,
         "discussion_pillars": numbered_topics,
         "numbered_topics": numbered_topics,
+        "sections": numbered_topics,
         "action_items": all_action_items,
         "ai_suggestions": ai_suggestions,
-        "decisions": decisions,
+        "decisions": [],
+        "open_questions": [],
         "reversals": [],
         "raw_markdown": raw_markdown,
         "model_used": model_name
     }
 
-    if not mindmap or len(mindmap) < 25 or is_boilerplate:
-        title_match = re.search(r"#\s*🎙️?\s*(?:Meeting Intelligence Report:?|Academic Lecture Intelligence:?|Brainstorm & Ideation Report:?)?\s*(.*?)(?=\n|\Z)", raw_markdown)
-        meeting_title = title_match.group(1).strip() if title_match and title_match.group(1).strip() else "Meeting Intelligence"
-        mindmap = build_contextual_mindmap(parsed_result, meeting_title)
-
-    parsed_result["mermaid_mindmap"] = mindmap
+    parsed_result["mermaid_mindmap"] = build_contextual_mindmap(parsed_result, meeting_title)
     return parsed_result
+
+
+def extract_intelligence_gemini(
+    topic: str,
+    transcript_text: str,
+    duration_str: str,
+    model_name: str = DEFAULT_GEMINI_MODEL,
+    template_type: str = "executive"
+) -> Dict[str, Any]:
+    """Extracts meeting record adhering strictly to the structured JSON schema using Gemini with Groq fallback."""
+    client = get_gemini_client()
+    groq_client = get_groq_client()
+    meeting_date_iso = datetime.now().strftime("%Y-%m-%d")
+    prompt = build_intelligence_prompt(topic, transcript_text, duration_str, meeting_date_iso=meeting_date_iso, template_type=template_type)
+
+    resp_text = None
+    used_model = model_name
+    candidates = [model_name] + [m for m in MODEL_CANDIDATES if m != model_name]
+
+    # 1. Try Gemini with JSON response schema
+    if client:
+        for candidate in candidates:
+            try:
+                print(f"[*] Calling Gemini ({candidate}) for Structured Meeting Intelligence...", flush=True)
+                resp = client.models.generate_content(
+                    model=candidate,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.15,
+                        max_output_tokens=6000,
+                        response_mime_type="application/json"
+                    )
+                )
+                if resp and resp.text:
+                    resp_text = resp.text.strip()
+                    used_model = f"Gemini ({candidate})"
+                    break
+            except Exception as e:
+                print(f"[!] Gemini Model {candidate} Error: {e}", flush=True)
+                continue
+
+    # 2. Fallback to Groq LPU with JSON mode
+    if not resp_text and groq_client:
+        groq_models = ["qwen/qwen3.6-27b", "openai/gpt-oss-120b", "groq/compound"]
+        for g_model in groq_models:
+            try:
+                print(f"[*] Calling Groq LPU ({g_model}) for Structured Meeting Intelligence...", flush=True)
+                g_resp = groq_client.chat.completions.create(
+                    model=g_model,
+                    messages=[
+                        {"role": "system", "content": "You are an expert meeting analyst producing a structured JSON record of a recorded meeting. Return ONE valid JSON object and nothing else."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    max_tokens=6000,
+                    temperature=0.15
+                )
+                if g_resp and g_resp.choices and g_resp.choices[0].message.content:
+                    raw = g_resp.choices[0].message.content.strip()
+                    clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+                    if clean:
+                        resp_text = clean
+                        used_model = f"Groq ({g_model})"
+                        break
+            except Exception as ge:
+                print(f"[!] Groq Model {g_model} Error: {ge}", flush=True)
+                continue
+
+    if not resp_text:
+        raise RuntimeError("Failed to generate intelligence report from all available AI providers.")
+
+    parsed_json = parse_json_or_repair(resp_text)
+    if isinstance(parsed_json, dict) and "sections" in parsed_json:
+        return process_structured_meeting_json(parsed_json, used_model, raw_response=resp_text)
+    elif isinstance(parsed_json, dict) and "discussion_pillars" in parsed_json:
+        return parsed_json
+    else:
+        return parse_markdown_to_session_dict(resp_text, used_model, template_type=template_type)
 
 
 # =============================================================================
@@ -953,12 +903,12 @@ Answer the user's questions clearly, concisely, and accurately in the user's lan
 def generate_printable_html(session_data: Dict[str, Any]) -> str:
     """Generates a standalone, beautiful Plaud-styled HTML document suitable for browser print-to-PDF."""
     meta = session_data.get("metadata", {})
-    title = meta.get("source_file", "Meeting Intelligence Report")
+    title = session_data.get("title") or meta.get("source_file", "Meeting Intelligence Report")
     duration = meta.get("duration", "N/A")
-    date_str = meta.get("processed_at", datetime.now().strftime("%Y-%m-%d"))
-    model_str = meta.get("model", "Hesh-rec AI")
+    date_str = session_data.get("meeting_date") or meta.get("processed_at", datetime.now().strftime("%Y-%m-%d"))
+    model_str = session_data.get("model_used") or meta.get("model", "Hesh-rec AI")
     exec_brief = session_data.get("executive_brief", [])
-    topics = session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
+    topics = session_data.get("sections", []) or session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
     action_items = session_data.get("action_items", [])
     ai_suggestions = session_data.get("ai_suggestions", {})
     transcript_segments = session_data.get("transcript_segments", [])
@@ -968,19 +918,19 @@ def generate_printable_html(session_data: Dict[str, Any]) -> str:
     # 2. Numbered Topics & Inline Actions (Exact Plaud Style)
     topics_html = []
     for idx, t in enumerate(topics):
-        t_num = t.get("index", idx + 1)
+        t_num = t.get("n") or t.get("index", idx + 1)
         t_title = t.get("title", f"Topic {t_num}")
         narrative = t.get("narrative") or t.get("details", "")
-        clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", narrative)
+        clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", str(narrative))
         
         t_actions = t.get("action_items", [])
         actions_html = ""
         if t_actions:
             items_li = []
             for a in t_actions:
-                desc = a.get("description", "")
-                owner = a.get("assignee", "Team")
-                due = a.get("due_date", "")
+                desc = a.get("task") or a.get("description", "")
+                owner = a.get("owner") or a.get("assignee", "Team")
+                due = a.get("due_date") or a.get("due_text", "")
                 due_str = f" {due}" if due and due != "—" else ""
                 items_li.append(f"""
                 <div style="font-size:14px; color:#1F2937; margin-bottom:6px; display:flex; align-items:baseline; gap:8px;">

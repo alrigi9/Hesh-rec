@@ -1524,24 +1524,61 @@ def render_meeting_detail_view(session_id: str):
     user_id = get_current_user_id()
 
     # -------------------------------------------------------------------------
-    # TAB 1: MEETING SUMMARY (EXACT PLAUD 1:1 CLEAN DOCUMENT LAYOUT)
+    # TAB 1: MEETING SUMMARY (EXACT PLAUD 1:1 STRUCTURED DOCUMENT LAYOUT)
     # -------------------------------------------------------------------------
     with tab_summary:
-        topics = data.get("numbered_topics", []) or data.get("discussion_pillars", [])
-        ai_suggestions = data.get("ai_suggestions", {})
+        doc_title = data.get("title") or title
+        m_date = data.get("meeting_date") or meta.get("processed_at", "")
+        duration_disp = meta.get("duration", "")
+        if not duration_disp and data.get("duration_minutes"):
+            duration_disp = f"{data.get('duration_minutes')} min"
+        
+        participants_list = data.get("participants", [])
+        if not participants_list and meta.get("speakers"):
+            raw_spk = meta.get("speakers")
+            participants_list = [raw_spk] if isinstance(raw_spk, str) else list(raw_spk)
+
+        tags_list = data.get("tags", [])
+        tldr_text = data.get("tldr", "")
+        sections = data.get("sections", []) or data.get("numbered_topics", []) or data.get("discussion_pillars", [])
+        open_questions = data.get("open_questions", [])
+        ai_suggestions = data.get("ai_suggestions", {}) or data.get("raw_suggestions_list", [])
         all_actions = data.get("action_items", [])
         
-        # Document Title (Large bold clean font, left-aligned)
-        doc_title_html = f"""<div class="plaud-doc-title">{title}</div>"""
+        # 1. Document Title
+        doc_title_html = f"""<div class="plaud-doc-title">{doc_title}</div>"""
 
-        # Numbered Topic Sections + Narratives + Inline Action Items
+        # 2. Metadata & Domain Tags Row
+        meta_spans = []
+        if m_date:
+            meta_spans.append(f"""<span style="display:flex; align-items:center; gap:4px; font-size:12.5px; color:#6B7280;">📅 <strong>Date:</strong> {m_date}</span>""")
+        if duration_disp:
+            meta_spans.append(f"""<span style="display:flex; align-items:center; gap:4px; font-size:12.5px; color:#6B7280;">⏱️ <strong>Duration:</strong> {duration_disp}</span>""")
+        if participants_list:
+            meta_spans.append(f"""<span style="display:flex; align-items:center; gap:4px; font-size:12.5px; color:#6B7280;">👥 <strong>Participants:</strong> {', '.join(participants_list)}</span>""")
+
+        tags_html = ""
+        if tags_list:
+            tag_badges = "".join([f"""<span style="background:#EFF6FF; color:#2563EB; font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:12px; border:1px solid #BFDBFE;">#{t}</span>""" for t in tags_list])
+            tags_html = f"""<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">{tag_badges}</div>"""
+
+        meta_row_html = ""
+        if meta_spans or tags_html:
+            meta_row_html = f"""<div style="margin-bottom:20px; padding-bottom:14px; border-bottom:1px solid #E5E7EB;"><div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">{''.join(meta_spans)}</div>{tags_html}</div>"""
+
+        # 3. TL;DR Summary Narrative
+        tldr_html = ""
+        if tldr_text:
+            tldr_html = f"""<div style="background:#F9FAFB; border-left:3px solid #2563EB; padding:14px 18px; border-radius:4px 8px 8px 4px; margin-bottom:24px;"><div style="font-size:12.5px; font-weight:700; color:#2563EB; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">⚡ Executive Summary</div><p style="font-size:14.5px; line-height:1.65; color:#1F2937; margin:0;">{tldr_text}</p></div>"""
+
+        # 4. Numbered Topic Sections + Narratives + Decisions + Inline Action Items
         topics_html_list = []
-        for idx, t in enumerate(topics):
-            t_num = t.get("index", idx + 1)
+        for idx, t in enumerate(sections):
+            t_num = t.get("n") or t.get("index", idx + 1)
             raw_title = t.get("title", f"Topic {t_num}")
-            clean_title = re.sub(r"^\d+\.\s*", "", raw_title).strip()
+            clean_title = re.sub(r"^\d+\.\s*", "", str(raw_title)).strip()
             
-            # Clean narrative text of all boilerplate labels
+            # Clean narrative text
             narrative = t.get("narrative") or t.get("details", "")
             narrative_lines = []
             for line in str(narrative).splitlines():
@@ -1557,18 +1594,25 @@ def render_meeting_detail_view(session_id: str):
             if not clean_narrative:
                 clean_narrative = "The discussion covered key technical and operational priorities with agreed consensus across stakeholders."
 
+            # Section Decisions
+            sec_decisions = t.get("decisions", [])
+            decisions_html = ""
+            if sec_decisions:
+                dec_items = "".join([f"""<li style="margin-bottom:3px;">{d}</li>""" for d in sec_decisions])
+                decisions_html = f"""<div style="margin:8px 0 12px 0; font-size:13.5px; color:#1F2937;"><strong style="color:#111827;">Decisions:</strong><ul style="margin:4px 0 0 18px; padding:0; color:#374151;">{dec_items}</ul></div>"""
+
             # Inline Action Items under this topic
             t_actions = t.get("action_items", [])
             if not t_actions and all_actions:
-                t_actions = [a for a in all_actions if f"Topic {t_num}" in a.get("notes", "") or clean_title.lower() in a.get("notes", "").lower()]
+                t_actions = [a for a in all_actions if f"Topic {t_num}" in a.get("notes", "") or f"Section {t_num}" in a.get("notes", "") or clean_title.lower() in a.get("notes", "").lower()]
             
             actions_markup = ""
             if t_actions:
                 action_rows = []
                 for a in t_actions:
-                    a_desc = a.get("description") or a.get("task") or "Deliverable"
-                    a_owner = a.get("assignee") or a.get("owner") or "Team"
-                    a_due = a.get("due_date") or ""
+                    a_desc = a.get("task") or a.get("description") or "Deliverable"
+                    a_owner = a.get("owner") or a.get("assignee") or "Team"
+                    a_due = a.get("due_date") or a.get("due_text") or ""
                     a_due_str = f" {a_due}" if a_due and a_due != "—" else ""
                     a_done = a.get("status") == "completed"
                     check_icon = "☑" if a_done else "☐"
@@ -1578,16 +1622,28 @@ def render_meeting_detail_view(session_id: str):
 
                 actions_markup = f"""<div class="plaud-action-card"><div class="plaud-action-heading">Action Items</div>{''.join(action_rows)}</div>"""
 
-            topics_html_list.append(f"""<div class="plaud-topic-block"><div class="plaud-topic-heading">{t_num}. {clean_title}</div><div class="plaud-narrative">{clean_narrative}</div>{actions_markup}</div>""")
+            topics_html_list.append(f"""<div class="plaud-topic-block"><div class="plaud-topic-heading">{t_num}. {clean_title}</div><div class="plaud-narrative">{clean_narrative}</div>{decisions_html}{actions_markup}</div>""")
 
-        # AI Suggestions Callout Box at Bottom
+        # 5. Open Questions Callout Box
+        open_q_html = ""
+        if open_questions:
+            q_rows = []
+            for q in open_questions:
+                q_text = q.get("question", "") if isinstance(q, dict) else str(q)
+                q_by = q.get("raised_by", "") if isinstance(q, dict) else ""
+                by_str = f" — <em>{q_by}</em>" if q_by else ""
+                q_rows.append(f"""<div style="font-size:14px; color:#78350F; margin-bottom:6px; line-height:1.5;"><strong>• {q_text}</strong><span style="font-size:12.5px; color:#92400E;">{by_str}</span></div>""")
+
+            open_q_html = f"""<div style="border-left:3px solid #F59E0B; background:#FFFBEB; padding:16px 20px; border-radius:4px 8px 8px 4px; margin-top:28px; margin-bottom:20px;"><div style="font-size:15px; font-weight:700; color:#92400E; margin-bottom:8px;">❓ Open Questions</div>{''.join(q_rows)}</div>"""
+
+        # 6. AI Suggestions Callout Box at Bottom
         sugg_entries = []
         if isinstance(ai_suggestions, dict):
             s_items = ai_suggestions.get("items", [])
             if s_items:
                 for s_idx, item in enumerate(s_items):
-                    s_t = item.get("title", f"Suggestion {s_idx+1}")
-                    s_b = item.get("body", "")
+                    s_t = item.get("label") or item.get("title", f"Suggestion {s_idx+1}")
+                    s_b = item.get("detail") or item.get("body", "")
                     if s_b:
                         sugg_entries.append(f"""<div class="plaud-suggestion-entry"><strong>{s_idx+1}. {s_t}</strong>: {s_b}</div>""")
                     else:
@@ -1600,6 +1656,14 @@ def render_meeting_detail_view(session_id: str):
                         sugg_entries.append(f"""<div class="plaud-suggestion-entry"><strong>{s_idx+1}. {p_t.strip()}</strong>: {p_b.strip()}</div>""")
                     else:
                         sugg_entries.append(f"""<div class="plaud-suggestion-entry"><strong>{s_idx+1}. Note</strong>: {text}</div>""")
+        elif isinstance(ai_suggestions, list):
+            for s_idx, item in enumerate(ai_suggestions):
+                if isinstance(item, dict):
+                    s_t = item.get("label") or item.get("title", f"Suggestion {s_idx+1}")
+                    s_b = item.get("detail") or item.get("body", "")
+                    sugg_entries.append(f"""<div class="plaud-suggestion-entry"><strong>{s_idx+1}. {s_t}</strong>: {s_b}</div>""")
+                else:
+                    sugg_entries.append(f"""<div class="plaud-suggestion-entry"><strong>{s_idx+1}. Note</strong>: {item}</div>""")
 
         if not sugg_entries:
             sugg_entries.append("""<div class="plaud-suggestion-entry"><strong>1. Timeline and Scope Dependencies</strong>: Confirm timeline dependencies and required permissions with external collaborators.</div>""")
@@ -1608,7 +1672,7 @@ def render_meeting_detail_view(session_id: str):
         ai_suggestions_markup = f"""<div class="plaud-suggestions-box"><div class="plaud-suggestions-header">AI Suggestions</div><div class="plaud-suggestions-subtext">AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:</div>{''.join(sugg_entries)}</div>"""
 
         # Render Exact Seamless Plaud Document View
-        full_plaud_html = f"""<div class="plaud-doc-wrap">{doc_title_html}{''.join(topics_html_list)}{ai_suggestions_markup}</div>"""
+        full_plaud_html = f"""<div class="plaud-doc-wrap">{doc_title_html}{meta_row_html}{tldr_html}{''.join(topics_html_list)}{open_q_html}{ai_suggestions_markup}</div>"""
         st.markdown(full_plaud_html, unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
