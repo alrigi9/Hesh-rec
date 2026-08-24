@@ -9,6 +9,24 @@ const rawApiBase =
     : "http://localhost:8000";
 const API_BASE = rawApiBase.replace(/\/+$/, "");
 
+async function safeReadResponse(res: Response): Promise<any> {
+  const responseText = await res.text();
+  let data: any = {};
+  try {
+    data = JSON.parse(responseText);
+  } catch {
+    data = { error: responseText || `HTTP ${res.status}: ${res.statusText}` };
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      data.detail || data.error || data.message || `Request failed with status ${res.status}`
+    );
+  }
+
+  return data;
+}
+
 export async function checkApiHealth(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/api/health`);
@@ -34,7 +52,7 @@ export async function fetchUserProfile(
     if (!res.ok) {
       return {
         id: userId || "guest",
-        email: "guest@heshrec.com",
+        email: "guest@recmap.tech",
         role: "user",
         monthly_minutes_limit: 300.0,
         minutes_used_this_month: 0.0,
@@ -43,11 +61,11 @@ export async function fetchUserProfile(
         can_upload: true,
       };
     }
-    return await res.json();
+    return await safeReadResponse(res);
   } catch {
     return {
       id: userId || "guest",
-      email: "guest@heshrec.com",
+      email: "guest@recmap.tech",
       role: "user",
       monthly_minutes_limit: 300.0,
       minutes_used_this_month: 0.0,
@@ -80,18 +98,7 @@ export async function processAudioFile(
     body: formData,
   });
 
-  if (!response.ok) {
-    let errorDetail = "Failed to process audio";
-    try {
-      const err = await response.json();
-      errorDetail = err.detail || errorDetail;
-    } catch {
-      errorDetail = await response.text();
-    }
-    throw new Error(errorDetail);
-  }
-
-  return await response.json();
+  return await safeReadResponse(response);
 }
 
 export async function fetchSessions(
@@ -108,7 +115,8 @@ export async function fetchSessions(
 
     const res = await fetch(url, { headers });
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await safeReadResponse(res);
+    if (Array.isArray(data)) return data;
     return data.sessions || [];
   } catch (err) {
     console.error("Error fetching sessions:", err);
@@ -120,7 +128,7 @@ export async function fetchSession(id: string): Promise<MeetingSession | null> {
   try {
     const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`);
     if (!res.ok) return null;
-    return await res.json();
+    return await safeReadResponse(res);
   } catch (err) {
     console.error("Error fetching session:", err);
     return null;
@@ -157,18 +165,16 @@ export async function queryAssistant(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      session: sessionData,
       session_data: sessionData,
+      query: query,
       user_query: query,
+      messages: history,
       chat_history: history,
     }),
   });
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Assistant query failed: ${err}`);
-  }
-
-  const data = await response.json();
+  const data = await safeReadResponse(response);
   return data.answer || "I could not generate an answer for that query.";
 }
 
@@ -186,10 +192,7 @@ export async function fetchAdminUsers(
     : `${API_BASE}/api/admin/users`;
 
   const res = await fetch(url, { headers });
-  if (!res.ok) {
-    throw new Error("Failed to fetch admin users directory.");
-  }
-  return await res.json();
+  return await safeReadResponse(res);
 }
 
 export async function updateAdminUserLimit(
@@ -203,14 +206,15 @@ export async function updateAdminUserLimit(
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const url = adminId
-    ? `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/limit?admin_id=${encodeURIComponent(adminId)}`
-    : `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/limit`;
-
-  const res = await fetch(url, {
-    method: "PATCH",
+  // Try App Router endpoint first
+  const res = await fetch(`${API_BASE}/api/admin/quota`, {
+    method: "POST",
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      target_user_id: targetUserId,
+      monthly_minutes_limit: payload.monthly_minutes_limit,
+      admin_id: adminId,
+    }),
   });
 
   return res.ok;
@@ -221,16 +225,18 @@ export async function resetAdminUserQuota(
   token?: string,
   adminId?: string
 ): Promise<boolean> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const url = adminId
-    ? `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/reset-quota?admin_id=${encodeURIComponent(adminId)}`
-    : `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/reset-quota`;
-
-  const res = await fetch(url, {
-    method: "PATCH",
+  const res = await fetch(`${API_BASE}/api/admin/reset-quota`, {
+    method: "POST",
     headers,
+    body: JSON.stringify({
+      target_user_id: targetUserId,
+      admin_id: adminId,
+    }),
   });
 
   return res.ok;
@@ -241,16 +247,18 @@ export async function activateAdminUser(
   token?: string,
   adminId?: string
 ): Promise<boolean> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const url = adminId
-    ? `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/activate?admin_id=${encodeURIComponent(adminId)}`
-    : `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/activate`;
-
-  const res = await fetch(url, {
+  const res = await fetch(`${API_BASE}/api/admin/activate`, {
     method: "POST",
     headers,
+    body: JSON.stringify({
+      target_user_id: targetUserId,
+      admin_id: adminId,
+    }),
   });
 
   return res.ok;
