@@ -150,7 +150,7 @@ export function AdminPortalModal({ isOpen, onClose }: AdminPortalModalProps) {
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
         showCloseButton={false}
-        className="w-[94vw] max-w-5xl md:max-w-6xl bg-[#0f1013] border border-white/[0.08] text-[#f0f2f5] p-0 overflow-hidden shadow-2xl rounded-2xl md:rounded-3xl max-h-[92vh] flex flex-col backdrop-blur-xl"
+        className="w-[92vw] max-w-5xl md:max-w-6xl bg-[#0f1013] border border-white/[0.08] text-[#f0f2f5] p-0 overflow-hidden shadow-2xl rounded-2xl md:rounded-3xl max-h-[90vh] sm:max-h-[92vh] flex flex-col backdrop-blur-xl"
       >
         {/* Header Bar */}
         <div className="px-5 py-4 sm:px-8 sm:py-5 border-b border-white/[0.07] flex flex-wrap items-center justify-between gap-3 shrink-0 bg-[#131519]/90">
