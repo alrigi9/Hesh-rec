@@ -19,28 +19,28 @@ Analyze the entire recording thoroughly and generate the report adhering STRICTL
 # {topic}
 
 ## 1. [First Core Topic Title]
-[A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution. DO NOT include boilerplate labels like 'Core Topic & Focus:' or 'Speaker Perspective:' or 'Context:'; write clean, continuous business prose.]
+[A comprehensive, highly detailed executive narrative consisting of 4-7 complete sentences in past tense detailing the background context, technical trade-offs discussed, arguments raised, and decided roadmap. DO NOT include boilerplate labels like 'Core Topic & Focus:' or 'Speaker Perspective:' or 'Context:'; write clean, authoritative executive business prose.]
 
 ### Action Items
-- [ ] [Task description] — *[Assignee]* [Date if available]
-- [ ] [Task description] — *[Assignee]* [Date if available]
+- [ ] [Fully specific, actionable deliverable with document IDs, slide numbers, or technical parameters] — *[Assignee]* [Date if available]
+- [ ] [Fully specific, actionable deliverable with document IDs, slide numbers, or technical parameters] — *[Assignee]* [Date if available]
 
 ## 2. [Second Core Topic Title]
-[A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
+[A comprehensive, highly detailed executive narrative consisting of 4-7 complete sentences in past tense detailing what happened, technical considerations, and resolution.]
 
 ### Action Items
-- [ ] [Task description] — *[Assignee]* [Date if available]
+- [ ] [Task deliverable] — *[Assignee]* [Date if available]
 
 ## 3. [Third Core Topic Title]
-[A concise, highly readable executive narrative paragraph explaining what happened, the context, key considerations, and resolution.]
+[A comprehensive, highly detailed executive narrative consisting of 4-7 complete sentences in past tense detailing what happened, technical considerations, and resolution.]
 
 ### Action Items
-- [ ] [Task description] — *[Assignee]* [Date if available]
+- [ ] [Task deliverable] — *[Assignee]* [Date if available]
 
 ## AI Suggestions
 > AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:
-1. **[Suggestion / Unresolved Issue Title]**: [Explanation of the issue or gap and recommendation]
-2. **[Suggestion / Unresolved Issue Title]**: [Explanation of the issue or gap and recommendation]
+1. **[Specific Risk or Gap Title]**: [Concrete explanation of the unassigned risk, missing deadline, or governance gap and recommended next step]
+2. **[Specific Risk or Gap Title]**: [Concrete explanation of the unassigned risk, missing deadline, or governance gap and recommended next step]
 
 ## Visual Architecture (Mermaid Mindmap)
 

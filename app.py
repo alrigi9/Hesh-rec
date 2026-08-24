@@ -356,11 +356,10 @@ def generate_unified_document_html(session_data: Dict[str, Any], meta: Optional[
             else:
                 sugg_entries.append(f"""<div class="ai-suggestion-item"><span class="ai-suggestion-title">{s_idx+1}. Note</span>: <span>{format_acronyms(item)}</span></div>""")
 
-    if not sugg_entries:
-        sugg_entries.append("""<div class="ai-suggestion-item"><span class="ai-suggestion-title">1. Timeline and Scope Dependencies</span>: Confirm timeline dependencies and required permissions with external collaborators.</div>""")
-        sugg_entries.append("""<div class="ai-suggestion-item"><span class="ai-suggestion-title">2. Action Item Ownership</span>: Ensure newly identified deliverables have explicit owners and target completion dates.</div>""")
-
-    ai_suggestions_markup = f"""<div class="ai-suggestions"><div class="ai-suggestions-label">AI Suggestions</div><div class="ai-suggestions-desc">The following items were identified as unresolved discussion points or require explicit ownership:</div>{''.join(sugg_entries)}</div>"""
+    if sugg_entries:
+        ai_suggestions_markup = f"""<div class="ai-suggestions"><div class="ai-suggestions-label">AI Suggestions</div><div class="ai-suggestions-desc">The following items were identified as unresolved discussion points or require explicit ownership:</div>{''.join(sugg_entries)}</div>"""
+    else:
+        ai_suggestions_markup = ""
 
     # Build Markmap Markdown dynamically from sections and action items
     markmap_markdown = generate_detailed_markmap_md(session_data)

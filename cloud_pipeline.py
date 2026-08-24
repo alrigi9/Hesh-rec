@@ -188,7 +188,7 @@ def build_intelligence_prompt(
     meeting_date_iso: Optional[str] = None,
     template_type: str = "executive"
 ) -> str:
-    """Builds exact structured JSON prompt for meeting intelligence."""
+    """Builds exact structured JSON prompt for SOC 2 executive meeting intelligence."""
     if not meeting_date_iso:
         meeting_date_iso = datetime.now().strftime("%Y-%m-%d")
 
@@ -196,51 +196,43 @@ def build_intelligence_prompt(
 
 Return ONE valid JSON object and nothing else. No markdown fences, no commentary.
 
-MEETING_DATE: {meeting_date_iso}
-Topic/Focus: {topic}
-Duration: {duration_str}
-
-Spoken Transcript:
-\"\"\"
-{transcript_text}
-\"\"\"
-
 =====================  ABSOLUTE RULES  =====================
 
 R1. GROUNDING. Use only what is in the transcript. Never invent a decision, owner, number, or date. If something was not said, it does not appear.
 R2. LANGUAGE. Output is always professional English, regardless of the transcript's language.
-R3. DATES. You are given MEETING_DATE ({meeting_date_iso}). Resolve every relative date against it and output ISO format YYYY-MM-DD.
-R4. NAMES & ACRONYMS. Preserve exact speaker names from the transcript. Fix ASR spellings of technical terms and keep acronyms fully uppercase: SOC 2, ISO, DLP, BYOD, MFA, API, PDF, UI, VPN, QR.
+R3. DATES. You are given MEETING_DATE ({meeting_date_iso}). Resolve every relative date against it (e.g., "next Friday", "tomorrow", "end of month") to an ISO format YYYY-MM-DD.
+R4. NAMES & ACRONYMS. Preserve exact speaker names from the transcript. Fix ASR spellings of technical terms and keep acronyms fully uppercase: SOC 2, ISO, DLP, BYOD, MFA, API, PDF, UI, VPN, QR, AI.
 R5. SPECIFICITY IS THE WHOLE JOB. Every task must carry the concrete details a person needs to do it without replaying the recording: document numbers, slide numbers, version numbers, tool names, durations, thresholds, counts. A task under 8 words is almost always too vague — expand it.
-R6. GRANULARITY. Extract EVERY committed task. One task = one thing a person can tick off. Never bundle two deliverables into one line.
-R7. FULL SENTENCES. Section narratives are complete sentences in past tense. Never open with a bare gerund fragment.
-R8. NO TEMPLATE LEAKAGE. Never emit scaffolding labels like "Core Topic and Focus", "Key Points", "Discussion", "Overview" as content.
+R6. GRANULARITY. Extract EVERY committed task. One task = one thing a person can tick off. Never bundle two deliverables into one line. Every deliverable mentioned down to specific slides, policies, tickets, and configurations must be its own action item.
+R7. RICH EXECUTIVE NARRATIVE. Every section MUST have a comprehensive narrative consisting of 4-7 complete, information-dense sentences in past tense detailing the background context, technical trade-offs discussed, arguments raised, and decided roadmap. Never write shallow generic bullet points, single-sentence summaries, or gerund fragments.
+R8. ZERO TEMPLATE LEAKAGE. Never emit scaffolding labels like "Core Topic and Focus", "Perspective", "Speaker Perspective", "Key Arguments & Perspectives", "Key Takeaways", "Consensus & Outcome", "Discussion", or "Overview". Write clean, authoritative executive business prose.
+R9. REAL AI SUGGESTIONS. Extract 2-4 genuine unassigned operational risks, missing deadlines, unowned dependencies, or compliance/governance gaps explicitly observed in the conversation. Never output generic boilerplate placeholders.
 
 =====================  OUTPUT SCHEMA  =====================
 
 {{
-  "title": "MM-DD Meeting: <Topic A, B, and Topic C>",
-  "meeting_date": "YYYY-MM-DD",
+  "title": "MM-DD Meeting: <Topic A, Topic B, and Topic C>",
+  "meeting_date": "{meeting_date_iso}",
   "duration_minutes": <int or null>,
   "participants": ["<name as spoken>", ...],
   "tags": ["<2-4 domain tags>"],
-  "tldr": "<3-4 sentences>",
+  "tldr": "<3-4 sentences executive summary highlighting core context, top decisions, and major deadlines>",
   "sections": [
     {{
       "n": 1,
-      "title": "<Specific topic title>",
-      "narrative": "<4-7 full sentences>",
-      "decisions": ["<Resolved decision>"],
+      "title": "<Specific, highly descriptive topic title>",
+      "narrative": "<4-7 complete sentences detailing context, technical discussion, debate, and decided outcome>",
+      "decisions": ["<Explicit decision reached by the team>"],
       "action_items": [
         {{
           "id": "A1",
-          "task": "<Fully specific task>",
-          "owner": "<Exact name>",
+          "task": "<Fully specific, actionable deliverable with document IDs, slide numbers, or technical parameters>",
+          "owner": "<Exact person or team name>",
           "co_owners": [],
           "due_date": "YYYY-MM-DD or null",
-          "due_text": "<text or null>",
+          "due_text": "<relative date text as spoken or null>",
           "priority": "HIGH | MED | LOW",
-          "context": "<one sentence context>",
+          "context": "<one sentence explaining the technical or business rationale>",
           "blocked_by": null
         }}
       ]
@@ -248,28 +240,26 @@ R8. NO TEMPLATE LEAKAGE. Never emit scaffolding labels like "Core Topic and Focu
   ],
   "open_questions": [
     {{
-      "question": "<Question raised>",
-      "raised_by": "<name>"
+      "question": "<Unresolved question or inquiry raised during discussion>",
+      "raised_by": "<Speaker name or null>"
     }}
   ],
   "ai_suggestions": [
     {{
-      "label": "<Issue name>",
-      "detail": "<Specific, concrete gap, risk, and recommendation>"
+      "label": "<Specific Risk or Gap Name>",
+      "detail": "<Concrete gap, unassigned dependency, or governance risk identified in the meeting and recommended next step>"
     }}
-  ],
-  "mindmap": {{
-    "root": "<Meeting topic, MAX 40 chars>",
-    "branches": [
-      {{
-        "label": "<MAX 30 chars>",
-        "children": [
-          {{ "label": "<MAX 30 chars>", "children": [] }}
-        ]
-      }}
-    ]
-  }}
-}}"""
+  ]
+}}
+
+=====================  INPUT TRANSCRIPT  =====================
+
+MEETING_DATE: {meeting_date_iso}
+Duration: {duration_str}
+
+\"\"\"
+{transcript_text}
+\"\"\""""
 
 
 def sanitize_mermaid_node(text: str, max_len: int = 45) -> str:
