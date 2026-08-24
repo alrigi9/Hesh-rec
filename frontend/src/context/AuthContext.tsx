@@ -30,6 +30,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const token = session?.access_token || null;
   const isAdmin = profile?.role === "admin" || (user?.email?.toLowerCase().includes("admin") ?? false);
 
+  const cleanOAuthHash = () => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.hash &&
+      (window.location.hash.includes("access_token") || window.location.hash.includes("refresh_token") || window.location.hash.includes("error_description"))
+    ) {
+      try {
+        window.history.replaceState(null, "", window.location.pathname);
+      } catch (err) {
+        console.error("Error cleaning URL hash:", err);
+      }
+    }
+  };
+
   const loadProfile = async (u: User | null, s: Session | null) => {
     if (!u) {
       // Default guest/demo profile
@@ -66,9 +80,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    // Clean hash on immediate mount if token is present
+    cleanOAuthHash();
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       if (!mounted) return;
+      if (initialSession) cleanOAuthHash();
       setSession(initialSession);
       setUser(initialSession?.user ?? null);
       loadProfile(initialSession?.user ?? null, initialSession).finally(() => {
@@ -80,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, currentSession) => {
         if (!mounted) return;
+        if (currentSession) cleanOAuthHash();
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         loadProfile(currentSession?.user ?? null, currentSession);
