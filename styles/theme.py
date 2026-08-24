@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Design System for Hesh Rec
 Single source of truth for all styling, design tokens, typography, component resets, and theme handling.
@@ -680,16 +681,182 @@ def inject_theme(theme: str = "light"):
         box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.25) !important;
       }}
 
-      /* Progress Bar */
+      /* Progress Bar (Ultra-slim 4px) */
       div[data-testid="stProgress"] > div > div {{
         background-color: var(--surface-2) !important;
         border-radius: 999px !important;
-        height: 6px !important;
+        height: 4px !important;
       }}
 
       div[data-testid="stProgress"] > div > div > div {{
         background-color: var(--accent) !important;
         border-radius: 999px !important;
+      }}
+
+      .storage-progress {{
+        height: 4px;
+        background: var(--surface-2);
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 8px 0 6px 0;
+      }}
+
+      .storage-progress-fill {{
+        height: 100%;
+        background: var(--accent);
+        border-radius: 999px;
+        transition: width 0.3s ease;
+      }}
+
+      /* Metric Summary Tiles */
+      .metric-tile {{
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px 18px;
+        transition: border-color 0.15s ease;
+      }}
+
+      .metric-tile:hover {{
+        border-color: var(--border-strong);
+      }}
+
+      .metric-tile-label {{
+        font-size: 11.5px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-2);
+        margin-bottom: 6px;
+      }}
+
+      .metric-tile-value {{
+        font-size: 24px;
+        font-weight: 650;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: var(--text);
+        line-height: 1.2;
+      }}
+
+      /* Avatars & Priority Badges */
+      .avatar-circle {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }}
+
+      .priority-high {{
+        background: var(--accent-soft) !important;
+        color: var(--accent) !important;
+        border: 1px solid var(--accent) !important;
+        font-weight: 600;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        display: inline-block;
+      }}
+
+      .priority-med {{
+        background: var(--surface-2) !important;
+        color: var(--warn) !important;
+        border: 1px solid var(--border) !important;
+        font-weight: 600;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        display: inline-block;
+      }}
+
+      .priority-low {{
+        background: var(--surface-2) !important;
+        color: var(--text-2) !important;
+        border: 1px solid var(--border) !important;
+        font-weight: 500;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        display: inline-block;
+      }}
+
+      /* Action Matrix Table */
+      .action-table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+      }}
+
+      .action-table th {{
+        background: var(--surface-2);
+        color: var(--text-2);
+        font-size: 11.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 10px 14px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }}
+
+      .action-table td {{
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        color: var(--text);
+        line-height: 1.5;
+        vertical-align: middle;
+      }}
+
+      .action-table tr:last-child td {{
+        border-bottom: none;
+      }}
+
+      .action-table tr:hover td {{
+        background: var(--surface-2);
+      }}
+
+      /* Summary / Meeting List Row */
+      .meeting-row {{
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-bottom: 10px;
+        transition: border-color 0.15s ease, background 0.15s ease;
+      }}
+
+      .meeting-row:hover {{
+        border-color: var(--border-strong);
+        background: var(--surface-2);
+      }}
+
+      .ellipsis-text {{
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+      }}
+
+      /* Sidebar Navigation Overhaul (36px ghost with 2px active bar) */
+      section[data-testid="stSidebar"] div.stButton > button {{
+        text-align: left !important;
+        justify-content: flex-start !important;
+        height: 36px !important;
+        font-size: 13.5px !important;
+        font-weight: 500 !important;
+        border-radius: 6px !important;
+        padding: 0 12px !important;
+        margin-bottom: 2px !important;
       }}
 
       /* Skeleton Shimmer Loading State */
@@ -733,6 +900,7 @@ def inject_theme(theme: str = "light"):
         font-size: 12px;
         font-weight: 500;
         padding: 3px 10px;
+        line-height: 1.4;
       }}
 
       .pill-accent {{
@@ -758,6 +926,7 @@ def inject_theme(theme: str = "light"):
         color: var(--text);
         margin-bottom: 6px;
       }}
+
 
       /* Responsive Specifications */
       @media (min-width: 1200px) {{
