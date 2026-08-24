@@ -6,7 +6,9 @@ import {
   FileAudio, 
   Sparkles, 
   Loader2, 
-  AlertCircle 
+  AlertCircle,
+  CheckCircle2,
+  WifiOff
 } from "lucide-react";
 import { 
   Dialog, 
@@ -110,7 +112,11 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       clearTimeout(stageTimer1);
       clearTimeout(stageTimer2);
       setLoading(false);
-      const msg = err instanceof Error ? err.message : "Failed to process media file.";
+      
+      let msg = err instanceof Error ? err.message : "Failed to process media file.";
+      if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("Load failed")) {
+        msg = "Server unreachable. Please check your connection or try again in a few moments.";
+      }
       setError(msg);
     }
   };
@@ -212,22 +218,50 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             />
           </div>
 
-          {/* Processing Progress Indicator */}
+          {/* Active Step Progression Indicator */}
           {loading && (
-            <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-[#f0f2f5] flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 text-[#ff5c47] animate-spin" />
-                  {processingStage === "uploading" && "Uploading file stream..."}
-                  {processingStage === "transcribing" && "Transcribing voice to text..."}
-                  {processingStage === "synthesizing" && "Synthesizing mind map & action items..."}
+                  {processingStage === "uploading" && "Uploading File..."}
+                  {processingStage === "transcribing" && "Transcribing Speech..."}
+                  {processingStage === "synthesizing" && "Generating Executive Summary & Mind Map..."}
                 </span>
-                <span className="text-[11px] text-[#ff5c47] font-mono">
-                  {processingStage === "uploading" && "Stage 1/3"}
-                  {processingStage === "transcribing" && "Stage 2/3"}
-                  {processingStage === "synthesizing" && "Stage 3/3"}
+                <span className="text-[11px] text-[#ff5c47] font-mono font-semibold">
+                  {processingStage === "uploading" && "Step 1/3"}
+                  {processingStage === "transcribing" && "Step 2/3"}
+                  {processingStage === "synthesizing" && "Step 3/3"}
                 </span>
               </div>
+
+              {/* Step Progression Badges */}
+              <div className="grid grid-cols-3 gap-1.5 text-[10px] font-medium text-center">
+                <div className={`py-1 px-1.5 rounded-lg transition-all ${
+                  processingStage === "uploading" 
+                    ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
+                    : "bg-white/5 text-[#3ec98a]"
+                }`}>
+                  1. Upload
+                </div>
+                <div className={`py-1 px-1.5 rounded-lg transition-all ${
+                  processingStage === "transcribing" 
+                    ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
+                    : processingStage === "synthesizing"
+                    ? "bg-white/5 text-[#3ec98a]"
+                    : "bg-white/5 text-[#8b909a]"
+                }`}>
+                  2. Transcribe
+                </div>
+                <div className={`py-1 px-1.5 rounded-lg transition-all ${
+                  processingStage === "synthesizing" 
+                    ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
+                    : "bg-white/5 text-[#8b909a]"
+                }`}>
+                  3. Summarize
+                </div>
+              </div>
+
               <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
                 <div 
                   className="bg-[#ff5c47] h-full rounded-full transition-all duration-500"
@@ -239,11 +273,18 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             </div>
           )}
 
-          {/* Error feedback */}
+          {/* User-friendly Error Banner */}
           {error && (
-            <div className="p-3 bg-[#eb5757]/10 border border-[#eb5757]/20 rounded-xl text-xs text-[#eb5757] flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className="p-3.5 bg-[#eb5757]/10 border border-[#eb5757]/20 rounded-xl text-xs text-[#eb5757] flex items-start gap-2.5">
+              {error.includes("Server unreachable") ? (
+                <WifiOff className="w-4 h-4 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              )}
+              <div className="space-y-0.5">
+                <div className="font-semibold">{error.includes("Server unreachable") ? "Connection Error" : "Upload Failed"}</div>
+                <div className="text-[11px] text-[#eb5757]/90 leading-relaxed">{error}</div>
+              </div>
             </div>
           )}
 
@@ -267,7 +308,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
               {loading ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                  Extracting Intelligence...
+                  Processing Audio...
                 </>
               ) : isQuotaExceeded ? (
                 "Quota Limit Reached"

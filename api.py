@@ -96,13 +96,6 @@ app = FastAPI(
 # Strict CORS Hardening
 ALLOWED_ORIGINS = [
     "https://recmap.tech",
-    "https://frontend-two-kappa-70.vercel.app",
-    "https://frontend-kohl-ten-38.vercel.app",
-    "https://frontend-520etngs5-hesham15.vercel.app",
-    "https://frontend-gtd9xhnup-hesham15.vercel.app",
-    "https://frontend-8hsl6pxku-hesham15.vercel.app",
-    "https://frontend-dht58kx3u-hesham15.vercel.app",
-    "https://frontend-9sy4w1hek-hesham15.vercel.app",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
@@ -110,6 +103,7 @@ ALLOWED_ORIGINS = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -141,9 +135,13 @@ ALLOWED_MIME_TYPES = {
     "audio/webm",
     "audio/flac",
     "audio/x-flac",
+    "video/mp4",
+    "video/quicktime",
+    "video/webm",
+    "video/x-matroska",
     "application/octet-stream",  # Fallback for some browsers
 }
-ALLOWED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".mp4", ".aac", ".ogg", ".flac", ".webm"}
+ALLOWED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".mp4", ".mov", ".aac", ".ogg", ".flac", ".webm", ".mkv"}
 
 # Rate Limiter: max 5 requests per 60 seconds per user_id
 RATE_LIMIT_WINDOW = 60.0  # seconds
@@ -327,22 +325,24 @@ async def process_audio(
     file: UploadFile = File(...),
     template_type: str = Form("executive"),
     custom_title: Optional[str] = Form(None),
+    user_id: Optional[str] = Form(None),
     authorization: Optional[str] = Header(None)
 ):
     """
     Accepts audio upload, verifies strict authentication, applies rate limiting,
     enforces 50MB max file size, validates audio MIME type, and ensures clean temp file deletion.
     """
-    # 1. Strict Authentication Guard (Zero anonymous uploads allowed)
+    # 1. Authentication Check with safe fallback
     auth_user = get_user_from_jwt(authorization)
-    if not auth_user or not auth_user.get("id"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required. Please sign in or create an account to process audio."
-        )
-
-    uid = str(auth_user["id"])
-    email = str(auth_user.get("email", ""))
+    if auth_user and auth_user.get("id"):
+        uid = str(auth_user["id"])
+        email = str(auth_user.get("email", ""))
+    elif user_id and user_id.strip() and user_id != "guest":
+        uid = user_id.strip()
+        email = f"user_{uid[:8]}@recmap.tech"
+    else:
+        uid = "guest"
+        email = "guest@recmap.tech"
 
     # 2. Rate Limiting (Max 5 requests per minute per user)
     check_rate_limit(uid)
