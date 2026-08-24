@@ -6,3 +6,4 @@ python-dotenv>=1.0.0
 streamlit-mermaid>=0.2.0
 pandas>=2.0.0
 audio-recorder-streamlit>=0.0.10
+rich>=13.0.0
