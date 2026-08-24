@@ -140,6 +140,8 @@ if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = {}
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
 
 # Restore session if available in query params
 restore_persistent_session()
@@ -147,7 +149,7 @@ restore_persistent_session()
 from styles.theme import inject_theme, format_acronyms, get_iframe_theme_css
 
 # Inject single source of truth design system
-inject_theme(st.session_state.get("theme", "light"))
+inject_theme(st.session_state.get("theme", "dark"))
 
 
 
@@ -345,10 +347,10 @@ def generate_unified_document_html(session_data: Any, meta: Optional[Dict[str, A
 
     meta_row = f"""<div class="meta-row">{''.join(meta_pills)}</div>""" if meta_pills else ""
 
-    # TL;DR Executive Summary Box
+    # TL;DR Executive Summary Brief
     tldr_html = ""
     if tldr:
-        tldr_html = f"""<div class="tldr-box"><div class="tldr-label">Executive Summary</div><p class="tldr-content">{tldr}</p></div>"""
+        tldr_html = f"""<div class="editorial-brief"><div class="brief-label">EXECUTIVE BRIEF</div><p class="brief-content">{tldr}</p></div>"""
 
     # Numbered Sections
     sections_html = []
@@ -369,7 +371,7 @@ def generate_unified_document_html(session_data: Any, meta: Optional[Dict[str, A
         dec_list = sec.get("decisions", [])
         if isinstance(dec_list, list) and dec_list:
             dec_lis = "".join([f"""<li style="margin-bottom: 4px; color: var(--text-2);">{format_acronyms(str(d))}</li>""" for d in dec_list])
-            decisions_html = f"""<div style="margin: 12px 0 16px 0; font-size: 13.5px;"><strong style="color: var(--text);">Decisions:</strong><ul style="margin: 6px 0 0 20px; padding: 0;">{dec_lis}</ul></div>"""
+            decisions_html = f"""<div style="margin: 14px 0 18px 0; font-size: 14px;"><strong style="color: var(--text);">Decisions:</strong><ul style="margin: 6px 0 0 20px; padding: 0;">{dec_lis}</ul></div>"""
 
         # Action Items
         actions_html = ""
@@ -382,11 +384,11 @@ def generate_unified_document_html(session_data: Any, meta: Optional[Dict[str, A
                 task = format_acronyms(str(a.get("task") or a.get("description") or "Deliverable"))
                 owner = str(a.get("owner") or a.get("assignee") or "Team")
                 due = str(a.get("due_date") or a.get("due_text") or "")
-                due_s = f" {due}" if due and due != "—" else ""
-                act_rows.append(f"""<div class="action-row"><span class="action-check">☐</span><span>{task} — <span class="action-owner">{owner}</span><span class="action-due">{due_s}</span></span></div>""")
+                due_badge = f"""<span class="action-due-pill">{due}</span>""" if due and due != "—" else ""
+                act_rows.append(f"""<div class="action-item-pill"><span class="action-check-pill">☐</span><span class="action-text">{task}</span><span class="action-owner-pill">{owner}</span>{due_badge}</div>""")
             actions_html = f"""<div class="section-actions"><div class="section-actions-heading">Action Items</div>{''.join(act_rows)}</div>"""
 
-        sections_html.append(f"""<div class="section-block" style="margin-bottom: 48px;"><h2 class="section-title">{n}. {clean_sec_title}</h2><p>{clean_narrative}</p>{decisions_html}{actions_html}</div>""")
+        sections_html.append(f"""<div class="section-block"><h2 class="section-title">{n}. {clean_sec_title}</h2><p>{clean_narrative}</p>{decisions_html}{actions_html}</div>""")
 
     # Open Questions
     open_q_html = ""
@@ -396,7 +398,7 @@ def generate_unified_document_html(session_data: Any, meta: Optional[Dict[str, A
             q_text = format_acronyms(str(q.get("question", "")) if isinstance(q, dict) else str(q))
             q_by = str(q.get("raised_by", "")) if isinstance(q, dict) else ""
             by_str = f" — <em>{q_by}</em>" if q_by else ""
-            q_rows.append(f"""<div style="font-size: 14px; margin-bottom: 6px; line-height: 1.6; color: var(--text);"><strong>• {q_text}</strong><span style="font-size: 12.5px; color: var(--text-2);">{by_str}</span></div>""")
+            q_rows.append(f"""<div style="font-size: 14px; margin-bottom: 8px; line-height: 1.6; color: var(--text);"><strong>• {q_text}</strong><span style="font-size: 12.5px; color: var(--text-2);">{by_str}</span></div>""")
         open_q_html = f"""<div class="questions-box"><div class="questions-label">Open Questions</div>{''.join(q_rows)}</div>"""
 
     # AI Suggestions
@@ -475,6 +477,7 @@ def generate_unified_document_html(session_data: Any, meta: Optional[Dict[str, A
     </div>"""
 
     content = f"""
+<div class="document-canvas">
   <div style="display: flex; justify-content: flex-end; margin-bottom: 24px;">
     <button class="no-print btn-ghost" onclick="window.print()">Download PDF</button>
   </div>
@@ -485,6 +488,7 @@ def generate_unified_document_html(session_data: Any, meta: Optional[Dict[str, A
   {open_q_html}
   {ai_suggestions_markup}
   {mindmap_html}
+</div>
 """
 
     return f"""<!doctype html>
@@ -713,11 +717,12 @@ def render_sidebar():
     with st.sidebar:
         # App Branding Header
         st.markdown("""
-        <div style="margin-bottom: 24px; padding-left: 2px;">
-            <div style="font-weight: 650; font-size: 15px; color: var(--text); letter-spacing: -0.01em;">
-                Hesh Rec <span class="mono" style="font-size: 11px; color: var(--text-3); font-weight: 500; margin-left: 4px;">v2.4</span>
+        <div style="margin-bottom: 28px; padding-left: 2px;">
+            <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 18px; color: var(--text); letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px;">
+                <span>Hesh Rec</span>
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px;">2.4</span>
             </div>
-            <div style="font-size: 11.5px; color: var(--text-2); margin-top: 2px;">Speech Intelligence Studio</div>
+            <div style="font-size: 12px; color: var(--text-2); margin-top: 4px;">Speech Intelligence Studio</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -738,12 +743,11 @@ def render_sidebar():
                 plan_pill = '<span class="pill">Free</span>'
 
             st.markdown(f"""
-            <div style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                    <span style="font-size: 13px; font-weight: 600; color: var(--text);">{display_name}</span>
+            <div style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13.5px; font-weight: 600; color: var(--text);">{display_name}</span>
                     {plan_pill}
                 </div>
-                <div style="font-size: 11px; color: var(--text-3);">Tenant Cloud Isolated</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -861,8 +865,7 @@ def render_sidebar():
         # 2. PRIMARY ACTION & WORKSPACE NAVIGATION
         # ---------------------------------------------------------------------
         if st.session_state.user:
-            # Single filled accent button in app
-            if st.button("New Session", type="primary", use_container_width=True):
+            if st.button("+ New Session", type="primary", use_container_width=True):
                 new_recording_dialog()
 
             st.markdown("<div style='font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 20px; margin-bottom: 6px; padding-left: 2px;'>Navigation</div>", unsafe_allow_html=True)
@@ -1451,7 +1454,7 @@ def render_meeting_detail_view(session_id: str):
 
     # Action Toolbar (Full width, wrapping, never breaks into single characters)
     raw_md = data.get("raw_markdown", "# Meeting Report")
-    printable_html = generate_printable_html(data, active_theme=st.session_state.get("theme", "light"))
+    printable_html = generate_printable_html(data, active_theme=st.session_state.get("theme", "dark"))
 
     col_back, col_md, col_pdf, col_json, col_space = st.columns([1.1, 1.3, 1.3, 1.0, 4.3])
     with col_back:
@@ -1481,7 +1484,7 @@ def render_meeting_detail_view(session_id: str):
     # TAB 1: UNIFIED THEMED DOCUMENT (SUMMARY + D3 MARKMAP TREE)
     # -------------------------------------------------------------------------
     with tab_summary:
-        active_theme = st.session_state.get("theme", "light")
+        active_theme = st.session_state.get("theme", "dark")
         doc_html = generate_unified_document_html(data, meta=meta, active_theme=active_theme)
         components.html(doc_html, height=2200, scrolling=True)
 

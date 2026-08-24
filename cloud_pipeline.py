@@ -1102,7 +1102,7 @@ def generate_printable_html(session_data: Any, active_theme: str = "light") -> s
 
     tldr_html = ""
     if tldr:
-        tldr_html = f"""<div class="tldr-box"><div class="tldr-label">Executive Summary</div><p class="tldr-content">{tldr}</p></div>"""
+        tldr_html = f"""<div class="editorial-brief"><div class="brief-label">EXECUTIVE BRIEF</div><p class="brief-content">{tldr}</p></div>"""
 
     # Numbered Topics & Inline Actions
     topics_html = []
@@ -1121,7 +1121,7 @@ def generate_printable_html(session_data: Any, active_theme: str = "light") -> s
         dec_list = t.get("decisions", [])
         if isinstance(dec_list, list) and dec_list:
             dec_lis = "".join([f"""<li style="margin-bottom: 4px; color: var(--text-2);">{format_acronyms(str(d))}</li>""" for d in dec_list])
-            decisions_html = f"""<div style="margin: 12px 0 16px 0; font-size: 13.5px;"><strong style="color: var(--text);">Decisions:</strong><ul style="margin: 6px 0 0 20px; padding: 0;">{dec_lis}</ul></div>"""
+            decisions_html = f"""<div style="margin: 14px 0 18px 0; font-size: 14px;"><strong style="color: var(--text);">Decisions:</strong><ul style="margin: 6px 0 0 20px; padding: 0;">{dec_lis}</ul></div>"""
         
         t_actions = t.get("action_items", [])
         actions_html = ""
@@ -1133,11 +1133,11 @@ def generate_printable_html(session_data: Any, active_theme: str = "light") -> s
                 desc = format_acronyms(str(a.get("task") or a.get("description", "")))
                 owner = str(a.get("owner") or a.get("assignee", "Team"))
                 due = str(a.get("due_date") or a.get("due_text", ""))
-                due_str = f" {due}" if due and due != "—" else ""
-                items_li.append(f"""<div class="action-row"><span class="action-check">☐</span><span>{desc} — <span class="action-owner">{owner}</span><span class="action-due">{due_str}</span></span></div>""")
+                due_badge = f"""<span class="action-due-pill">{due}</span>""" if due and due != "—" else ""
+                items_li.append(f"""<div class="action-item-pill"><span class="action-check-pill">☐</span><span class="action-text">{desc}</span><span class="action-owner-pill">{owner}</span>{due_badge}</div>""")
             actions_html = f"""<div class="section-actions"><div class="section-actions-heading">Action Items</div>{''.join(items_li)}</div>"""
 
-        topics_html.append(f"""<div class="section-block" style="margin-bottom: 48px;"><h2 class="section-title">{t_num}. {clean_t_title}</h2><p>{clean_narrative}</p>{decisions_html}{actions_html}</div>""")
+        topics_html.append(f"""<div class="section-block"><h2 class="section-title">{t_num}. {clean_t_title}</h2><p>{clean_narrative}</p>{decisions_html}{actions_html}</div>""")
 
     # Open Questions
     open_q_html = ""
@@ -1147,7 +1147,7 @@ def generate_printable_html(session_data: Any, active_theme: str = "light") -> s
             q_text = format_acronyms(str(q.get("question", "")) if isinstance(q, dict) else str(q))
             q_by = str(q.get("raised_by", "")) if isinstance(q, dict) else ""
             by_str = f" — <em>{q_by}</em>" if q_by else ""
-            q_rows.append(f"""<div style="font-size: 14px; margin-bottom: 6px; line-height: 1.6; color: var(--text);"><strong>• {q_text}</strong><span style="font-size: 12.5px; color: var(--text-2);">{by_str}</span></div>""")
+            q_rows.append(f"""<div style="font-size: 14px; margin-bottom: 8px; line-height: 1.6; color: var(--text);"><strong>• {q_text}</strong><span style="font-size: 12.5px; color: var(--text-2);">{by_str}</span></div>""")
         open_q_html = f"""<div class="questions-box"><div class="questions-label">Open Questions</div>{''.join(q_rows)}</div>"""
 
     # AI Suggestions Callout
@@ -1214,6 +1214,7 @@ def generate_printable_html(session_data: Any, active_theme: str = "light") -> s
     </div>"""
 
     content = f"""
+<div class="document-canvas">
   <div style="display: flex; justify-content: flex-end; margin-bottom: 24px;">
     <button class="no-print btn-ghost" onclick="window.print()">Download PDF</button>
   </div>
@@ -1224,6 +1225,7 @@ def generate_printable_html(session_data: Any, active_theme: str = "light") -> s
   {open_q_html}
   {suggestions_html}
   {mindmap_html}
+</div>
 """
 
     return f"""<!doctype html>
