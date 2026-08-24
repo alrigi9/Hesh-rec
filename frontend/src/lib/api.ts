@@ -121,41 +121,34 @@ export async function processAudioFile(
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  // If local development backend on localhost:8000, post direct
-  if (API_BASE && API_BASE.includes("localhost:8000")) {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("template_type", templateType);
-    formData.append("language", language);
-    if (customTitle) formData.append("custom_title", customTitle);
-    if (userId) formData.append("user_id", userId);
+  // 1. Step 1: Direct Client-Side Speech Transcription via Groq Whisper LPU
+  const groqKey =
+    process.env.NEXT_PUBLIC_GROQ_API_KEY ||
+    "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";
 
-    const response = await fetch(`${API_BASE}/api/process-audio`, {
-      method: "POST",
-      headers,
-      body: formData,
-    });
-    return await safeReadResponse(response);
-  }
-
-  // 1. Step 1: Direct High-Speed Speech Transcription
   let transcriptText = "";
   let durationSeconds = 0;
   let formattedSegments: any[] = [];
 
-  // Try direct serverless transcription endpoint (/api/transcribe-direct)
   try {
-    const transcribeFormData = new FormData();
-    transcribeFormData.append("file", file, file.name);
-    transcribeFormData.append("language", language);
+    const groqFormData = new FormData();
+    groqFormData.append("file", file, file.name);
+    groqFormData.append("model", "whisper-large-v3");
+    groqFormData.append("response_format", "verbose_json");
+    groqFormData.append("temperature", "0");
+    if (language === "ar") groqFormData.append("language", "ar");
+    if (language === "en") groqFormData.append("language", "en");
 
-    const transcribeRes = await fetch("/api/transcribe-direct", {
+    const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
       method: "POST",
-      body: transcribeFormData,
+      headers: {
+        Authorization: `Bearer ${groqKey}`,
+      },
+      body: groqFormData,
     });
 
-    if (transcribeRes.ok) {
-      const groqData = await transcribeRes.json();
+    if (groqRes.ok) {
+      const groqData = await groqRes.json();
       transcriptText = (groqData.text || "").trim();
       durationSeconds = Number(groqData.duration || 0.0);
 
@@ -169,31 +162,67 @@ export async function processAudioFile(
         text: (seg.text || "").trim(),
       }));
     }
-  } catch (err) {
-    console.warn("Direct transcription endpoint note, falling back to full pipeline:", err);
+  } catch (groqErr) {
+    console.warn("Direct Groq transcription failed on client, attempting serverless fallback:", groqErr);
   }
 
-  // 2. Step 2: Synthesize Meeting Intelligence via /api/process-audio
-  const synthFormData = new FormData();
-  if (transcriptText) {
-    synthFormData.append("transcript_text", transcriptText);
-    synthFormData.append("transcript_segments", JSON.stringify(formattedSegments));
-    synthFormData.append("duration_seconds", durationSeconds.toString());
-  } else {
-    // If transcription was not pre-computed, include audio file directly
-    synthFormData.append("file", file);
-  }
-  synthFormData.append("filename", file.name);
-  synthFormData.append("template_type", templateType);
-  synthFormData.append("language", language);
-  if (customTitle) synthFormData.append("custom_title", customTitle);
-  if (userId) synthFormData.append("user_id", userId);
+  // Fallback to /api/transcribe-direct if client direct call failed
+  if (!transcriptText) {
+    try {
+      const transcribeFormData = new FormData();
+      transcribeFormData.append("file", file, file.name);
+      transcribeFormData.append("language", language);
 
-  const endpoint = "/api/process-audio";
-  const response = await fetch(endpoint, {
+      const transcribeRes = await fetch("/api/transcribe-direct", {
+        method: "POST",
+        body: transcribeFormData,
+      });
+
+      if (transcribeRes.ok) {
+        const groqData = await transcribeRes.json();
+        transcriptText = (groqData.text || "").trim();
+        durationSeconds = Number(groqData.duration || 0.0);
+
+        const rawSegments = groqData.segments || [];
+        formattedSegments = rawSegments.map((seg: any, idx: number) => ({
+          index: idx + 1,
+          start: Number(seg.start || 0.0),
+          end: Number(seg.end || 0.0),
+          timestamp: `${Math.floor(Number(seg.start || 0) / 60).toString().padStart(2, "0")}:${Math.floor(Number(seg.start || 0) % 60).toString().padStart(2, "0")}`,
+          speaker: `Speaker ${(idx % 3) + 1}`,
+          text: (seg.text || "").trim(),
+        }));
+      }
+    } catch (fallbackErr) {
+      console.warn("Serverless fallback transcription note:", fallbackErr);
+    }
+  }
+
+  if (!transcriptText) {
+    throw new Error("No audible speech could be extracted from the provided media file.");
+  }
+
+  // 2. Step 2: Send ONLY lightweight JSON payload to /api/process-audio for intelligence synthesis
+  const synthesisPayload = {
+    transcript: transcriptText,
+    transcript_text: transcriptText,
+    transcript_segments: formattedSegments,
+    duration_seconds: durationSeconds,
+    filename: file.name,
+    template: templateType,
+    template_type: templateType,
+    language,
+    custom_title: customTitle,
+    user_id: userId,
+  };
+
+  const response = await fetch("/api/process-audio", {
     method: "POST",
-    headers,
-    body: synthFormData,
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
+    body: JSON.stringify(synthesisPayload),
   });
 
   return await safeReadResponse(response);

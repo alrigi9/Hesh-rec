@@ -42,16 +42,46 @@ function cleanAndParseJson(text: string): Record<string, any> {
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-    const templateType = (formData.get("template_type") as string) || "executive";
-    const language = (formData.get("language") as string) || "auto";
-    const customTitle = formData.get("custom_title") as string | null;
-    const userId = formData.get("user_id") as string | null;
-    const preTranscript = formData.get("transcript_text") as string | null;
-    const preSegmentsJson = formData.get("transcript_segments") as string | null;
-    const preDurationSeconds = Number(formData.get("duration_seconds") || 0.0);
-    const originalFilename = (formData.get("filename") as string) || (file ? file.name : "meeting_audio.mp3");
+    let file: File | null = null;
+    let templateType = "executive";
+    let language = "auto";
+    let customTitle: string | null = null;
+    let userId: string | null = null;
+    let preTranscript: string | null = null;
+    let preSegmentsJson: string | null = null;
+    let preDurationSeconds = 0.0;
+    let originalFilename = "meeting_audio.mp3";
+
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      const jsonBody = await request.json();
+      preTranscript = jsonBody.transcript || jsonBody.transcript_text || jsonBody.text || "";
+      templateType = jsonBody.template || jsonBody.template_type || "executive";
+      language = jsonBody.language || "auto";
+      customTitle = jsonBody.custom_title || jsonBody.title || null;
+      userId = jsonBody.user_id || null;
+      if (jsonBody.transcript_segments) {
+        if (typeof jsonBody.transcript_segments === "string") {
+          preSegmentsJson = jsonBody.transcript_segments;
+        } else {
+          preSegmentsJson = JSON.stringify(jsonBody.transcript_segments);
+        }
+      }
+      preDurationSeconds = Number(jsonBody.duration_seconds || jsonBody.duration || 0.0);
+      originalFilename = jsonBody.filename || "meeting_transcript.txt";
+    } else {
+      const formData = await request.formData();
+      file = formData.get("file") as File | null;
+      templateType = (formData.get("template_type") as string) || (formData.get("template") as string) || "executive";
+      language = (formData.get("language") as string) || "auto";
+      customTitle = (formData.get("custom_title") as string) || (formData.get("title") as string) || null;
+      userId = (formData.get("user_id") as string) || null;
+      preTranscript = (formData.get("transcript_text") as string) || (formData.get("transcript") as string) || null;
+      preSegmentsJson = (formData.get("transcript_segments") as string) || null;
+      preDurationSeconds = Number(formData.get("duration_seconds") || 0.0);
+      originalFilename = (formData.get("filename") as string) || (file ? file.name : "meeting_audio.mp3");
+    }
 
     if (!file && !preTranscript) {
       return NextResponse.json({ detail: "No audio file or transcript provided." }, { status: 400 });
@@ -62,7 +92,7 @@ export async function POST(request: NextRequest) {
     let userUsed = 0.0;
     let userRole = "user";
 
-    if (userId) {
+    if (userId && userId !== "guest") {
       try {
         const profileRes = await fetch(
           `${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=*`,
@@ -105,7 +135,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 1. If not pre-transcribed, send to Groq Whisper
+    // 1. If not pre-transcribed and a file is attached, transcribe via Groq
     if (!fullTranscript && file) {
       const groqFormData = new FormData();
       groqFormData.append("file", file, file.name);
@@ -182,6 +212,7 @@ LANGUAGE DIRECTIVE: ${langInstruction}
   "duration_minutes": ${durationMinutes},
   "participants": ["Speaker 1", "Speaker 2"],
   "tags": ["Strategy", "Roadmap", "Execution"],
+  "summary": "3-4 concise executive sentences highlighting the main decisions, roadmap, and objectives.",
   "tldr": "3-4 concise executive sentences highlighting the main decisions, roadmap, and objectives.",
   "sections": [
     {
@@ -258,7 +289,7 @@ LANGUAGE DIRECTIVE: ${langInstruction}
     }
 
     // 2. Fallback to Groq LLM (openai/gpt-oss-120b or qwen/qwen3.6-27b) if Gemini returned empty
-    if (!intelligenceData.title && !intelligenceData.tldr && GROQ_API_KEY) {
+    if (!intelligenceData.title && !intelligenceData.summary && !intelligenceData.tldr && GROQ_API_KEY) {
       try {
         const groqChatRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
@@ -289,18 +320,36 @@ LANGUAGE DIRECTIVE: ${langInstruction}
 
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const finalTitle = customTitle || intelligenceData.title || originalFilename.replace(/\.[^/.]+$/, "");
-    const finalSummary = intelligenceData.tldr || intelligenceData.summary || intelligenceData.executive_summary || "Executive brief generated from captured transcript.";
+    const finalSummary = intelligenceData.summary || intelligenceData.tldr || intelligenceData.executive_summary || "Executive brief generated from captured transcript.";
     const finalSections = intelligenceData.sections || intelligenceData.discussion_pillars || [];
-    const finalActions = intelligenceData.action_items || [];
+    let finalActions = intelligenceData.action_items || [];
+
+    if (finalActions.length === 0) {
+      finalActions = [
+        {
+          id: "A1",
+          task: "Review and follow up on strategic action points from session",
+          owner: "Team",
+          priority: "MEDIUM",
+          status: "pending",
+          due_date: meetingDate,
+        },
+      ];
+    }
 
     // Ensure mindmap_markdown exists with valid hierarchy
     let finalMindmap = intelligenceData.mindmap_markdown;
     if (!finalMindmap || !finalMindmap.startsWith("#")) {
       const mmLines = [`# ${finalTitle}`];
-      finalSections.forEach((s: any, idx: number) => {
-        mmLines.push(`## ${s.n || idx + 1}. ${s.title || "Topic"}`);
-        if (s.narrative) mmLines.push(`- ${s.narrative.substring(0, 80)}...`);
-      });
+      if (finalSections.length > 0) {
+        finalSections.forEach((s: any, idx: number) => {
+          mmLines.push(`## ${s.n || idx + 1}. ${s.title || "Topic"}`);
+          if (s.narrative) mmLines.push(`- ${s.narrative.substring(0, 80)}...`);
+        });
+      } else {
+        mmLines.push(`## Overview`);
+        mmLines.push(`- ${finalSummary.substring(0, 80)}...`);
+      }
       if (finalActions.length > 0) {
         mmLines.push(`## Action Items`);
         finalActions.forEach((a: any) => {
@@ -343,43 +392,45 @@ LANGUAGE DIRECTIVE: ${langInstruction}
     };
 
     // 3. Save to Supabase meeting_sessions table
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/meeting_sessions`, {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-          "Content-Type": "application/json",
-          Prefer: "return=representation",
-        },
-        body: JSON.stringify({
-          id: sessionId,
-          user_id: userId || null,
-          title: finalTitle,
-          duration_minutes: durationMinutes,
-          meeting_date: intelligenceData.meeting_date || meetingDate,
-          tags: intelligenceData.tags || [],
-          session_data: fullSessionPayload,
-        }),
-      });
-
-      // Update user usage quota
-      if (userId) {
-        const newUsed = userUsed + durationMinutes;
-        await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}`, {
-          method: "PATCH",
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/meeting_sessions`, {
+          method: "POST",
           headers: {
             apikey: SUPABASE_SERVICE_ROLE_KEY,
             Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
             "Content-Type": "application/json",
+            Prefer: "return=representation",
           },
           body: JSON.stringify({
-            minutes_used_this_month: newUsed,
+            id: sessionId,
+            user_id: userId || null,
+            title: finalTitle,
+            duration_minutes: durationMinutes,
+            meeting_date: intelligenceData.meeting_date || meetingDate,
+            tags: intelligenceData.tags || [],
+            session_data: fullSessionPayload,
           }),
         });
+
+        // Update user usage quota
+        if (userId && userId !== "guest") {
+          const newUsed = userUsed + durationMinutes;
+          await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              minutes_used_this_month: newUsed,
+            }),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to persist session to Supabase:", err);
       }
-    } catch (err) {
-      console.error("Failed to persist session to Supabase:", err);
     }
 
     return NextResponse.json(fullSessionPayload);
