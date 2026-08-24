@@ -136,19 +136,47 @@ async def process_audio(
             shutil.copyfileobj(file.file, buffer, length=1024 * 1024)
 
         ensure_secrets_loaded()
-        groq_k = get_secret("GROQ_API_KEY")
-        if groq_k:
-            os.environ["GROQ_API_KEY"] = groq_k
-        gemini_k = get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
-        if gemini_k:
-            os.environ["GEMINI_API_KEY"] = gemini_k
+
+        # 1. Direct environment variable lookup
+        groq_key = (os.environ.get("GROQ_API_KEY") or "").strip().strip('"').strip("'")
+        gemini_key = (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "").strip().strip('"').strip("'")
+
+        # 2. Direct .streamlit/secrets.toml fallback
+        for s_dir in [BASE_DIR, Path.cwd(), Path.home()]:
+            secrets_file = s_dir / ".streamlit" / "secrets.toml"
+            if secrets_file.exists():
+                try:
+                    sec = toml.load(str(secrets_file))
+                    if not groq_key and "GROQ_API_KEY" in sec:
+                        groq_key = str(sec["GROQ_API_KEY"]).strip().strip('"').strip("'")
+                        if groq_key:
+                            os.environ["GROQ_API_KEY"] = groq_key
+                    if not gemini_key and ("GEMINI_API_KEY" in sec or "GOOGLE_API_KEY" in sec):
+                        gemini_key = str(sec.get("GEMINI_API_KEY") or sec.get("GOOGLE_API_KEY")).strip().strip('"').strip("'")
+                        if gemini_key:
+                            os.environ["GEMINI_API_KEY"] = gemini_key
+                except Exception as e:
+                    print(f"[!] Warning loading secrets.toml: {e}", flush=True)
+
+        # 3. Universal get_secret fallback
+        if not groq_key:
+            groq_key = get_secret("GROQ_API_KEY")
+        if not gemini_key:
+            gemini_key = get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
+
+        if groq_key:
+            print(f"[+] Loaded GROQ_API_KEY: {groq_key[:6]}... (length {len(groq_key)})", flush=True)
+        else:
+            print("[!] GROQ_API_KEY is not configured.", flush=True)
 
         result = process_meeting_file_cloud(
             audio_path=save_path,
             custom_title=custom_title,
             model_choice=DEFAULT_GEMINI_MODEL,
             user_id=user_id,
-            template_type=template_type
+            template_type=template_type,
+            groq_api_key=groq_key or None,
+            gemini_api_key=gemini_key or None
         )
         return JSONResponse(content=result)
     except Exception as e:

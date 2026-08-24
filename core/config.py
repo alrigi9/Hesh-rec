@@ -11,18 +11,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env", override=True)
 
 
+def _clean_key(val: Any) -> str:
+    if val is None:
+        return ""
+    s = str(val).strip()
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+        s = s[1:-1].strip()
+    return s
+
+
 def get_secret(key_name: str, default: str = "") -> str:
     """Universal fallback secret resolver across os.environ, st.secrets, .streamlit/secrets.toml, and .env."""
     # 1. Check os.environ
-    val = os.environ.get(key_name)
-    if val and str(val).strip():
-        return str(val).strip()
+    val = _clean_key(os.environ.get(key_name))
+    if val:
+        return val
 
     # 2. Check streamlit secrets if available
     try:
         import streamlit as st
         if hasattr(st, "secrets") and key_name in st.secrets:
-            s_val = str(st.secrets[key_name]).strip()
+            s_val = _clean_key(st.secrets[key_name])
             if s_val:
                 os.environ[key_name] = s_val
                 return s_val
@@ -37,23 +46,25 @@ def get_secret(key_name: str, default: str = "") -> str:
             Path.home() / ".streamlit" / "secrets.toml",
             BASE_DIR / ".env",
             Path.cwd() / ".env",
-            Path.home() / ".env"
+            Path.home() / ".env",
         ]
         for p in candidates:
             if p.exists():
                 if p.suffix == ".toml":
                     sec = toml.load(str(p))
-                    if key_name in sec and sec[key_name]:
-                        res = str(sec[key_name]).strip()
-                        os.environ[key_name] = res
-                        return res
+                    if key_name in sec:
+                        res = _clean_key(sec[key_name])
+                        if res:
+                            os.environ[key_name] = res
+                            return res
                 elif p.name == ".env" or p.suffix == ".env":
                     from dotenv import dotenv_values
                     env_vals = dotenv_values(str(p))
-                    if key_name in env_vals and env_vals[key_name]:
-                        res = str(env_vals[key_name]).strip()
-                        os.environ[key_name] = res
-                        return res
+                    if key_name in env_vals:
+                        res = _clean_key(env_vals[key_name])
+                        if res:
+                            os.environ[key_name] = res
+                            return res
     except Exception:
         pass
 

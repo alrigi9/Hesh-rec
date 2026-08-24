@@ -61,32 +61,39 @@ MODEL_CANDIDATES = [
     "gemini-flash-latest"
 ]
 
-def get_groq_client() -> Optional[Groq]:
-    api_key = os.environ.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY") or get_secret("GROQ_API_KEY")
-    if api_key and api_key.strip():
-        try:
-            return Groq(api_key=api_key.strip())
-        except Exception as e:
-            print(f"[!] Groq Client Init Error: {e}", flush=True)
+def get_groq_client(api_key: Optional[str] = None) -> Optional[Groq]:
+    raw_key = api_key or os.environ.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY") or get_secret("GROQ_API_KEY")
+    if raw_key:
+        clean = raw_key.strip().strip('"').strip("'")
+        if clean:
+            try:
+                return Groq(api_key=clean)
+            except Exception as e:
+                print(f"[!] Groq Client Init Error: {e}", flush=True)
     return None
 
 def get_supabase_client() -> Optional[Client]:
     url = os.environ.get("SUPABASE_URL") or get_secret("SUPABASE_URL")
     key = os.environ.get("SUPABASE_KEY") or get_secret("SUPABASE_KEY")
     if url and key:
-        try:
-            return create_client(url.strip(), key.strip())
-        except Exception as e:
-            print(f"[!] Supabase Client Init Error: {e}", flush=True)
+        clean_url = url.strip().strip('"').strip("'")
+        clean_key = key.strip().strip('"').strip("'")
+        if clean_url and clean_key:
+            try:
+                return create_client(clean_url, clean_key)
+            except Exception as e:
+                print(f"[!] Supabase Client Init Error: {e}", flush=True)
     return None
 
-def get_gemini_client() -> Optional[genai.Client]:
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
-    if api_key and api_key.strip():
-        try:
-            return genai.Client(api_key=api_key.strip())
-        except Exception as e:
-            print(f"[!] Gemini Client Init Error: {e}", flush=True)
+def get_gemini_client(api_key: Optional[str] = None) -> Optional[genai.Client]:
+    raw_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
+    if raw_key:
+        clean = raw_key.strip().strip('"').strip("'")
+        if clean:
+            try:
+                return genai.Client(api_key=clean)
+            except Exception as e:
+                print(f"[!] Gemini Client Init Error: {e}", flush=True)
     return None
 
 
@@ -118,13 +125,14 @@ def format_duration_human(seconds: float) -> str:
 # =============================================================================
 def transcribe_audio_groq(
     audio_file_path: Path,
-    prompt: Optional[str] = None
+    prompt: Optional[str] = None,
+    api_key: Optional[str] = None
 ) -> Tuple[List[Dict[str, Any]], str, float]:
     """
     Transcribes audio file using Groq Whisper-large-v3 API with verbose JSON timestamps.
     Returns: (segments_list, full_text_transcript, duration_seconds)
     """
-    groq_client = get_groq_client()
+    groq_client = get_groq_client(api_key=api_key)
     if not groq_client:
         loaded_keys = [k for k in os.environ.keys() if "KEY" in k or "SECRET" in k or "GROQ" in k or "GEMINI" in k]
         print(f"[!] GROQ_API_KEY is not set. Relevant env keys found: {loaded_keys}", flush=True)
@@ -821,11 +829,13 @@ def extract_intelligence_gemini(
     transcript_text: str,
     duration_str: str,
     model_name: str = DEFAULT_GEMINI_MODEL,
-    template_type: str = "executive"
+    template_type: str = "executive",
+    gemini_api_key: Optional[str] = None,
+    groq_api_key: Optional[str] = None
 ) -> Dict[str, Any]:
     """Extracts meeting record adhering strictly to the structured JSON schema using Gemini with Groq fallback."""
-    client = get_gemini_client()
-    groq_client = get_groq_client()
+    client = get_gemini_client(api_key=gemini_api_key)
+    groq_client = get_groq_client(api_key=groq_api_key)
     meeting_date_iso = datetime.now().strftime("%Y-%m-%d")
     prompt = build_intelligence_prompt(topic, transcript_text, duration_str, meeting_date_iso=meeting_date_iso, template_type=template_type)
 
@@ -1262,7 +1272,9 @@ def process_meeting_file_cloud(
     custom_title: Optional[str] = None,
     model_choice: str = DEFAULT_GEMINI_MODEL,
     user_id: Optional[str] = None,
-    template_type: str = "executive"
+    template_type: str = "executive",
+    groq_api_key: Optional[str] = None,
+    gemini_api_key: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     End-to-end cloud pipeline:
@@ -1276,7 +1288,7 @@ def process_meeting_file_cloud(
     start_time = time.time()
 
     # 1. Groq Transcription
-    segments, full_text, duration_sec = transcribe_audio_groq(audio_path)
+    segments, full_text, duration_sec = transcribe_audio_groq(audio_path, api_key=groq_api_key)
     duration_str = format_duration_human(duration_sec)
 
     # 2. Gemini Analysis
@@ -1285,7 +1297,9 @@ def process_meeting_file_cloud(
         transcript_text=full_text,
         duration_str=duration_str,
         model_name=model_choice,
-        template_type=template_type
+        template_type=template_type,
+        gemini_api_key=gemini_api_key,
+        groq_api_key=groq_api_key
     )
     if not isinstance(intel, dict):
         intel = safe_parse_json(intel)
