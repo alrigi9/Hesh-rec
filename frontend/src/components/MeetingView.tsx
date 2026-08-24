@@ -243,7 +243,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
   const displayDuration = session.metadata?.duration || session.duration || (session.duration_minutes ? `${session.duration_minutes}m` : null);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-x-hidden print:p-0 print:m-0">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8 pb-28 md:pb-12 overflow-x-hidden print:p-0 print:m-0">
       {/* Editorial Header */}
       <motion.div 
         initial={{ opacity: 0, y: -6 }}
@@ -342,38 +342,38 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
 
       {/* Tabs Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-[#141517] border border-[#232529] p-1 rounded-2xl sm:rounded-full flex flex-wrap sm:inline-flex gap-1 max-w-full overflow-x-auto">
+        <TabsList className="bg-[#141517] border border-[#232529] p-1 rounded-2xl sm:rounded-full flex flex-nowrap sm:inline-flex gap-1 max-w-full overflow-x-auto no-scrollbar shrink-0 select-none">
           <TabsTrigger
             value="summary"
-            className="rounded-full text-xs px-3.5 sm:px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
+            className="rounded-full text-xs px-3.5 sm:px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
           >
             <FileText className="w-3.5 h-3.5 mr-1.5" />
             Summary
           </TabsTrigger>
           <TabsTrigger
             value="actions"
-            className="rounded-full text-xs px-3.5 sm:px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
+            className="rounded-full text-xs px-3.5 sm:px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
           >
             <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
             Action Items ({totalActions})
           </TabsTrigger>
           <TabsTrigger
             value="mindmap"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
           >
             <Network className="w-3.5 h-3.5 mr-1.5" />
             Mind Map
           </TabsTrigger>
           <TabsTrigger
             value="transcript"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
           >
             <Clock className="w-3.5 h-3.5 mr-1.5" />
             Transcript
           </TabsTrigger>
           <TabsTrigger
             value="chat"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
+            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
           >
             <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
             Chat
@@ -784,6 +784,48 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
           </motion.div>
         </TabsContent>
       </Tabs>
+
+      {/* Mobile Floating Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0A0B0F]/95 backdrop-blur-lg border-t border-white/[0.08] px-2 py-1.5 flex items-center justify-around shadow-2xl safe-area-bottom">
+        {[
+          { id: "summary", label: "Summary", icon: FileText },
+          { id: "actions", label: "Actions", icon: CheckSquare, count: totalActions },
+          { id: "mindmap", label: "Mind Map", icon: Network },
+          { id: "transcript", label: "Transcript", icon: Clock },
+          { id: "chat", label: "Chat", icon: MessageSquare },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab.id);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all relative ${
+                isActive
+                  ? "text-[#ff5c47] font-semibold"
+                  : "text-[#8b909a] hover:text-[#f0f2f5]"
+              }`}
+            >
+              <div className="relative">
+                <Icon className={`w-4 h-4 mb-0.5 ${isActive ? "text-[#ff5c47]" : "text-[#8b909a]"}`} />
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className="absolute -top-1 -right-2 bg-[#ff5c47] text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                    {tab.count}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] tracking-tight">{tab.label}</span>
+              {isActive && (
+                <div className="w-1 h-1 rounded-full bg-[#ff5c47] absolute -bottom-0.5" />
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

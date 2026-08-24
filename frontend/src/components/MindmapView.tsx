@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import { Markmap } from "markmap-view";
 import { Transformer } from "markmap-lib";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MeetingSession } from "@/types/meeting";
 
@@ -15,7 +15,7 @@ export function MindmapView({ session }: MindmapViewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const mmRef = useRef<Markmap | null>(null);
 
-  const buildMarkdown = (): string => {
+  const buildMarkdown = useCallback((): string => {
     if (session.mindmap_markdown && session.mindmap_markdown.trim().startsWith("#")) {
       return session.mindmap_markdown;
     }
@@ -69,12 +69,19 @@ export function MindmapView({ session }: MindmapViewProps) {
     }
 
     return lines.join("\n");
-  };
+  }, [session]);
+
+  const fitMindmap = useCallback(() => {
+    if (mmRef.current) {
+      mmRef.current.fit();
+    }
+  }, []);
 
   useEffect(() => {
     if (!svgRef.current) return;
 
     try {
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
       const transformer = new Transformer();
       const md = buildMarkdown();
       const { root } = transformer.transform(md);
@@ -87,56 +94,62 @@ export function MindmapView({ session }: MindmapViewProps) {
           svgRef.current,
           {
             autoFit: true,
-            fitRatio: 0.95,
-            maxWidth: 380,
-            initialExpandLevel: 3,
-            spacingVertical: 12,
-            spacingHorizontal: 80,
+            fitRatio: isMobile ? 0.9 : 0.95,
+            maxWidth: isMobile ? 220 : 380,
+            initialExpandLevel: isMobile ? 2 : 3,
+            spacingVertical: isMobile ? 10 : 14,
+            spacingHorizontal: isMobile ? 45 : 80,
             duration: 250,
           },
           root
         );
       }
 
-      const timer = setTimeout(() => {
-        if (mmRef.current) mmRef.current.fit();
-      }, 350);
+      // Multi-stage auto-fit to account for layout animations and mobile viewport rendering
+      const t1 = setTimeout(fitMindmap, 100);
+      const t2 = setTimeout(fitMindmap, 350);
+      const t3 = setTimeout(fitMindmap, 700);
 
       const handleResize = () => {
-        if (mmRef.current) mmRef.current.fit();
+        fitMindmap();
       };
       window.addEventListener("resize", handleResize);
 
       return () => {
-        clearTimeout(timer);
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
         window.removeEventListener("resize", handleResize);
       };
     } catch (e) {
       console.error("Markmap render error:", e);
     }
-  }, [session]);
+  }, [session, buildMarkdown, fitMindmap]);
 
-  const handleFit = () => mmRef.current?.fit();
+  const handleFit = () => fitMindmap();
   const handleZoomIn = () => mmRef.current?.rescale(1.25);
   const handleZoomOut = () => mmRef.current?.rescale(0.8);
 
   return (
-    <div className="relative w-full h-[450px] sm:h-[680px] bg-[#141517] border border-[#232529] rounded-2xl overflow-hidden shadow-sm">
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 bg-[#1c1e22]/90 backdrop-blur-md border border-[#2e3238] p-1 rounded-full shadow-lg">
+    <div className="relative w-full h-[520px] sm:h-[680px] bg-[#141517] border border-[#232529] rounded-2xl overflow-hidden shadow-sm touch-none">
+      {/* Floating Controls Toolbar */}
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 flex items-center gap-1 sm:gap-1.5 bg-[#1c1e22]/90 backdrop-blur-md border border-[#2e3238] p-1 rounded-full shadow-lg">
         <Button
           size="sm"
           variant="ghost"
           onClick={handleFit}
-          className="h-7 px-3 text-xs text-[#8b909a] hover:text-[#f0f2f5] rounded-full"
+          className="h-7 px-2.5 sm:px-3 text-xs text-[#8b909a] hover:text-[#f0f2f5] rounded-full gap-1"
         >
-          <Maximize2 className="w-3.5 h-3.5 mr-1" />
-          Fit
+          <Maximize2 className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Fit View</span>
+          <span className="sm:hidden">Fit</span>
         </Button>
         <Button
           size="icon"
           variant="ghost"
           onClick={handleZoomIn}
           className="w-7 h-7 text-[#8b909a] hover:text-[#f0f2f5] rounded-full"
+          aria-label="Zoom in"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </Button>
@@ -145,12 +158,17 @@ export function MindmapView({ session }: MindmapViewProps) {
           variant="ghost"
           onClick={handleZoomOut}
           className="w-7 h-7 text-[#8b909a] hover:text-[#f0f2f5] rounded-full"
+          aria-label="Zoom out"
         >
           <ZoomOut className="w-3.5 h-3.5" />
         </Button>
       </div>
 
-      <svg ref={svgRef} className="w-full h-full text-[#f0f2f5]" />
+      {/* SVG Canvas */}
+      <svg 
+        ref={svgRef} 
+        className="w-full h-full text-[#f0f2f5] cursor-grab active:cursor-grabbing select-none" 
+      />
     </div>
   );
 }
