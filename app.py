@@ -159,59 +159,61 @@ def get_current_user_id() -> str | None:
     return None
 
 
-def build_markmap_md(s: dict) -> str:
+def build_markmap_md(summary: dict) -> str:
     """Constructs clean hierarchical markdown for Markmap strictly from summary JSON."""
-    title = s.get("title") or "Meeting Summary"
-    clean_title = re.sub(r"^#+\s*", "", str(title)).strip()
-    L = [f"# {clean_title}"]
+    # 1. Root: Meeting Title
+    title = summary.get("title", "Meeting Summary")
+    clean_title = re.sub(r"^#+\s*", "", str(title)).strip() or "Meeting Summary"
+    lines = [f"# {clean_title}"]
     
-    sections = s.get("sections", []) or s.get("numbered_topics", []) or s.get("discussion_pillars", [])
+    # 2. Iterate through sections
+    sections = summary.get("sections", [])
+    if not sections:
+        sections = summary.get("numbered_topics", []) or summary.get("discussion_pillars", [])
+        
     for sec in sections:
-        n = sec.get("n") or sec.get("index", "")
+        n = sec.get("n", "") or sec.get("index", "")
         t = sec.get("title", "")
         clean_t = re.sub(r"^\d+\.\s*", "", str(t)).strip()
-        L.append(f"## {n}. {clean_t}" if n else f"## {clean_t}")
-        if sec.get("narrative"):
-            clean_narr = re.sub(r"^\*\*[^*]+:\*\*\s*", "", str(sec["narrative"])).strip()
-            clean_narr = re.sub(r"^[-*•]\s*\*\*[^*]+:\*\*\s*", "", clean_narr).strip()
-            L.append(f"- {clean_narr}")
-        if sec.get("action_items"):
-            L.append("- ### Action Items")
-            for a in sec["action_items"]:
-                owner = a.get("owner") or a.get("assignee") or "Unassigned"
-                due_val = a.get("due_date") or a.get("due_text")
-                due = f" — {due_val}" if due_val and due_val != "—" else ""
-                task = a.get("task") or a.get("description", "")
-                L.append(f"  - {task} — {owner}{due}")
+        sec_title = f"{n}. {clean_t}" if n else clean_t
+        lines.append(f"## {sec_title}")
+        
+        # Branch A: Full Narrative text
+        narrative = sec.get("narrative", "")
+        if narrative:
+            # Clean up line breaks for markmap node
+            clean_narrative = " ".join(str(narrative).split())
+            lines.append(f"- {clean_narrative}")
+            
+        # Branch B: Action Items container and leaf tasks
+        action_items = sec.get("action_items", [])
+        if action_items:
+            lines.append("- Action Items")
+            for a in action_items:
+                task = (a.get("task") or a.get("description") or "").strip()
+                owner = (a.get("owner") or a.get("assignee") or "Unassigned").strip()
+                due = f" -- {a.get('due_date')}" if a.get("due_date") else (f" -- {a.get('due_text')}" if a.get("due_text") else "")
+                lines.append(f"  - {task} -- {owner}{due}")
                 
-    if s.get("ai_suggestions"):
-        L.append("## AI Suggestions")
-        suggs = s["ai_suggestions"]
+    # 3. Optional AI Suggestions branch
+    if summary.get("ai_suggestions"):
+        lines.append("## AI Suggestions")
+        suggs = summary["ai_suggestions"]
         if isinstance(suggs, list):
             for x in suggs:
                 if isinstance(x, dict):
-                    L.append(f"- **{x.get('label', '')}**: {x.get('detail', '')}")
+                    lbl = x.get("label", "").strip()
+                    det = x.get("detail", "").strip()
+                    lines.append(f"- **{lbl}**: {det}")
                 else:
-                    L.append(f"- {x}")
+                    lines.append(f"- {x}")
         elif isinstance(suggs, dict):
-            s_items = suggs.get("items", [])
-            if s_items:
-                for x in s_items:
-                    lbl = x.get("label") or x.get("title", "")
-                    det = x.get("detail") or x.get("body", "")
-                    L.append(f"- **{lbl}**: {det}")
-            else:
-                combined = suggs.get("unresolved", []) + suggs.get("gaps", []) + suggs.get("recommendations", [])
-                for c in combined:
-                    L.append(f"- {c}")
-    
-    result = "\n".join(L)
-    
-    # Validation guard against template leaks
-    banned = ["Key Takeaways", "Consensus & Outcome", "Meeting Overview", "Core Topic and Focus", "'s Perspective"]
-    for phrase in banned:
-        result = result.replace(phrase, "")
-    return result
+            for x in suggs.get("items", []):
+                lbl = x.get("label", "").strip()
+                det = x.get("detail", "").strip()
+                lines.append(f"- **{lbl}**: {det}")
+            
+    return "\n".join(lines)
 
 
 def generate_unified_document_html(session_data: Dict[str, Any], meta: Optional[Dict[str, Any]] = None, active_theme: str = "light") -> str:

@@ -71,6 +71,60 @@ Transcribe the dialogue faithfully with timestamps and speaker attribution:
 **[00:00:15] Speaker 2 (Name if identified):** [Accurate transcript...]
 """
 
+def build_markmap_md(summary: dict) -> str:
+    """Constructs clean hierarchical markdown for Markmap strictly from summary JSON."""
+    # 1. Root: Meeting Title
+    title = summary.get("title", "Meeting Summary")
+    lines = [f"# {title}"]
+    
+    # 2. Iterate through sections
+    sections = summary.get("sections", [])
+    if not sections:
+        sections = summary.get("numbered_topics", []) or summary.get("discussion_pillars", [])
+        
+    for sec in sections:
+        n = sec.get("n", "") or sec.get("index", "")
+        t = sec.get("title", "")
+        sec_title = f"{n}. {t}" if n else t
+        lines.append(f"## {sec_title}")
+        
+        # Branch A: Full Narrative text
+        narrative = sec.get("narrative", "")
+        if narrative:
+            clean_narrative = " ".join(str(narrative).split())
+            lines.append(f"- {clean_narrative}")
+            
+        # Branch B: Action Items container and leaf tasks
+        action_items = sec.get("action_items", [])
+        if action_items:
+            lines.append("- Action Items")
+            for a in action_items:
+                task = (a.get("task") or a.get("description") or "").strip()
+                owner = (a.get("owner") or a.get("assignee") or "Unassigned").strip()
+                due = f" -- {a.get('due_date')}" if a.get("due_date") else (f" -- {a.get('due_text')}" if a.get("due_text") else "")
+                lines.append(f"  - {task} -- {owner}{due}")
+                
+    # 3. Optional AI Suggestions branch
+    if summary.get("ai_suggestions"):
+        lines.append("## AI Suggestions")
+        suggs = summary["ai_suggestions"]
+        if isinstance(suggs, list):
+            for x in suggs:
+                if isinstance(x, dict):
+                    lbl = x.get("label", "").strip()
+                    det = x.get("detail", "").strip()
+                    lines.append(f"- **{lbl}**: {det}")
+                else:
+                    lines.append(f"- {x}")
+        elif isinstance(suggs, dict):
+            for x in suggs.get("items", []):
+                lbl = x.get("label", "").strip()
+                det = x.get("detail", "").strip()
+                lines.append(f"- **{lbl}**: {det}")
+            
+    return "\n".join(lines)
+
+
 class MeetingAnalyzer:
     def __init__(self, api_key: str | None = None, model: str | None = None):
         self.api_key = api_key or get_api_key()
