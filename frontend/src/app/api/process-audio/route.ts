@@ -19,6 +19,27 @@ function formatSecondsToHhmmss(seconds: number): string {
   return `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
+function cleanAndParseJson(text: string): Record<string, any> {
+  if (!text) return {};
+  let cleaned = text.trim();
+  // Strip code block backticks
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  }
+  // Extract outermost JSON block if any extra text exists
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+  try {
+    return JSON.parse(cleaned);
+  } catch (err) {
+    console.error("JSON parsing error on text:", cleaned.substring(0, 200), err);
+    return {};
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -141,7 +162,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 2. Synthesize Meeting Intelligence using Gemini
+    // 2. Synthesize Meeting Intelligence using Gemini (gemini-3.6-flash with Groq Fallback)
     const meetingDate = new Date().toISOString().split("T")[0];
     let langInstruction = "Detect the primary language of the transcript and produce the entire JSON output in that language with an authoritative executive business tone.";
     if (language === "ar") {
@@ -161,7 +182,7 @@ LANGUAGE DIRECTIVE: ${langInstruction}
   "duration_minutes": ${durationMinutes},
   "participants": ["Speaker 1", "Speaker 2"],
   "tags": ["Strategy", "Roadmap", "Execution"],
-  "tldr": "3-4 concise executive sentences highlighting the main decisions and objectives.",
+  "tldr": "3-4 concise executive sentences highlighting the main decisions, roadmap, and objectives.",
   "sections": [
     {
       "n": 1,
@@ -199,25 +220,27 @@ LANGUAGE DIRECTIVE: ${langInstruction}
   "mindmap_markdown": "# Meeting Overview\\n## Key Decisions\\n- Action Plan\\n## Next Steps\\n- Deliverables"
 }`;
 
-    const geminiPayload = {
-      contents: [
-        {
-          parts: [
-            { text: systemPrompt },
-            { text: `Meeting Transcript:\n${fullTranscript || "No audible speech detected."}` },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.2,
-      },
-    };
-
     let intelligenceData: any = {};
+
+    // 1. Try Gemini 3.6 Flash
     try {
+      const geminiPayload = {
+        contents: [
+          {
+            parts: [
+              { text: systemPrompt },
+              { text: `Meeting Transcript:\n${fullTranscript || "No audible speech detected."}` },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.2,
+        },
+      };
+
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -227,33 +250,88 @@ LANGUAGE DIRECTIVE: ${langInstruction}
 
       if (geminiRes.ok) {
         const geminiJson = await geminiRes.json();
-        const rawContent =
-          geminiJson.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-        intelligenceData = JSON.parse(rawContent);
+        const rawContent = geminiJson.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        intelligenceData = cleanAndParseJson(rawContent);
       }
     } catch (err) {
-      console.error("Gemini intelligence extraction error:", err);
+      console.warn("Gemini 3.6 Flash extraction note:", err);
+    }
+
+    // 2. Fallback to Groq LLM (openai/gpt-oss-120b or qwen/qwen3.6-27b) if Gemini returned empty
+    if (!intelligenceData.title && !intelligenceData.tldr && GROQ_API_KEY) {
+      try {
+        const groqChatRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GROQ_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "openai/gpt-oss-120b",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Meeting Transcript:\n${fullTranscript || "No audible speech detected."}` },
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.2,
+          }),
+        });
+
+        if (groqChatRes.ok) {
+          const groqChatJson = await groqChatRes.json();
+          const rawContent = groqChatJson.choices?.[0]?.message?.content || "";
+          intelligenceData = cleanAndParseJson(rawContent);
+        }
+      } catch (groqErr) {
+        console.warn("Groq LLM fallback note:", groqErr);
+      }
     }
 
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const finalTitle = customTitle || intelligenceData.title || originalFilename.replace(/\.[^/.]+$/, "");
+    const finalSummary = intelligenceData.tldr || intelligenceData.summary || intelligenceData.executive_summary || "Executive brief generated from captured transcript.";
+    const finalSections = intelligenceData.sections || intelligenceData.discussion_pillars || [];
+    const finalActions = intelligenceData.action_items || [];
+
+    // Ensure mindmap_markdown exists with valid hierarchy
+    let finalMindmap = intelligenceData.mindmap_markdown;
+    if (!finalMindmap || !finalMindmap.startsWith("#")) {
+      const mmLines = [`# ${finalTitle}`];
+      finalSections.forEach((s: any, idx: number) => {
+        mmLines.push(`## ${s.n || idx + 1}. ${s.title || "Topic"}`);
+        if (s.narrative) mmLines.push(`- ${s.narrative.substring(0, 80)}...`);
+      });
+      if (finalActions.length > 0) {
+        mmLines.push(`## Action Items`);
+        finalActions.forEach((a: any) => {
+          mmLines.push(`- ${a.task || a.description || "Deliverable"} (${a.owner || "Team"})`);
+        });
+      }
+      finalMindmap = mmLines.join("\n");
+    }
 
     const fullSessionPayload = {
       id: sessionId,
       title: finalTitle,
       meeting_date: intelligenceData.meeting_date || meetingDate,
+      date: intelligenceData.meeting_date || meetingDate,
       duration_minutes: durationMinutes,
       duration: `${durationMinutes}m`,
-      tags: intelligenceData.tags || ["Intelligence", "Meeting"],
-      participants: intelligenceData.participants || ["Participants"],
-      summary: intelligenceData.tldr || "Meeting transcript captured and analyzed.",
-      sections: intelligenceData.sections || [],
-      action_items: intelligenceData.action_items || [],
+      tags: intelligenceData.tags || ["Intelligence", "Strategy"],
+      participants: intelligenceData.participants || ["Speaker 1"],
+      tldr: finalSummary,
+      summary: finalSummary,
+      executive_summary: finalSummary,
+      sections: finalSections,
+      discussion_pillars: finalSections,
+      action_items: finalActions,
       open_questions: intelligenceData.open_questions || [],
       strategic_insights: intelligenceData.strategic_insights || [],
-      mindmap_markdown: intelligenceData.mindmap_markdown || `# ${finalTitle}\n## Key Points\n- Ingested`,
+      mindmap_markdown: finalMindmap,
       transcript_segments: formattedSegments,
-      raw_markdown: `# ${finalTitle}\n\n${intelligenceData.tldr || ""}`,
+      transcript: fullTranscript,
+      full_transcript_text: fullTranscript,
+      raw_markdown: `# ${finalTitle}\n\n${finalSummary}`,
       metadata: {
         session_id: sessionId,
         audio_filename: originalFilename,

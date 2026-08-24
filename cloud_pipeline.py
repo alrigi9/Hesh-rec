@@ -56,8 +56,7 @@ DEFAULT_GEMINI_MODEL = get_secret("GEMINI_MODEL", "gemini-3.6-flash")
 MODEL_CANDIDATES = [
     DEFAULT_GEMINI_MODEL,
     "gemini-3.6-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
+    "gemini-3.7-flash",
     "gemini-flash-latest"
 ]
 
