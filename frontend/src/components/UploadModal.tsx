@@ -8,7 +8,8 @@ import {
   Loader2, 
   AlertCircle,
   CheckCircle2,
-  WifiOff
+  WifiOff,
+  Globe
 } from "lucide-react";
 import { 
   Dialog, 
@@ -29,15 +30,19 @@ interface UploadModalProps {
   onSuccess: (session: MeetingSession) => void;
 }
 
+type ProcessingStage = "uploading" | "extracting" | "transcribing" | "synthesizing";
+
 export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
   const router = useRouter();
   const { user, token, profile, isAdmin, refreshProfile } = useAuth();
 
   const [file, setFile] = useState<File | null>(null);
   const [template, setTemplate] = useState("executive");
+  const [language, setLanguage] = useState<"auto" | "en" | "ar">("auto");
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
-  const [processingStage, setProcessingStage] = useState<"uploading" | "transcribing" | "synthesizing">("uploading");
+  const [uploadPercent, setUploadPercent] = useState(0);
+  const [processingStage, setProcessingStage] = useState<ProcessingStage>("uploading");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +55,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       setTitle("");
       setError(null);
       setLoading(false);
+      setUploadPercent(0);
     }
   }, [isOpen]);
 
@@ -88,9 +94,24 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
     setLoading(true);
     setError(null);
     setProcessingStage("uploading");
+    setUploadPercent(15);
 
-    const stageTimer1 = setTimeout(() => setProcessingStage("transcribing"), 1500);
-    const stageTimer2 = setTimeout(() => setProcessingStage("synthesizing"), 4500);
+    const uploadTimer = setInterval(() => {
+      setUploadPercent((prev) => (prev < 90 ? prev + 15 : prev));
+    }, 300);
+
+    const stageTimer1 = setTimeout(() => {
+      setProcessingStage("extracting");
+      setUploadPercent(100);
+    }, 1200);
+
+    const stageTimer2 = setTimeout(() => {
+      setProcessingStage("transcribing");
+    }, 2800);
+
+    const stageTimer3 = setTimeout(() => {
+      setProcessingStage("synthesizing");
+    }, 6000);
 
     try {
       const result = await processAudioFile(
@@ -98,10 +119,13 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         template, 
         title || undefined, 
         user?.id, 
-        token || undefined
+        token || undefined,
+        language
       );
+      clearInterval(uploadTimer);
       clearTimeout(stageTimer1);
       clearTimeout(stageTimer2);
+      clearTimeout(stageTimer3);
       setLoading(false);
       onSuccess(result);
       refreshProfile();
@@ -109,8 +133,10 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       setFile(null);
       setTitle("");
     } catch (err: unknown) {
+      clearInterval(uploadTimer);
       clearTimeout(stageTimer1);
       clearTimeout(stageTimer2);
+      clearTimeout(stageTimer3);
       setLoading(false);
       
       let msg = err instanceof Error ? err.message : "Failed to process media file.";
@@ -123,14 +149,14 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !loading && onClose()}>
-      <DialogContent className="sm:max-w-[480px] bg-[#13151B] border border-white/[0.08] text-[#f0f2f5] p-6 rounded-2xl shadow-2xl">
+      <DialogContent className="sm:max-w-[500px] bg-[#13151B] border border-white/[0.08] text-[#f0f2f5] p-6 rounded-2xl shadow-2xl">
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-lg font-semibold tracking-tight text-[#f0f2f5] font-heading flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#ff5c47]" />
             Upload File
           </DialogTitle>
           <DialogDescription className="text-xs text-[#8b909a]">
-            Fast, secure transcription with instant executive summaries, mind maps, and action items.
+            Enterprise audio transcription with bilingual intelligence, mind maps, and task breakdown.
           </DialogDescription>
         </DialogHeader>
 
@@ -140,7 +166,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all ${
+            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
               file
                 ? "border-[#ff5c47]/50 bg-[#ff5c47]/5"
                 : "border-white/10 hover:border-white/20 bg-[#18191c]"
@@ -181,6 +207,36 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             )}
           </div>
 
+          {/* Bilingual Language Selection */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-[#8b909a] flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-[#ff5c47]" />
+                Output Language
+              </label>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "auto", label: "Auto-Detect" },
+                { id: "en", label: "English (EN)" },
+                { id: "ar", label: "العربية (AR)" },
+              ].map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => setLanguage(l.id as any)}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-medium border transition-all text-center ${
+                    language === l.id
+                      ? "bg-[#ff5c47]/15 border-[#ff5c47] text-[#ff5c47] font-semibold"
+                      : "bg-[#18191c] border-white/[0.08] text-[#8b909a] hover:text-[#f0f2f5]"
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Template Selection */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-[#8b909a]">Intelligence Template</label>
@@ -218,47 +274,58 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             />
           </div>
 
-          {/* Active Step Progression Indicator */}
+          {/* Visual 4-Step Progress Tracker */}
           {loading && (
             <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-[#f0f2f5] flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 text-[#ff5c47] animate-spin" />
-                  {processingStage === "uploading" && "Uploading File..."}
+                  {processingStage === "uploading" && `Uploading Media (${uploadPercent}%)...`}
+                  {processingStage === "extracting" && "Extracting Audio Stream..."}
                   {processingStage === "transcribing" && "Transcribing Speech..."}
-                  {processingStage === "synthesizing" && "Generating Executive Summary & Mind Map..."}
+                  {processingStage === "synthesizing" && "Synthesizing Summary & Mind Map..."}
                 </span>
                 <span className="text-[11px] text-[#ff5c47] font-mono font-semibold">
-                  {processingStage === "uploading" && "Step 1/3"}
-                  {processingStage === "transcribing" && "Step 2/3"}
-                  {processingStage === "synthesizing" && "Step 3/3"}
+                  {processingStage === "uploading" && "Step 1/4"}
+                  {processingStage === "extracting" && "Step 2/4"}
+                  {processingStage === "transcribing" && "Step 3/4"}
+                  {processingStage === "synthesizing" && "Step 4/4"}
                 </span>
               </div>
 
-              {/* Step Progression Badges */}
-              <div className="grid grid-cols-3 gap-1.5 text-[10px] font-medium text-center">
-                <div className={`py-1 px-1.5 rounded-lg transition-all ${
+              {/* 4 Step Badges */}
+              <div className="grid grid-cols-4 gap-1 text-[10px] font-medium text-center">
+                <div className={`py-1 px-1 rounded-lg transition-all ${
                   processingStage === "uploading" 
                     ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
                     : "bg-white/5 text-[#3ec98a]"
                 }`}>
                   1. Upload
                 </div>
-                <div className={`py-1 px-1.5 rounded-lg transition-all ${
+                <div className={`py-1 px-1 rounded-lg transition-all ${
+                  processingStage === "extracting" 
+                    ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
+                    : ["transcribing", "synthesizing"].includes(processingStage)
+                    ? "bg-white/5 text-[#3ec98a]"
+                    : "bg-white/5 text-[#8b909a]"
+                }`}>
+                  2. Extract
+                </div>
+                <div className={`py-1 px-1 rounded-lg transition-all ${
                   processingStage === "transcribing" 
                     ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
                     : processingStage === "synthesizing"
                     ? "bg-white/5 text-[#3ec98a]"
                     : "bg-white/5 text-[#8b909a]"
                 }`}>
-                  2. Transcribe
+                  3. Transcribe
                 </div>
-                <div className={`py-1 px-1.5 rounded-lg transition-all ${
+                <div className={`py-1 px-1 rounded-lg transition-all ${
                   processingStage === "synthesizing" 
                     ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
                     : "bg-white/5 text-[#8b909a]"
                 }`}>
-                  3. Summarize
+                  4. Synthesize
                 </div>
               </div>
 
@@ -266,7 +333,13 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
                 <div 
                   className="bg-[#ff5c47] h-full rounded-full transition-all duration-500"
                   style={{
-                    width: processingStage === "uploading" ? "33%" : processingStage === "transcribing" ? "66%" : "95%"
+                    width: processingStage === "uploading" 
+                      ? `${Math.max(25, uploadPercent * 0.25)}%` 
+                      : processingStage === "extracting" 
+                      ? "50%" 
+                      : processingStage === "transcribing" 
+                      ? "75%" 
+                      : "96%"
                   }}
                 />
               </div>
@@ -308,7 +381,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
               {loading ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                  Processing Audio...
+                  Processing Media...
                 </>
               ) : isQuotaExceeded ? (
                 "Quota Limit Reached"

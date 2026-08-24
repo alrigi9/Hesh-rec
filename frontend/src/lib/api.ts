@@ -81,11 +81,13 @@ export async function processAudioFile(
   templateType: string = "executive",
   customTitle?: string,
   userId?: string,
-  token?: string
+  token?: string,
+  language: string = "auto"
 ): Promise<MeetingSession> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("template_type", templateType);
+  formData.append("language", language);
   if (customTitle) formData.append("custom_title", customTitle);
   if (userId) formData.append("user_id", userId);
 

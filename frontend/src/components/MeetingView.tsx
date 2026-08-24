@@ -149,8 +149,53 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
     }
   };
 
+  const generateFullMarkdown = () => {
+    let md = `# ${displayTitle}\n\n`;
+    md += `**Date:** ${displayDate || "N/A"}  \n`;
+    md += `**Duration:** ${displayDuration || "N/A"}  \n\n`;
+    md += `## ⚡ Executive Summary\n${summaryText}\n\n`;
+
+    if (pillars.length > 0) {
+      md += `## 📋 Discussion Topics & Sections\n`;
+      pillars.forEach((sec, idx) => {
+        md += `### ${sec.n || idx + 1}. ${sec.title}\n`;
+        if (sec.narrative) md += `${sec.narrative}\n\n`;
+        if (sec.decisions && sec.decisions.length > 0) {
+          md += `**Decisions:**\n`;
+          sec.decisions.forEach((d) => (md += `- ${d}\n`));
+          md += `\n`;
+        }
+      });
+    }
+
+    if (actionItems.length > 0) {
+      md += `## ✅ Action Items\n`;
+      actionItems.forEach((a) => {
+        const check = a.status === "completed" ? "[x]" : "[ ]";
+        md += `- ${check} **${a.task || a.description}** — *${a.owner || a.assignee || "Team"}* (${a.priority || "MED"})${a.due_date ? ` [Due: ${a.due_date}]` : ""}\n`;
+      });
+      md += `\n`;
+    }
+
+    if (session.mindmap_markdown) {
+      md += `## 🧠 Mind Map\n\`\`\`markmap\n${session.mindmap_markdown}\n\`\`\`\n`;
+    }
+
+    return md;
+  };
+
+  const handleDownloadMarkdown = () => {
+    const md = generateFullMarkdown();
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${displayTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.md`;
+    a.click();
+  };
+
   const handleCopyMarkdown = () => {
-    const md = session.raw_markdown || `# ${displayTitle}\n\n${summaryText || ""}`;
+    const md = generateFullMarkdown();
     navigator.clipboard.writeText(md);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -198,7 +243,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
   const displayDuration = session.metadata?.duration || session.duration || (session.duration_minutes ? `${session.duration_minutes}m` : null);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-x-hidden">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-x-hidden print:p-0 print:m-0">
       {/* Editorial Header */}
       <motion.div 
         initial={{ opacity: 0, y: -6 }}
@@ -206,7 +251,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
         transition={{ duration: 0.3 }}
         className="space-y-4 mb-6 sm:mb-8"
       >
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading break-words leading-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading break-words leading-tight print:text-black">
           {displayTitle}
         </h1>
 
@@ -219,28 +264,26 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
             </span>
           )}
           {displayDate && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono text-[11px] sm:text-xs">
-              <Calendar className="w-3 h-3 text-[#8b909a]" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px] sm:text-xs">
+              <Calendar className="w-3 h-3 text-[#ff5c47]" />
               {displayDate}
             </span>
           )}
-          <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px] sm:text-xs">
-            <Sparkles className="w-3 h-3 text-[#ff5c47]" />
-            RecMap Intelligence
-          </span>
-          {(session.tags || []).map((t, idx) => (
-            <span
-              key={idx}
-              className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px] sm:text-xs"
-            >
-              <Tag className="w-3 h-3 text-[#8b909a]" />
-              {t.replace(/^#/, "")}
+          {session.tags && session.tags.slice(0, 3).map((tag, idx) => (
+            <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px]">
+              <Tag className="w-2.5 h-2.5 text-[#ff5c47]" />
+              {tag}
             </span>
           ))}
+          {/* Strict RecMap Intelligence Engine Pill */}
+          <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-[11px] sm:text-xs font-medium">
+            <Sparkles className="w-3 h-3" />
+            RecMap Intelligence
+          </span>
         </div>
 
         {/* Action Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-b border-[#232529] pb-4 sm:pb-6">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-b border-[#232529] pb-4 sm:pb-6 print:hidden">
           <Button
             size="sm"
             variant="outline"
@@ -264,8 +307,26 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
             onClick={handleCopyMarkdown}
             className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
           >
-            {copied ? <Check className="w-3.5 h-3.5 mr-1.5 text-[#3ec98a]" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
-            {copied ? "Copied" : "Copy Markdown"}
+            {copied ? <Check className="w-3.5 h-3.5 mr-1.5 text-[#3ec98a]" /> : <Copy className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />}
+            {copied ? "Copied!" : "Copy Summary"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDownloadMarkdown}
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
+            Export Markdown
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => window.print()}
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
+            Print / PDF
           </Button>
           <Button
             size="sm"
@@ -275,15 +336,6 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
           >
             <Download className="w-3.5 h-3.5 mr-1.5" />
             JSON
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => window.print()}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
-          >
-            <Printer className="w-3.5 h-3.5 mr-1.5" />
-            Print / PDF
           </Button>
         </div>
       </motion.div>

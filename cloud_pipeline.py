@@ -121,8 +121,55 @@ def format_duration_human(seconds: float) -> str:
 
 
 # =============================================================================
-# 1. GROQ CLOUD WHISPER-LARGE-V3 TRANSCRIPTION
+# 1. AUDIO EXTRACTION & GROQ WHISPER-LARGE-V3 TRANSCRIPTION
 # =============================================================================
+import subprocess
+try:
+    import imageio_ffmpeg
+    FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
+except Exception:
+    import shutil
+    FFMPEG_BIN = shutil.which("ffmpeg")
+
+
+def extract_and_compress_audio(media_path: Path) -> Tuple[Path, bool]:
+    """
+    Extracts or compresses audio from video/heavy audio files to a lightweight 16kHz mono MP3.
+    Returns (processed_path, is_temp_file).
+    """
+    video_exts = {".mp4", ".mov", ".webm", ".mkv", ".avi", ".flv", ".wmv", ".m4v"}
+    suffix = media_path.suffix.lower()
+    file_size_mb = media_path.stat().st_size / (1024 * 1024) if media_path.exists() else 0.0
+
+    # If it's already a lightweight audio file (< 25MB), pass directly
+    if suffix in {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"} and file_size_mb < 25.0:
+        return media_path, False
+
+    if not FFMPEG_BIN:
+        return media_path, False
+
+    out_path = media_path.parent / f"extracted_{uuid.uuid4().hex[:8]}.mp3"
+    try:
+        print(f"[*] Extracting & compressing audio with ffmpeg: {media_path.name} -> {out_path.name}...", flush=True)
+        cmd = [
+            FFMPEG_BIN, "-y", "-i", str(media_path),
+            "-vn", "-ar", "16000", "-ac", "1", "-b:a", "64k",
+            str(out_path)
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if res.returncode == 0 and out_path.exists() and out_path.stat().st_size > 0:
+            print(f"[+] Audio extraction successful ({out_path.stat().st_size / (1024*1024):.2f} MB)", flush=True)
+            return out_path, True
+    except Exception as e:
+        print(f"[!] FFMPEG extraction error: {e}", flush=True)
+        if out_path.exists():
+            try:
+                out_path.unlink()
+            except Exception:
+                pass
+    return media_path, False
+
+
 def transcribe_audio_groq(
     audio_file_path: Path,
     prompt: Optional[str] = None,
@@ -141,76 +188,90 @@ def transcribe_audio_groq(
     if not audio_file_path.exists():
         raise FileNotFoundError(f"Audio file not found: {audio_file_path}")
 
-    print(f"[*] Sending audio to Groq Whisper-large-v3: {audio_file_path.name}...", flush=True)
-    start_t = time.time()
+    # Extract audio if video or heavy
+    proc_path, is_temp = extract_and_compress_audio(audio_file_path)
 
-    with open(audio_file_path, "rb") as f:
-        audio_bytes = f.read()
+    try:
+        print(f"[*] Sending audio to Groq Whisper-large-v3: {proc_path.name}...", flush=True)
+        start_t = time.time()
 
-    transcription = groq_client.audio.transcriptions.create(
-        file=(audio_file_path.name, audio_bytes),
-        model="whisper-large-v3",
-        response_format="verbose_json",
-        temperature=0.0,
-        prompt=prompt
-    )
+        with open(proc_path, "rb") as f:
+            audio_bytes = f.read()
 
-    elapsed = time.time() - start_t
-    print(f"[+] Groq Transcription Completed in {elapsed:.2f}s!", flush=True)
+        transcription = groq_client.audio.transcriptions.create(
+            file=(proc_path.name, audio_bytes),
+            model="whisper-large-v3",
+            response_format="verbose_json",
+            temperature=0.0,
+            prompt=prompt
+        )
 
-    full_text = transcription.text.strip()
-    duration = getattr(transcription, "duration", 0.0) or 0.0
+        elapsed = time.time() - start_t
+        print(f"[+] Groq Transcription Completed in {elapsed:.2f}s!", flush=True)
 
-    raw_segments = getattr(transcription, "segments", []) or []
-    formatted_segments = []
+        full_text = transcription.text.strip()
+        duration = getattr(transcription, "duration", 0.0) or 0.0
 
-    for idx, seg in enumerate(raw_segments):
-        start_sec = seg.get("start", 0.0) if isinstance(seg, dict) else getattr(seg, "start", 0.0)
-        end_sec = seg.get("end", 0.0) if isinstance(seg, dict) else getattr(seg, "end", 0.0)
-        text = seg.get("text", "").strip() if isinstance(seg, dict) else getattr(seg, "text", "").strip()
-        
-        if not text:
-            continue
+        raw_segments = getattr(transcription, "segments", []) or []
+        formatted_segments = []
 
-        ts_str = format_seconds_to_hhmmss(start_sec)
-        formatted_segments.append({
-            "index": idx + 1,
-            "start": start_sec,
-            "end": end_sec,
-            "timestamp": ts_str,
-            "speaker": f"Speaker {((idx % 3) + 1)}",
-            "text": text
-        })
+        for idx, seg in enumerate(raw_segments):
+            start_sec = seg.get("start", 0.0) if isinstance(seg, dict) else getattr(seg, "start", 0.0)
+            end_sec = seg.get("end", 0.0) if isinstance(seg, dict) else getattr(seg, "end", 0.0)
+            text = seg.get("text", "").strip() if isinstance(seg, dict) else getattr(seg, "text", "").strip()
+            
+            if not text:
+                continue
 
-    # If segments were empty, construct a fallback single segment
-    if not formatted_segments and full_text:
-        formatted_segments.append({
-            "index": 1,
-            "start": 0.0,
-            "end": duration,
-            "timestamp": "00:00",
-            "speaker": "Speaker 1",
-            "text": full_text
-        })
+            ts_str = format_seconds_to_hhmmss(start_sec)
+            formatted_segments.append({
+                "index": idx + 1,
+                "start": start_sec,
+                "end": end_sec,
+                "timestamp": ts_str,
+                "speaker": f"Speaker {((idx % 3) + 1)}",
+                "text": text
+            })
 
-    return formatted_segments, full_text, duration
+        if not formatted_segments and full_text:
+            formatted_segments.append({
+                "index": 1,
+                "start": 0.0,
+                "end": duration,
+                "timestamp": "00:00",
+                "speaker": "Speaker 1",
+                "text": full_text
+            })
+
+        return formatted_segments, full_text, duration
+    finally:
+        if is_temp and proc_path.exists():
+            try:
+                proc_path.unlink()
+            except Exception:
+                pass
 
 
 # =============================================================================
-# 2. INTELLIGENCE PROMPTS & SUMMARY TEMPLATES
-# =============================================================================
-# 2. STRUCTURED JSON INTELLIGENCE PROMPT & EXTRACTION PIPELINE
+# 2. INTELLIGENCE PROMPTS & BILINGUAL EXTRACTION PIPELINE
 # =============================================================================
 def build_intelligence_prompt(
     topic: str,
     transcript_text: str,
     duration_str: str,
     meeting_date_iso: Optional[str] = None,
-    template_type: str = "executive"
+    template_type: str = "executive",
+    language: str = "auto"
 ) -> str:
-    """Builds exact structured JSON prompt for SOC 2 executive meeting intelligence."""
+    """Builds exact structured JSON prompt for executive meeting intelligence with bilingual support."""
     if not meeting_date_iso:
         meeting_date_iso = datetime.now().strftime("%Y-%m-%d")
+
+    lang_rule = "R2. LANGUAGE. Detect the primary spoken language of the recording and produce the output strictly in that language in formal executive business style."
+    if language == "ar":
+        lang_rule = "R2. LANGUAGE. Output must be strictly in professional, high-level business Arabic (اللغة العربية الفصحى المهنية). Translate and summarize all titles, narratives, action items, tags, decisions, and mind map in executive Arabic prose while preserving technical acronyms."
+    elif language == "en":
+        lang_rule = "R2. LANGUAGE. Output must be strictly in professional, authoritative executive English."
 
     return f"""You are an expert meeting analyst producing a structured record of a recorded meeting. You will receive a diarized transcript. It may be messy, contain filler, cross-talk, ASR errors, and mixed languages (English/Arabic).
 
@@ -219,7 +280,7 @@ Return ONE valid JSON object and nothing else. No markdown fences, no commentary
 =====================  ABSOLUTE RULES  =====================
 
 R1. GROUNDING. Use only what is in the transcript. Never invent a decision, owner, number, or date. If something was not said, it does not appear.
-R2. LANGUAGE. Output is always professional English, regardless of the transcript's language.
+{lang_rule}
 R3. DATES. You are given MEETING_DATE ({meeting_date_iso}). Resolve every relative date against it (e.g., "next Friday", "tomorrow", "end of month") to an ISO format YYYY-MM-DD.
 R4. NAMES & ACRONYMS. Preserve exact speaker names from the transcript. Fix ASR spellings of technical terms and keep acronyms fully uppercase: SOC 2, ISO, DLP, BYOD, MFA, API, PDF, UI, VPN, QR, AI.
 R5. SPECIFICITY IS THE WHOLE JOB. Every task must carry the concrete details a person needs to do it without replaying the recording: document numbers, slide numbers, version numbers, tool names, durations, thresholds, counts. A task under 8 words is almost always too vague — expand it.
@@ -231,7 +292,7 @@ R9. REAL AI SUGGESTIONS. Extract 2-4 genuine unassigned operational risks, missi
 =====================  OUTPUT SCHEMA  =====================
 
 {{
-  "title": "MM-DD Meeting: <Topic A, Topic B, and Topic C>",
+  "title": "<Concise, descriptive meeting title>",
   "meeting_date": "{meeting_date_iso}",
   "duration_minutes": <int or null>,
   "participants": ["<name as spoken>", ...],
@@ -258,28 +319,36 @@ R9. REAL AI SUGGESTIONS. Extract 2-4 genuine unassigned operational risks, missi
       ]
     }}
   ],
-  "open_questions": [
+  "action_items": [
     {{
-      "question": "<Unresolved question or inquiry raised during discussion>",
-      "raised_by": "<Speaker name or null>"
+      "id": "A1",
+      "task": "<Actionable task>",
+      "owner": "<Owner>",
+      "priority": "HIGH | MED | LOW",
+      "status": "pending",
+      "due_date": "YYYY-MM-DD or null"
     }}
   ],
-  "ai_suggestions": [
+  "open_questions": ["<Unresolved question or dependency>"],
+  "strategic_insights": [
     {{
-      "label": "<Specific Risk or Gap Name>",
-      "detail": "<Concrete gap, unassigned dependency, or governance risk identified in the meeting and recommended next step>"
+      "title": "<Insight title>",
+      "detail": "<Strategic context and recommendation>"
     }}
-  ]
+  ],
+  "mindmap_markdown": "# <Meeting Title>\\n## Key Decisions\\n- Action Items\\n## Next Steps\\n- Deliverables"
 }}
 
-=====================  INPUT TRANSCRIPT  =====================
-
+=====================  MEETING CONTEXT  =====================
+MEETING_TITLE: {topic}
 MEETING_DATE: {meeting_date_iso}
-Duration: {duration_str}
+DURATION: {duration_str}
+TEMPLATE: {template_type}
+TARGET_LANGUAGE: {language}
 
-\"\"\"
+TRANSCRIPT:
 {transcript_text}
-\"\"\""""
+"""
 
 
 def sanitize_mermaid_node(text: str, max_len: int = 45) -> str:
@@ -830,6 +899,7 @@ def extract_intelligence_gemini(
     duration_str: str,
     model_name: str = DEFAULT_GEMINI_MODEL,
     template_type: str = "executive",
+    language: str = "auto",
     gemini_api_key: Optional[str] = None,
     groq_api_key: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -837,7 +907,14 @@ def extract_intelligence_gemini(
     client = get_gemini_client(api_key=gemini_api_key)
     groq_client = get_groq_client(api_key=groq_api_key)
     meeting_date_iso = datetime.now().strftime("%Y-%m-%d")
-    prompt = build_intelligence_prompt(topic, transcript_text, duration_str, meeting_date_iso=meeting_date_iso, template_type=template_type)
+    prompt = build_intelligence_prompt(
+        topic=topic,
+        transcript_text=transcript_text,
+        duration_str=duration_str,
+        meeting_date_iso=meeting_date_iso,
+        template_type=template_type,
+        language=language
+    )
 
     resp_text = None
     used_model = model_name
@@ -1273,14 +1350,15 @@ def process_meeting_file_cloud(
     model_choice: str = DEFAULT_GEMINI_MODEL,
     user_id: Optional[str] = None,
     template_type: str = "executive",
+    language: str = "auto",
     groq_api_key: Optional[str] = None,
     gemini_api_key: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     End-to-end cloud pipeline:
     1. Transcribe with Groq Whisper-large-v3
-    2. Extract intelligence with Gemini 2.5 Flash / Groq LLM using selected template
-    3. Save locally & Sync to Supabase cloud with user_id
+    2. Extract intelligence with Gemini 2.5 Flash / Groq LLM using selected template & target language
+    3. Save locally & Sync to SQLite database & Supabase cloud with user_id
     """
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     title = custom_title or audio_path.stem.replace("_", " ").title()
@@ -1298,6 +1376,7 @@ def process_meeting_file_cloud(
         duration_str=duration_str,
         model_name=model_choice,
         template_type=template_type,
+        language=language,
         gemini_api_key=gemini_api_key,
         groq_api_key=groq_api_key
     )
@@ -1307,10 +1386,13 @@ def process_meeting_file_cloud(
     total_time_str = f"{time.time() - start_time:.2f}s"
 
     session_data = {
+        "id": session_id,
+        "user_id": user_id,
         "metadata": {
             "session_id": session_id,
             "user_id": user_id,
             "template_type": template_type,
+            "language": language,
             "source_file": audio_path.name,
             "filename": f"session_{session_id}.json",
             "file_size": f"{audio_path.stat().st_size / (1024*1024):.2f} MB" if audio_path.exists() else "0 MB",
@@ -1331,10 +1413,12 @@ def process_meeting_file_cloud(
         "duration": duration_str,
         "duration_minutes": intel.get("duration_minutes"),
         "template": template_type,
+        "language": language,
         "participants": intel.get("participants", []),
         "tags": intel.get("tags", []),
         "tldr": intel.get("tldr", ""),
         "executive_summary": intel.get("tldr", ""),
+        "summary": intel.get("tldr", ""),
         "sections": intel.get("sections", []),
         "discussion_pillars": intel.get("discussion_pillars", []) or intel.get("sections", []),
         "executive_brief": intel.get("executive_brief", []),
@@ -1350,7 +1434,7 @@ def process_meeting_file_cloud(
         "raw_markdown": intel.get("raw_markdown", "")
     }
 
-    # 3. Save locally and sync to Supabase
+    # 3. Save locally to JSON, SQLite, and sync to Supabase
     save_session_record(session_id, title, session_data, user_id=user_id)
 
     return session_data
@@ -1499,7 +1583,7 @@ def save_session_record(
             session_data["metadata"] = {}
         session_data["metadata"]["user_id"] = user_id
 
-    # 1. Local Save
+    # 1. Local JSON File Save
     local_file = SESSIONS_DIR / f"session_{session_id}.json"
     try:
         with open(local_file, "w", encoding="utf-8") as f:
@@ -1507,7 +1591,14 @@ def save_session_record(
     except Exception as e:
         print(f"[!] Local Save Error: {e}", flush=True)
 
-    # 2. Supabase Sync
+    # 2. Local SQLite Persistence (recmap.db)
+    try:
+        from database import save_session_to_sqlite
+        save_session_to_sqlite(session_data)
+    except Exception as e:
+        print(f"[!] SQLite Save Note: {e}", flush=True)
+
+    # 3. Supabase Sync
     sb = get_supabase_client()
     if sb:
         try:
@@ -1555,7 +1646,25 @@ def fetch_all_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     sessions_map: Dict[str, Dict[str, Any]] = {}
 
-    # 1. Load Local Files
+    # 1. Load Local JSON Files & SQLite database
+    try:
+        from database import get_sessions_from_sqlite
+        sqlite_records = get_sessions_from_sqlite(user_id=user_id)
+        for s in sqlite_records:
+            sid = s.get("id") or s.get("metadata", {}).get("session_id")
+            if sid and sid not in sessions_map:
+                sessions_map[sid] = {
+                    "id": sid,
+                    "title": s.get("title") or "Meeting Summary",
+                    "duration": s.get("duration") or "15m 00s",
+                    "processed_at": s.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                    "data": s,
+                    "user_id": s.get("user_id"),
+                    "source": "SQLite"
+                }
+    except Exception as e:
+        print(f"[!] Error reading SQLite sessions: {e}", flush=True)
+
     for p in SESSIONS_DIR.glob("session_*.json"):
         try:
             with open(p, "r", encoding="utf-8") as f:
@@ -1570,16 +1679,17 @@ def fetch_all_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
             if title.endswith(".json") or title.endswith(".wav") or title.endswith(".mp3"):
                 title = title.rsplit(".", 1)[0].replace("_", " ").title()
 
-            sessions_map[sid] = {
-                "id": sid,
-                "title": title,
-                "duration": data.get("metadata", {}).get("duration", "15m 00s"),
-                "processed_at": data.get("metadata", {}).get("processed_at", datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M")),
-                "file_path": str(p),
-                "data": data,
-                "user_id": file_user_id,
-                "source": "Local"
-            }
+            if sid not in sessions_map:
+                sessions_map[sid] = {
+                    "id": sid,
+                    "title": title,
+                    "duration": data.get("metadata", {}).get("duration", "15m 00s"),
+                    "processed_at": data.get("metadata", {}).get("processed_at", datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M")),
+                    "file_path": str(p),
+                    "data": data,
+                    "user_id": file_user_id,
+                    "source": "Local"
+                }
         except Exception as e:
             print(f"[!] Error reading local session {p.name}: {e}", flush=True)
 

@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const templateType = (formData.get("template_type") as string) || "executive";
+    const language = (formData.get("language") as string) || "auto";
     const customTitle = formData.get("custom_title") as string | null;
     const userId = formData.get("user_id") as string | null;
 
@@ -73,6 +74,11 @@ export async function POST(request: NextRequest) {
     groqFormData.append("model", "whisper-large-v3");
     groqFormData.append("response_format", "verbose_json");
     groqFormData.append("temperature", "0");
+    if (language === "ar") {
+      groqFormData.append("language", "ar");
+    } else if (language === "en") {
+      groqFormData.append("language", "en");
+    }
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
       method: "POST",
@@ -120,8 +126,17 @@ export async function POST(request: NextRequest) {
 
     // 2. Synthesize Meeting Intelligence using Gemini
     const meetingDate = new Date().toISOString().split("T")[0];
+    let langInstruction = "Detect the primary language of the transcript and produce the entire JSON output in that language with an authoritative executive business tone.";
+    if (language === "ar") {
+      langInstruction = "Produce the entire JSON output strictly in formal executive business Arabic (اللغة العربية الفصحى المهنية). Translate, structure, and synthesize all titles, summaries, sections, and action items in clean Arabic while preserving technical acronyms.";
+    } else if (language === "en") {
+      langInstruction = "Produce the entire JSON output strictly in professional, authoritative executive English.";
+    }
+
     const systemPrompt = `You are an expert executive meeting intelligence analyst.
 Analyze the provided transcript and produce a rich, highly specific JSON response following this EXACT schema. Return ONLY valid JSON:
+
+LANGUAGE DIRECTIVE: ${langInstruction}
 
 {
   "title": "Clear, informative meeting title",

@@ -324,6 +324,7 @@ async def get_user_profile(
 async def process_audio(
     file: UploadFile = File(...),
     template_type: str = Form("executive"),
+    language: str = Form("auto"),
     custom_title: Optional[str] = Form(None),
     user_id: Optional[str] = Form(None),
     authorization: Optional[str] = Header(None)
@@ -416,6 +417,7 @@ async def process_audio(
             model_choice=DEFAULT_GEMINI_MODEL,
             user_id=uid,
             template_type=template_type,
+            language=language,
             groq_api_key=groq_key or None,
             gemini_api_key=gemini_key or None
         )
