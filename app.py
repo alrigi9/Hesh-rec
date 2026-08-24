@@ -555,7 +555,7 @@ def new_recording_dialog():
                         )
                         sid = result.get("metadata", {}).get("session_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
                         st.session_state.active_session_id = f"session_{sid}"
-                        st.toast("Meeting synchronized to workspace.", icon="✓")
+                        st.toast("Meeting synchronized to workspace.")
                         time.sleep(0.3)
                         st.rerun()
                     except Exception as ex:
@@ -591,7 +591,7 @@ def new_recording_dialog():
                             )
                             sid = result.get("metadata", {}).get("session_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
                             st.session_state.active_session_id = f"session_{sid}"
-                            st.toast("Voice memo transcribed.", icon="✓")
+                            st.toast("Voice memo transcribed.")
                             time.sleep(0.3)
                             st.rerun()
                         except Exception as ex:
@@ -612,7 +612,7 @@ def rename_meeting_dialog(session_id: str, current_title: str):
                 try:
                     user_id = get_current_user_id()
                     rename_session_record(session_id, new_title.strip(), user_id=user_id)
-                    st.toast("Title updated.", icon="✓")
+                    st.toast("Title updated.")
                     st.session_state.rename_target = None
                     time.sleep(0.3)
                     st.rerun()
@@ -673,7 +673,7 @@ def render_sidebar():
                             st.session_state.plan_tier = "pro"
                             st.session_state.is_vip = True
                             save_persistent_session(get_current_user_id() or "vip_user", st.session_state.user_email, "pro", True, st.session_state.get("is_admin", False))
-                            st.toast("Pro plan activated.", icon="✓")
+                            st.toast("Pro plan activated.")
                             time.sleep(0.4)
                             st.rerun()
                         else:
@@ -688,7 +688,7 @@ def render_sidebar():
                 st.session_state.is_vip = False
                 st.session_state.is_admin = False
                 st.session_state.active_session_id = None
-                st.toast("Signed out.", icon="✓")
+                st.toast("Signed out.")
                 time.sleep(0.3)
                 st.rerun()
 
@@ -714,7 +714,7 @@ def render_sidebar():
                             st.session_state.is_vip = True
                             st.session_state.is_admin = True
                             save_persistent_session("hesh_admin", "hesh@heshrec.ai", "pro", True, True)
-                            st.toast("Welcome back, Hesham.", icon="✓")
+                            st.toast("Welcome back, Hesham.")
                             time.sleep(0.3)
                             st.rerun()
                         else:
@@ -725,7 +725,7 @@ def render_sidebar():
                                     st.session_state.user_email = login_email
                                     uid = getattr(user_obj, "id", login_email)
                                     save_persistent_session(uid, login_email, "free", False, False)
-                                    st.toast("Welcome back.", icon="✓")
+                                    st.toast("Welcome back.")
                                     time.sleep(0.3)
                                     st.rerun()
                                 else:
@@ -745,7 +745,7 @@ def render_sidebar():
                                 st.session_state.user_email = up_email
                                 uid = getattr(user_obj, "id", up_email)
                                 save_persistent_session(uid, up_email, "free", False, False)
-                                st.toast("Account created.", icon="✓")
+                                st.toast("Account created.")
                                 time.sleep(0.3)
                                 st.rerun()
                             else:
@@ -763,7 +763,7 @@ def render_sidebar():
                         st.session_state.plan_tier = "pro"
                         st.session_state.is_vip = True
                         save_persistent_session("vip_guest", "vip_guest@heshrec.ai", "pro", True, False)
-                        st.toast("Pro plan activated.", icon="✓")
+                        st.toast("Pro plan activated.")
                         time.sleep(0.4)
                         st.rerun()
                     else:
@@ -848,7 +848,7 @@ def render_sidebar():
                 if st.button("Upgrade to Pro", key="btn_upgrade_pro", type="secondary", use_container_width=True):
                     st.session_state.plan_tier = "pro"
                     save_persistent_session(get_current_user_id() or "user", st.session_state.user_email, "pro", st.session_state.is_vip, st.session_state.get("is_admin", False))
-                    st.toast("Upgraded to Pro.", icon="✓")
+                    st.toast("Upgraded to Pro.")
                     time.sleep(0.3)
                     st.rerun()
 
@@ -1028,7 +1028,7 @@ def render_dashboard_view():
                             )
                             sid = result.get("metadata", {}).get("session_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
                             st.session_state.active_session_id = f"session_{sid}"
-                            st.toast("Meeting synchronized to workspace.", icon="✓")
+                            st.toast("Meeting synchronized to workspace.")
                             time.sleep(0.3)
                             st.rerun()
                         except Exception as ex:
@@ -1055,7 +1055,7 @@ def render_dashboard_view():
                                 result = process_meeting_file_cloud(memo_path, custom_title="Voice Memo Recording", model_choice=st.session_state.model_choice, user_id=user_id, template_type="executive")
                                 sid = result.get("metadata", {}).get("session_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
                                 st.session_state.active_session_id = f"session_{sid}"
-                                st.toast("Voice memo transcribed.", icon="✓")
+                                st.toast("Voice memo transcribed.")
                                 time.sleep(0.3)
                                 st.rerun()
                             except Exception as ex:
@@ -1163,7 +1163,7 @@ def render_recents_view():
                     if st.button("Del", key=f"del_{s['id']}", help="Delete Meeting", type="secondary", use_container_width=True):
                         try:
                             delete_session_record(s["raw_id"], user_id=user_id)
-                            st.toast("Session deleted.", icon="✓")
+                            st.toast("Session deleted.")
                             time.sleep(0.3)
                             st.rerun()
                         except Exception:
@@ -1506,7 +1506,7 @@ def render_meeting_detail_view(session_id: str):
                             action_items[orig_idx]["status"] = "completed" if chk_val else "pending"
                             data["action_items"] = action_items
                             update_session_action_items(session_id, action_items, user_id=user_id)
-                            st.toast("Task status updated.", icon="✓")
+                            st.toast("Task status updated.")
                             time.sleep(0.2)
                             st.rerun()
 
@@ -1528,7 +1528,7 @@ def render_meeting_detail_view(session_id: str):
                             action_items.pop(orig_idx)
                             data["action_items"] = action_items
                             update_session_action_items(session_id, action_items, user_id=user_id)
-                            st.toast("Task removed.", icon="✓")
+                            st.toast("Task removed.")
                             time.sleep(0.2)
                             st.rerun()
 
@@ -1560,7 +1560,7 @@ def render_meeting_detail_view(session_id: str):
                         })
                         data["action_items"] = action_items
                         update_session_action_items(session_id, action_items, user_id=user_id)
-                        st.toast("Action item saved.", icon="✓")
+                        st.toast("Action item saved.")
                         time.sleep(0.3)
                         st.rerun()
                     else:
