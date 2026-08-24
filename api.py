@@ -1,31 +1,19 @@
 # -*- coding: utf-8 -*-
-"""
-FastAPI Backend for Hesh Rec
-High-performance REST API supporting Next.js frontend with full Groq Whisper + Gemini cloud pipelines.
-"""
-
+from dotenv import load_dotenv
 import os
+from pathlib import Path
+
+# Force load .env at module startup
+_root_env = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=_root_env, override=True)
+load_dotenv(override=True)
+
 import shutil
 import tempfile
-from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 import toml
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# Fallback: Load from .streamlit/secrets.toml if env vars are missing
-secrets_path = os.path.join(os.path.dirname(__file__), ".streamlit", "secrets.toml")
-if os.path.exists(secrets_path):
-    try:
-        secrets = toml.load(secrets_path)
-        for k, v in secrets.items():
-            if isinstance(v, str) and k not in os.environ:
-                os.environ[k] = v
-    except Exception as e:
-        print(f"Warning loading secrets.toml: {e}")
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware

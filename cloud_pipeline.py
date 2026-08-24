@@ -1,25 +1,30 @@
 # -*- coding: utf-8 -*-
+from dotenv import load_dotenv
 import os
+from pathlib import Path
+
+# Force-load .env at start of module
+_root_env = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=_root_env, override=True)
+load_dotenv(override=True)
+
 import sys
 import io
 import json
 import time
 import uuid
 import re
-from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 
-from dotenv import load_dotenv
+import toml
 from groq import Groq
 from supabase import create_client, Client
 from google import genai
 from google.genai import types
 
-# Load Environment
+# Base Directories
 BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env", override=True)
-
 SESSIONS_DIR = BASE_DIR / "sessions"
 OUTPUTS_DIR = BASE_DIR / "outputs"
 INPUTS_DIR = BASE_DIR / "inputs"
@@ -28,8 +33,23 @@ SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 INPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
-import toml
 from core.config import get_secret
+
+# Sync .streamlit/secrets.toml into .env if present
+def sync_secrets_toml_to_env():
+    for b in [BASE_DIR, Path.cwd(), Path.home()]:
+        sec_path = b / ".streamlit" / "secrets.toml"
+        if sec_path.exists():
+            try:
+                sec_data = toml.load(str(sec_path))
+                for k, v in sec_data.items():
+                    if isinstance(v, str) and v.strip():
+                        if k not in os.environ or not os.environ[k]:
+                            os.environ[k] = v.strip()
+            except Exception as e:
+                print(f"[!] Warning reading secrets.toml: {e}", flush=True)
+
+sync_secrets_toml_to_env()
 
 DEFAULT_GEMINI_MODEL = get_secret("GEMINI_MODEL", "gemini-2.5-flash")
 
@@ -42,29 +62,29 @@ MODEL_CANDIDATES = [
 ]
 
 def get_groq_client() -> Optional[Groq]:
-    api_key = get_secret("GROQ_API_KEY")
-    if api_key:
+    api_key = os.environ.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY") or get_secret("GROQ_API_KEY")
+    if api_key and api_key.strip():
         try:
-            return Groq(api_key=api_key)
+            return Groq(api_key=api_key.strip())
         except Exception as e:
             print(f"[!] Groq Client Init Error: {e}", flush=True)
     return None
 
 def get_supabase_client() -> Optional[Client]:
-    url = get_secret("SUPABASE_URL")
-    key = get_secret("SUPABASE_KEY")
+    url = os.environ.get("SUPABASE_URL") or get_secret("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY") or get_secret("SUPABASE_KEY")
     if url and key:
         try:
-            return create_client(url, key)
+            return create_client(url.strip(), key.strip())
         except Exception as e:
             print(f"[!] Supabase Client Init Error: {e}", flush=True)
     return None
 
 def get_gemini_client() -> Optional[genai.Client]:
-    api_key = get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
-    if api_key:
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
+    if api_key and api_key.strip():
         try:
-            return genai.Client(api_key=api_key)
+            return genai.Client(api_key=api_key.strip())
         except Exception as e:
             print(f"[!] Gemini Client Init Error: {e}", flush=True)
     return None
@@ -106,6 +126,8 @@ def transcribe_audio_groq(
     """
     groq_client = get_groq_client()
     if not groq_client:
+        loaded_keys = [k for k in os.environ.keys() if "KEY" in k or "SECRET" in k or "GROQ" in k or "GEMINI" in k]
+        print(f"[!] GROQ_API_KEY is not set. Relevant env keys found: {loaded_keys}", flush=True)
         raise ValueError("GROQ_API_KEY is not configured in secrets or environment.")
 
     if not audio_file_path.exists():
