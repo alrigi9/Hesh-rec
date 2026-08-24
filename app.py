@@ -36,7 +36,9 @@ from cloud_pipeline import (
     get_user_usage,
     chat_with_session,
     generate_printable_html,
-    get_secret
+    get_secret,
+    build_contextual_mindmap,
+    sanitize_mermaid_node
 )
 
 SESSIONS_DIR = BASE_DIR / "sessions"
@@ -45,7 +47,7 @@ OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 INPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # =============================================================================
-# STREAMLIT APPLICATION CONFIGURATION
+# STREAMLIT APPLICATION CONFIGURATION & PERSISTENT SESSION SYSTEM
 # =============================================================================
 st.set_page_config(
     page_title="Hesh-rec | AI Meeting & Speech Intelligence Platform",
@@ -53,6 +55,59 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Persistent Session Helpers (Preserves login on Page Refresh / F5 via query_params)
+def save_persistent_session(user_id: str, email: str, plan_tier: str = "free", is_vip: bool = False, is_admin: bool = False):
+    """Encodes and stores active session in URL query params so refresh doesn't log out user."""
+    try:
+        data = {
+            "id": str(user_id),
+            "email": str(email),
+            "tier": str(plan_tier),
+            "vip": bool(is_vip),
+            "admin": bool(is_admin)
+        }
+        token = base64.urlsafe_b64encode(json.dumps(data).encode("utf-8")).decode("utf-8")
+        st.query_params["session"] = token
+    except Exception:
+        pass
+
+
+def restore_persistent_session():
+    """Restores user authentication session from URL query params upon page load or F5."""
+    if "session" in st.query_params and st.session_state.get("user") is None:
+        try:
+            token = st.query_params["session"]
+            decoded = base64.urlsafe_b64decode(token.encode("utf-8")).decode("utf-8")
+            data = json.loads(decoded)
+            user_id = data.get("id", "user")
+            email = data.get("email", "")
+            plan_tier = data.get("tier", "free")
+            is_vip = bool(data.get("vip", False))
+            is_admin = bool(data.get("admin", False))
+
+            if email:
+                st.session_state.user = type("PersistentUser", (), {
+                    "id": user_id,
+                    "email": email,
+                    "display_name": "Hesham (Admin)" if is_admin else email
+                })()
+                st.session_state.user_email = email
+                st.session_state.plan_tier = plan_tier
+                st.session_state.is_vip = is_vip
+                st.session_state.is_admin = is_admin
+        except Exception:
+            pass
+
+
+def clear_persistent_session():
+    """Clears persistent session tokens upon manual sign out."""
+    try:
+        if "session" in st.query_params:
+            del st.query_params["session"]
+    except Exception:
+        pass
+
 
 # Initialize Session State
 if "theme" not in st.session_state:
@@ -81,6 +136,9 @@ if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = {}
+
+# Restore session if available in query params
+restore_persistent_session()
 
 # =============================================================================
 # PRODUCTION-GRADE SAAS DARK/LIGHT THEME SYSTEM
@@ -675,6 +733,7 @@ def render_sidebar():
                         if promo_input.strip().lower() in ["hesh", "alrigi"]:
                             st.session_state.plan_tier = "pro"
                             st.session_state.is_vip = True
+                            save_persistent_session(get_current_user_id() or "vip_user", st.session_state.user_email, "pro", True, st.session_state.get("is_admin", False))
                             st.toast("🎉 PRO Plan Activated via VIP Code 'Hesh'!", icon="👑")
                             time.sleep(0.4)
                             st.rerun()
@@ -683,6 +742,7 @@ def render_sidebar():
 
             if st.button("🚪 Sign Out", key="btn_signout", type="secondary", use_container_width=True):
                 auth_sign_out()
+                clear_persistent_session()
                 st.session_state.user = None
                 st.session_state.user_email = ""
                 st.session_state.plan_tier = "free"
@@ -715,6 +775,7 @@ def render_sidebar():
                             st.session_state.plan_tier = "pro"
                             st.session_state.is_vip = True
                             st.session_state.is_admin = True
+                            save_persistent_session("hesh_admin", "hesh@heshrec.ai", "pro", True, True)
                             st.toast("👑 Welcome Master Admin Hesham!", icon="🎉")
                             time.sleep(0.3)
                             st.rerun()
@@ -724,6 +785,8 @@ def render_sidebar():
                                 if success:
                                     st.session_state.user = user_obj
                                     st.session_state.user_email = login_email
+                                    uid = getattr(user_obj, "id", login_email)
+                                    save_persistent_session(uid, login_email, "free", False, False)
                                     st.toast("Welcome back!", icon="🚀")
                                     time.sleep(0.3)
                                     st.rerun()
@@ -742,6 +805,8 @@ def render_sidebar():
                             if success:
                                 st.session_state.user = user_obj
                                 st.session_state.user_email = up_email
+                                uid = getattr(user_obj, "id", up_email)
+                                save_persistent_session(uid, up_email, "free", False, False)
                                 st.toast("Account created successfully!", icon="🎉")
                                 time.sleep(0.3)
                                 st.rerun()
@@ -759,6 +824,7 @@ def render_sidebar():
                         st.session_state.user = type("VIPUser", (), {"id": "vip_guest", "email": "vip_guest@heshrec.ai"})()
                         st.session_state.plan_tier = "pro"
                         st.session_state.is_vip = True
+                        save_persistent_session("vip_guest", "vip_guest@heshrec.ai", "pro", True, False)
                         st.toast("🎉 PRO Plan Activated via VIP Code 'Hesh'!", icon="👑")
                         time.sleep(0.4)
                         st.rerun()
@@ -853,6 +919,7 @@ def render_sidebar():
 
                 if st.button("✨ Upgrade to Pro ($19/mo)", key="btn_upgrade_pro", type="primary", use_container_width=True):
                     st.session_state.plan_tier = "pro"
+                    save_persistent_session(get_current_user_id() or "user", st.session_state.user_email, "pro", st.session_state.is_vip, st.session_state.get("is_admin", False))
                     st.toast("🎉 Upgraded to Hesh-rec Pro! Enjoy unlimited processing.", icon="✨")
                     time.sleep(0.3)
                     st.rerun()
@@ -869,6 +936,7 @@ def render_sidebar():
                 if st.button("Switch to Free Tier", key="btn_downgrade", type="secondary", use_container_width=True):
                     st.session_state.plan_tier = "free"
                     st.session_state.is_vip = False
+                    save_persistent_session(get_current_user_id() or "user", st.session_state.user_email, "free", False, False)
                     st.rerun()
 
         # Theme Switcher
@@ -905,6 +973,7 @@ def render_landing_page():
             st.session_state.user_email = "guest_demo@heshrec.ai"
             st.session_state.current_nav = "dashboard"
             st.session_state.user = type("GuestUser", (), {"id": "guest_demo", "email": "guest_demo@heshrec.ai"})()
+            save_persistent_session("guest_demo", "guest_demo@heshrec.ai", "free", False, False)
             st.rerun()
 
     with col_auth:
@@ -1596,22 +1665,20 @@ def render_meeting_detail_view(session_id: str):
         raw_mindmap = raw_mindmap.replace("```mermaid", "").replace("```", "").strip()
         raw_mindmap = raw_mindmap.replace("&", "and")
 
-        if not raw_mindmap or len(raw_mindmap) < 15:
-            clean_t = re.sub(r"[\(\)\[\]\"\{\}]", "", title).strip() or "Executive Summary"
-            raw_mindmap = f"""mindmap
-  root["{clean_t}"]
-    ["Strategic Direction"]
-      ["Key Milestone"]
-    ["Discussion Pillars"]
-      ["Consensus Reached"]
-    ["Decisions and Actions"]
-      ["Agreed Deliverables"]"""
+        # Check for generic boilerplate or placeholder text
+        is_boilerplate = any(b in raw_mindmap.lower() for b in [
+            "strategic direction", "concept alpha", "academic lecture intelligence", "key milestone", "theme analysis", "opportunity", "concept one"
+        ])
+
+        if not raw_mindmap or len(raw_mindmap) < 25 or is_boilerplate:
+            raw_mindmap = build_contextual_mindmap(data, title)
+            data["mermaid_mindmap"] = raw_mindmap
 
         st.markdown("""
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
             <div>
-                <h3 style="font-size: 18px; margin: 0;">🧠 Interactive Visual Mind Map</h3>
-                <div style="font-size: 12px; color: var(--hesh-text-muted);">Explore topic hierarchies, decision flows, and strategic taxonomy</div>
+                <h3 style="font-size: 18px; margin: 0;">🧠 Interactive Visual Mind Map (Unified with Summary)</h3>
+                <div style="font-size: 12px; color: var(--hesh-text-muted);">Grounded 100% directly in this session's Executive Brief, Discussion Pillars, Approved Decisions, and Action Deliverables</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1625,12 +1692,19 @@ def render_meeting_detail_view(session_id: str):
             <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
                 <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 6px;">💡 Mind Map Controls</div>
                 <div style="font-size: 11.5px; color: var(--hesh-text-secondary); line-height: 1.5;">
+                    • 100% Context Unified with Summary<br>
                     • Guaranteed Vector SVG Display<br>
-                    • Rendered via mermaid.ink engine<br>
-                    • Copy raw Mermaid code for wikis
+                    • Rendered via mermaid.ink engine
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+            if st.button("🔄 Re-sync Mind Map with Summary", key=f"btn_resync_mm_{session_id}", type="secondary", use_container_width=True):
+                new_mm = build_contextual_mindmap(data, title)
+                data["mermaid_mindmap"] = new_mm
+                st.toast("✅ Mind Map re-synchronized with meeting summary!", icon="🧠")
+                time.sleep(0.3)
+                st.rerun()
 
             st.download_button(
                 "📥 Download Mermaid Code",

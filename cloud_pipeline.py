@@ -250,22 +250,24 @@ Provide a structured table of important academic terms, formulas, and study deli
 ## 🗺️ Visual Architecture (Mermaid Mindmap)
 
 CRITICAL RULES FOR MERMAID:
-- Format EVERY node safely with double quotes: root["Topic"], ["Subtopic"], ["Item"].
+- Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
 - NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
 - Strictly adhere to valid Mermaid mindmap indentation.
-
+- You MUST construct the mindmap branches directly from the analyzed lecture content:
 ```mermaid
 mindmap
   root["Academic Lecture Intelligence"]
-    ["Core Thesis"]
+    ["🎯 Core Thesis"]
       ["Foundational Concept"]
       ["Primary Principle"]
-    ["Theoretical Pillars"]
+    ["🏛️ Theoretical Pillars"]
       ["Concept Alpha"]
       ["Concept Beta"]
-    ["Exam Focus"]
+    ["⚖️ Exam Focus"]
       ["Key Definition"]
       ["Review Questions"]
+    ["📋 Study Deliverables"]
+      ["Assignment Alpha"]
 ```
 """
 
@@ -321,20 +323,22 @@ Analyze the brainstorming and ideation session thoroughly and generate the repor
 ## 🗺️ Visual Architecture (Mermaid Mindmap)
 
 CRITICAL RULES FOR MERMAID:
-- Format EVERY node safely with double quotes: root["Topic"], ["Subtopic"], ["Item"].
+- Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
 - NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
 - Strictly adhere to valid Mermaid mindmap indentation.
-
+- You MUST construct the mindmap branches directly from the analyzed ideation content:
 ```mermaid
 mindmap
-  root["Brainstorming & Ideation"]
-    ["Core Challenge"]
+  root["Brainstorming and Ideation"]
+    ["🎯 Core Challenge"]
       ["User Need"]
       ["Opportunity"]
-    ["Idea Tracks"]
+    ["🏛️ Idea Tracks"]
       ["Concept One"]
       ["Concept Two"]
-    ["Next Experiments"]
+    ["⚖️ Approved Directions"]
+      ["Selected Direction"]
+    ["📋 Next Experiments"]
       ["Prototype Alpha"]
       ["Validation Test"]
 ```
@@ -397,19 +401,27 @@ In the "Task Deliverable" column, write concrete, actionable descriptions.
 ## 🗺️ Visual Architecture (Mermaid Mindmap)
 
 CRITICAL RULES FOR MERMAID:
-- Format EVERY node safely with double quotes: root["Topic"], ["Subtopic"], ["Item"].
+- Format EVERY node safely with double quotes: root["Title"], ["Branch"], ["Leaf"].
 - NEVER use raw '&', '<', '>', unescaped quotes, or brackets inside node text (use 'and' instead of '&').
 - Strictly adhere to valid Mermaid mindmap indentation.
-
+- You MUST construct the mindmap branches directly from the extracted Meeting Title, Executive Brief, Discussion Pillars, Approved Decisions, and Action Items above:
 ```mermaid
 mindmap
-  root["Executive Summary"]
-    ["Strategic Direction"]
-      ["Key Milestone"]
-    ["Discussion Pillars"]
-      ["Consensus Reached"]
-    ["Decisions and Actions"]
-      ["Agreed Deliverables"]
+  root["Meeting Title"]
+    ["🎯 Executive Purpose"]
+      ["Core Strategic Objective"]
+      ["Critical Highlight"]
+    ["🏛️ Discussion Pillars"]
+      ["Pillar 1 Title"]
+        ["Key Outcome 1"]
+      ["Pillar 2 Title"]
+        ["Key Outcome 2"]
+    ["⚖️ Approved Decisions"]
+      ["Agreed Decision 1"]
+      ["Agreed Decision 2"]
+    ["📋 Action Deliverables"]
+      ["Task 1 (Owner - Priority)"]
+      ["Task 2 (Owner - Priority)"]
 ```
 """
 
@@ -605,38 +617,236 @@ def parse_markdown_to_session_dict(
                 if clean:
                     reversals.append(clean)
 
-    # 5. Mermaid Mindmap Sanitization
+def sanitize_mermaid_node(text: str, max_len: int = 55) -> str:
+    """Sanitizes strings for strict compatibility inside Mermaid mindmap nodes."""
+    if not text:
+        return ""
+    # Strip markdown formatting, brackets, parens, quotes, colons
+    clean = re.sub(r"[\*#_`\"'\{\}\(\)\[\]<>\\]", " ", str(text))
+    clean = clean.replace("&", " and ").replace(":", " - ")
+    clean = re.sub(r"\s+", " ", clean).strip()
+    if len(clean) > max_len:
+        clean = clean[:max_len].rsplit(" ", 1)[0] + "..."
+    return clean
+
+
+def build_contextual_mindmap(session_data: Dict[str, Any], meeting_title: str = "Meeting Intelligence") -> str:
+    """
+    Constructs a deterministic, 100% unified Mermaid mindmap directly derived
+    from the meeting title, executive brief, discussion pillars, decisions, and action items.
+    """
+    clean_root = sanitize_mermaid_node(meeting_title, max_len=45) or "Meeting Intelligence"
+    lines = [
+        "mindmap",
+        f'  root["{clean_root}"]'
+    ]
+
+    # 1. Executive Purpose
+    exec_brief = session_data.get("executive_brief", [])
+    if exec_brief:
+        lines.append('    ["🎯 Executive Purpose"]')
+        for b in exec_brief[:3]:
+            clean_b = re.sub(r"^[•\-\*\s]+(?:🎯|🔑|⚡)?\s*(?:Meeting Purpose|Key Decisions Taken|Critical Highlights|Strategic Purpose|Core Thesis)?[:\-]?\s*", "", str(b))
+            clean_b = sanitize_mermaid_node(clean_b, max_len=50)
+            if clean_b:
+                lines.append(f'      ["{clean_b}"]')
+
+    # 2. Discussion Pillars
+    pillars = session_data.get("discussion_pillars", [])
+    if pillars:
+        lines.append('    ["🏛️ Discussion Pillars"]')
+        for p in pillars[:4]:
+            p_title = sanitize_mermaid_node(p.get("title", "Topic Pillar"), max_len=40)
+            if p_title:
+                lines.append(f'      ["{p_title}"]')
+                details = p.get("details", "")
+                detail_points = [
+                    line.strip().lstrip("•*- ") 
+                    for line in details.splitlines() 
+                    if line.strip() and not line.strip().startswith("#")
+                ]
+                for dp in detail_points[:2]:
+                    clean_dp = re.sub(r"^(?:Core Topic|Key Takeaways|Consensus|Context|Speaker Perspective|Context & Objective)[\s&:\-]+", "", dp)
+                    clean_dp = sanitize_mermaid_node(clean_dp, max_len=45)
+                    if clean_dp and clean_dp.lower() != p_title.lower():
+                        lines.append(f'        ["{clean_dp}"]')
+
+    # 3. Approved Decisions
+    decisions = session_data.get("decisions", [])
+    if decisions:
+        lines.append('    ["⚖️ Approved Decisions"]')
+        for d in decisions[:3]:
+            clean_d = re.sub(r"^\d+\.\s*|\[.*?\]", "", str(d))
+            clean_d = sanitize_mermaid_node(clean_d, max_len=48)
+            if clean_d:
+                lines.append(f'      ["{clean_d}"]')
+
+    # 4. Action Items & Deliverables
+    action_items = session_data.get("action_items", [])
+    if action_items:
+        lines.append('    ["📋 Action Deliverables"]')
+        for a in action_items[:4]:
+            desc = a.get("description") or a.get("task") or "Deliverable"
+            owner = a.get("assignee") or a.get("owner") or "Team"
+            prio = (a.get("priority") or "MED").upper()
+            clean_desc = sanitize_mermaid_node(desc, max_len=36)
+            clean_owner = sanitize_mermaid_node(owner, max_len=16)
+            if clean_desc:
+                lines.append(f'      ["{clean_desc} ({clean_owner} - {prio})"]')
+
+    return "\n".join(lines)
+
+
+def parse_markdown_to_session_dict(
+    raw_markdown: str,
+    model_name: str,
+    template_type: str = "executive"
+) -> Dict[str, Any]:
+    """Parses standard markdown report into clean structured session dictionary."""
+    # 1. Executive Brief
+    exec_brief = []
+    exec_match = re.search(r"## ⚡ Executive Brief\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+    if exec_match:
+        for line in exec_match.group(1).splitlines():
+            line = line.strip()
+            if line.startswith("> •") or line.startswith("> -") or line.startswith("•") or line.startswith("-"):
+                clean = re.sub(r"^>\s*[•\-]\s*", "• ", line).strip()
+                if clean:
+                    exec_brief.append(clean)
+
+    # 2. Discussion Pillars
+    pillars = []
+    pillars_match = re.search(r"## 🏛️ Key Discussion Pillars\s*(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+    if pillars_match:
+        pillar_blocks = re.findall(r"###\s*(\d+\.\s*\[(.*?)\]\s*(.*?))\n(.*?)(?=\n###|\Z)", pillars_match.group(1), re.DOTALL)
+        for num_match, ts, title, details in pillar_blocks:
+            pillars.append({
+                "title": title.strip(),
+                "timestamp": ts.strip(),
+                "details": details.strip()
+            })
+
+    # 3. Action Items Matrix (Multi-Strategy Robust Parsing)
+    action_items = []
+    
+    # Strategy A: Standard Action Items Table
+    table_match = re.search(r"## 📋 Action Items Matrix.*?\n(\|.*?\n\|[-:\s|]+\n)(.*?)(?=\n\n\S|---|##|\Z)", raw_markdown, re.DOTALL)
+    if not table_match:
+        table_match = re.search(r"(\|(?:\s*#\s*\|\s*Task Deliverable.*?\n)(.*?)(?=\n\n\S|---|##|\Z))", raw_markdown, re.DOTALL)
+
+    if table_match:
+        content_to_parse = table_match.group(2) if len(table_match.groups()) >= 2 else table_match.group(0)
+        rows = [r.strip() for r in content_to_parse.splitlines() if r.strip() and "|" in r and not re.match(r"^\|[\s\-:|]+\|$", r.strip())]
+        for r in rows:
+            cols = [c.strip() for c in r.split("|")[1:-1]]
+            if len(cols) >= 3:
+                num = len(action_items) + 1
+                desc = cols[1] if len(cols) > 1 and cols[0].isdigit() else cols[0]
+                assignee = cols[2] if len(cols) > 2 and cols[0].isdigit() else (cols[1] if len(cols) > 1 else "Team")
+                prio = cols[3].upper() if len(cols) > 3 and cols[0].isdigit() else "MED"
+                due = cols[4] if len(cols) > 4 and cols[0].isdigit() else (cols[2] if len(cols) > 2 else "Next Sprint")
+                notes = cols[5] if len(cols) > 5 and cols[0].isdigit() else "—"
+
+                # Filter out header row if accidentally caught
+                if "task" in desc.lower() and "deliverable" in desc.lower():
+                    continue
+
+                if desc and len(desc) > 3:
+                    action_items.append({
+                        "number": num,
+                        "description": desc,
+                        "assignee": assignee or "Team",
+                        "priority": "HIGH" if "HIGH" in prio else ("LOW" if "LOW" in prio else "MED"),
+                        "due_date": due or "Next Sprint",
+                        "notes": notes or "—"
+                    })
+
+    # Strategy B: Fallback to Bulleted / Numbered Action Lists
+    if not action_items:
+        act_section = re.search(r"## 📋 Action Items.*?\n(.*?)(?=\n## |\Z)", raw_markdown, re.DOTALL)
+        if act_section:
+            for line in act_section.group(1).splitlines():
+                line = line.strip()
+                if not line or line.startswith("|"):
+                    continue
+                clean_line = re.sub(r"^\d+\.\s*|-\s*\[[\sxX]?\]\s*|-\s*", "", line).strip()
+                if clean_line and len(clean_line) > 5:
+                    owner = "Team"
+                    owner_m = re.search(r"(?:Owner|Assignee|Lead):\s*([^,;\(\)]+)", clean_line, re.IGNORECASE)
+                    if owner_m:
+                        owner = owner_m.group(1).strip()
+                    due = "Next Sprint"
+                    due_m = re.search(r"(?:Due|Deadline|Target):\s*([^,;\(\)]+)", clean_line, re.IGNORECASE)
+                    if due_m:
+                        due = due_m.group(1).strip()
+                    
+                    prio = "MED"
+                    if any(k in clean_line.lower() for k in ["high", "urgent", "critical", "p0", "p1"]):
+                        prio = "HIGH"
+                    elif any(k in clean_line.lower() for k in ["low", "p3", "optional"]):
+                        prio = "LOW"
+
+                    action_items.append({
+                        "number": len(action_items) + 1,
+                        "description": clean_line,
+                        "assignee": owner,
+                        "priority": prio,
+                        "due_date": due,
+                        "notes": "—"
+                    })
+
+    # 4. Decisions & Reversals
+    decisions = []
+    dec_match = re.search(r"### ✅ Final Decisions Approved\s*(.*?)(?=### 🔄|## |\Z)", raw_markdown, re.DOTALL)
+    if not dec_match:
+        dec_match = re.search(r"## ⚖️ Decisions.*?\n(.*?)(?=### 🔄|## |\Z)", raw_markdown, re.DOTALL)
+    if dec_match:
+        for line in dec_match.group(1).splitlines():
+            line = line.strip()
+            if re.match(r"^\d+\.", line) or line.startswith("-"):
+                clean = re.sub(r"^\d+\.\s*|-\s*", "", line).strip()
+                if clean and not clean.startswith("###"):
+                    decisions.append(clean)
+
+    reversals = []
+    rev_match = re.search(r"### 🔄 Rejected & Overturned Ideas.*?\n(.*?)(?=## |\Z)", raw_markdown, re.DOTALL)
+    if rev_match:
+        for line in rev_match.group(1).splitlines():
+            line = line.strip()
+            if re.match(r"^\d+\.", line) or line.startswith("-"):
+                clean = re.sub(r"^\d+\.\s*|-\s*", "", line).strip()
+                if clean:
+                    reversals.append(clean)
+
+    # 5. Mermaid Mindmap Sanitization & Contextual Alignment
     mindmap = ""
     mm_match = re.search(r"```mermaid\s*(.*?)```", raw_markdown, re.DOTALL)
     if mm_match:
         mindmap = mm_match.group(1).strip()
     
-    if not mindmap or len(mindmap) < 20:
-        # Build clean valid Mermaid mindmap
-        clean_topic = re.sub(r"[\(\)\[\]\"\{\}]", "", model_name).strip() or "Meeting Intelligence"
-        mindmap = f"""mindmap
-  root["{clean_topic}"]
-    Executive Brief
-      Strategic Direction
-      Key Milestone
-    Discussion Pillars
-      Theme Analysis
-      Consensus Reached
-    Decisions & Actions
-      Agreed Milestones
-      Task Deliverables"""
+    is_boilerplate = any(b in mindmap.lower() for b in [
+        "strategic direction", "concept alpha", "academic lecture intelligence", "key milestone", "theme analysis", "opportunity", "concept one"
+    ])
 
-    return {
+    parsed_result = {
         "template_type": template_type,
         "executive_brief": exec_brief,
         "discussion_pillars": pillars,
         "action_items": action_items,
         "decisions": decisions,
         "reversals": reversals,
-        "mermaid_mindmap": mindmap,
         "raw_markdown": raw_markdown,
         "model_used": model_name
     }
+
+    # If mindmap is empty or contains placeholder boilerplate, construct contextual mindmap
+    if not mindmap or len(mindmap) < 25 or is_boilerplate:
+        title_match = re.search(r"#\s*🎙️?\s*(?:Meeting Intelligence Report:?|Academic Lecture Intelligence:?|Brainstorm & Ideation Report:?)?\s*(.*?)(?=\n|\Z)", raw_markdown)
+        meeting_title = title_match.group(1).strip() if title_match and title_match.group(1).strip() else "Meeting Intelligence"
+        mindmap = build_contextual_mindmap(parsed_result, meeting_title)
+
+    parsed_result["mermaid_mindmap"] = mindmap
+    return parsed_result
 
 
 # =============================================================================
