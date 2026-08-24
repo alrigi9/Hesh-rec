@@ -142,416 +142,11 @@ if "chat_messages" not in st.session_state:
 # Restore session if available in query params
 restore_persistent_session()
 
-# =============================================================================
-# PRODUCTION-GRADE SAAS DARK/LIGHT THEME SYSTEM
-# =============================================================================
-def apply_saas_theme(theme: str = "light"):
-    if theme == "dark":
-        css_vars = """
-        :root {
-            --hesh-bg: #090D16;
-            --hesh-surface: #111726;
-            --hesh-surface-hover: #182238;
-            --hesh-border: #232E48;
-            --hesh-border-hover: #38BDF8;
-            --hesh-text-primary: #F8FAFC;
-            --hesh-text-secondary: #94A3B8;
-            --hesh-text-muted: #64748B;
-            --hesh-accent: #38BDF8;
-            --hesh-accent-hover: #7DD3FC;
-            --hesh-accent-subtle: rgba(56, 189, 248, 0.12);
-            --hesh-purple: #A855F7;
-            --hesh-purple-subtle: rgba(168, 85, 247, 0.15);
-            --hesh-emerald: #10B981;
-            --hesh-emerald-subtle: rgba(16, 185, 129, 0.15);
-            --hesh-rose: #F43F5E;
-            --hesh-rose-subtle: rgba(244, 63, 94, 0.15);
-            --hesh-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-            --hesh-sidebar-bg: #0B0F19;
-        }
-        """
-    else:
-        css_vars = """
-        :root {
-            --hesh-bg: #FFFFFF;
-            --hesh-surface: #FFFFFF;
-            --hesh-surface-hover: #F9FAFB;
-            --hesh-border: #E5E7EB;
-            --hesh-border-hover: #2563EB;
-            --hesh-text-primary: #111827;
-            --hesh-text-secondary: #374151;
-            --hesh-text-muted: #6B7280;
-            --hesh-accent: #2563EB;
-            --hesh-accent-hover: #1D4ED8;
-            --hesh-accent-subtle: #EFF6FF;
-            --hesh-purple: #7E22CE;
-            --hesh-purple-subtle: #F3E8FF;
-            --hesh-emerald: #059669;
-            --hesh-emerald-subtle: #D1FAE5;
-            --hesh-rose: #E11D48;
-            --hesh-rose-subtle: #FFE4E6;
-            --hesh-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            --hesh-sidebar-bg: #F9FAFB;
-        }
-        """
+from styles.theme import inject_theme, format_acronyms, get_iframe_theme_css
 
-    custom_css = f"""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+# Inject single source of truth design system
+inject_theme(st.session_state.get("theme", "light"))
 
-        {css_vars}
-
-        body, p, div, span:not([data-testid="stIconMaterial"]):not(.material-symbols-rounded):not(.material-symbols-outlined):not(.material-icons),
-        h1, h2, h3, h4, h5, h6, input, button, select, textarea, label, td, th, a {{
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }}
-
-        /* Protect Material Icons from font-family ligature text leaks */
-        .material-symbols-rounded,
-        .material-symbols-outlined,
-        .material-icons,
-        [data-testid="stIconMaterial"],
-        [data-testid="stSidebarCollapseButton"] span,
-        [data-testid="stSidebarHeader"] span,
-        button span[data-testid="stIconMaterial"] {{
-            font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
-            font-style: normal !important;
-            letter-spacing: normal !important;
-            text-transform: none !important;
-            display: inline-block !important;
-            white-space: nowrap !important;
-            word-wrap: normal !important;
-            direction: ltr !important;
-        }}
-
-        .stApp {{
-            background-color: var(--hesh-bg) !important;
-            color: var(--hesh-text-primary) !important;
-        }}
-
-        section[data-testid="stSidebar"] {{
-            background-color: var(--hesh-sidebar-bg) !important;
-            border-right: 1px solid var(--hesh-border) !important;
-        }}
-
-        section[data-testid="stSidebar"] .block-container {{
-            padding-top: 1.5rem !important;
-            padding-left: 1.1rem !important;
-            padding-right: 1.1rem !important;
-        }}
-
-        h1, h2, h3, h4 {{
-            color: var(--hesh-text-primary) !important;
-            font-weight: 700 !important;
-            letter-spacing: -0.02em !important;
-        }}
-
-        /* Buttons Styling */
-        button[kind="primary"] {{
-            background: linear-gradient(135deg, #0284C7 0%, #38BDF8 100%) !important;
-            color: #FFFFFF !important;
-            border: none !important;
-            border-radius: 8px !important;
-            font-weight: 600 !important;
-            font-size: 13.5px !important;
-            padding: 8px 18px !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            box-shadow: 0 2px 10px rgba(56, 189, 248, 0.25) !important;
-        }}
-        button[kind="primary"]:hover {{
-            transform: translateY(-1px);
-            box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4) !important;
-        }}
-
-        button[kind="secondary"] {{
-            background: var(--hesh-surface) !important;
-            color: var(--hesh-text-primary) !important;
-            border: 1px solid var(--hesh-border) !important;
-            border-radius: 8px !important;
-            font-weight: 500 !important;
-            font-size: 13px !important;
-            padding: 7px 14px !important;
-            transition: all 0.15s ease !important;
-        }}
-        button[kind="secondary"]:hover {{
-            background: var(--hesh-surface-hover) !important;
-            border-color: var(--hesh-border-hover) !important;
-        }}
-
-        /* Metric Cards */
-        .metric-card {{
-            background: var(--hesh-surface);
-            border: 1px solid var(--hesh-border);
-            border-radius: 12px;
-            padding: 16px 20px;
-            margin-bottom: 12px;
-            box-shadow: var(--hesh-card-shadow);
-            transition: all 0.2s ease;
-        }}
-        .metric-card:hover {{
-            border-color: var(--hesh-border-hover);
-            transform: translateY(-2px);
-        }}
-        .metric-val {{
-            font-size: 26px;
-            font-weight: 800;
-            color: var(--hesh-text-primary);
-            line-height: 1.2;
-            margin-top: 4px;
-        }}
-        .metric-label {{
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--hesh-text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }}
-
-        /* Hero Landing Box */
-        .hero-banner {{
-            background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.15), transparent 70%), var(--hesh-surface);
-            border: 1px solid var(--hesh-border);
-            border-radius: 16px;
-            padding: 40px 32px;
-            margin-bottom: 30px;
-            box-shadow: var(--hesh-card-shadow);
-        }}
-
-        .feature-card {{
-            background: var(--hesh-surface);
-            border: 1px solid var(--hesh-border);
-            border-radius: 12px;
-            padding: 20px;
-            height: 100%;
-            transition: all 0.2s ease;
-        }}
-        .feature-card:hover {{
-            border-color: var(--hesh-accent);
-            transform: translateY(-2px);
-        }}
-
-        /* Badges */
-        .saas-badge {{
-            display: inline-block;
-            background: var(--hesh-accent-subtle);
-            color: var(--hesh-accent);
-            font-size: 11px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 6px;
-            letter-spacing: 0.3px;
-        }}
-        .pro-vip-badge {{
-            display: inline-block;
-            background: linear-gradient(135deg, #F59E0B 0%, #D97706 50%, #FBBF24 100%);
-            color: #000000 !important;
-            font-size: 10.5px;
-            font-weight: 800;
-            padding: 2px 9px;
-            border-radius: 100px;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
-        }}
-        .pro-badge {{
-            display: inline-block;
-            background: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
-            color: #FFFFFF;
-            font-size: 10px;
-            font-weight: 800;
-            padding: 2px 8px;
-            border-radius: 100px;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }}
-        .free-badge {{
-            display: inline-block;
-            background: var(--hesh-surface-hover);
-            color: var(--hesh-text-secondary);
-            border: 1px solid var(--hesh-border);
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 100px;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }}
-
-        /* Table Styling */
-        .action-table {{
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 12.5px;
-            border: 1px solid var(--hesh-border);
-            border-radius: 8px;
-            overflow: hidden;
-        }}
-        .action-table th {{
-            background: var(--hesh-surface-hover);
-            color: var(--hesh-text-muted);
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            padding: 10px 12px;
-            text-align: left;
-            border-bottom: 1px solid var(--hesh-border);
-        }}
-        .action-table td {{
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--hesh-border);
-            color: var(--hesh-text-primary);
-            line-height: 1.45;
-        }}
-        .action-table tr:hover td {{
-            background: var(--hesh-surface-hover);
-        }}
-
-        .priority-high {{ color: #F43F5E; font-weight: 700; background: var(--hesh-rose-subtle); padding: 2px 6px; border-radius: 4px; font-size: 10.5px; }}
-        .priority-med {{ color: #F59E0B; font-weight: 700; background: rgba(245, 158, 11, 0.12); padding: 2px 6px; border-radius: 4px; font-size: 10.5px; }}
-        .priority-low {{ color: #10B981; font-weight: 700; background: var(--hesh-emerald-subtle); padding: 2px 6px; border-radius: 4px; font-size: 10.5px; }}
-
-        .pricing-card {{
-            background: linear-gradient(180deg, rgba(56, 189, 248, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%);
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 12px;
-            padding: 16px;
-            margin-top: 14px;
-            margin-bottom: 14px;
-        }}
-
-        /* Plaud Document-First Layout & Typography (Seamless, Clean, Light) */
-        .plaud-doc-wrap {{
-            max-width: 960px;
-            margin: 0;
-            padding: 10px 4px 40px 4px;
-        }}
-        .plaud-doc-title {{
-            font-size: 26px !important;
-            font-weight: 800 !important;
-            color: #111827 !important;
-            line-height: 1.3 !important;
-            margin: 4px 0 24px 0 !important;
-            letter-spacing: -0.5px !important;
-        }}
-        .plaud-topic-block {{
-            margin-bottom: 28px !important;
-        }}
-        .plaud-topic-heading {{
-            font-size: 19px !important;
-            font-weight: 700 !important;
-            color: #111827 !important;
-            margin: 28px 0 10px 0 !important;
-            letter-spacing: -0.3px !important;
-            line-height: 1.4 !important;
-        }}
-        .plaud-narrative {{
-            font-size: 14.5px !important;
-            color: #374151 !important;
-            line-height: 1.65 !important;
-            margin: 0 0 14px 0 !important;
-        }}
-        .plaud-action-card {{
-            margin: 10px 0 22px 0 !important;
-        }}
-        .plaud-action-heading {{
-            font-size: 14.5px !important;
-            font-weight: 700 !important;
-            color: #111827 !important;
-            margin: 0 0 8px 0 !important;
-        }}
-        .plaud-action-item {{
-            display: flex !important;
-            align-items: baseline !important;
-            gap: 8px !important;
-            font-size: 14px !important;
-            color: #1F2937 !important;
-            margin-bottom: 6px !important;
-        }}
-        .plaud-action-check {{
-            font-size: 15px !important;
-            color: #4B5563 !important;
-            user-select: none !important;
-        }}
-        .plaud-action-desc {{
-            color: #111827 !important;
-            font-size: 14px !important;
-        }}
-        .plaud-action-owner-due {{
-            font-size: 13px !important;
-            color: #6B7280 !important;
-        }}
-        .plaud-suggestions-box {{
-            border-left: 3px solid #3B82F6 !important;
-            background: #F9FAFB !important;
-            padding: 18px 22px !important;
-            border-radius: 4px 8px 8px 4px !important;
-            margin-top: 36px !important;
-            margin-bottom: 24px !important;
-        }}
-        .plaud-suggestions-header {{
-            font-size: 16px !important;
-            font-weight: 700 !important;
-            color: #111827 !important;
-            margin-bottom: 4px !important;
-        }}
-        .plaud-suggestions-subtext {{
-            font-size: 13px !important;
-            color: #6B7280 !important;
-            margin-bottom: 14px !important;
-            line-height: 1.5 !important;
-        }}
-        .plaud-suggestion-entry {{
-            font-size: 14px !important;
-            line-height: 1.6 !important;
-            color: #374151 !important;
-            margin-bottom: 10px !important;
-        }}
-        .plaud-suggestion-entry:last-child {{
-            margin-bottom: 0 !important;
-        }}
-
-        /* Force Clean White Background on Print / PDF Export */
-        @media print {{
-          :root, [data-theme="dark"], .stApp {{
-            --bg: #ffffff !important;
-            --surface: #f7f7f8 !important;
-            --text: #1a1a1a !important;
-            --text-mute: #555555 !important;
-            --accent: #c0392b !important;
-            --border: #e2e2e5 !important;
-            color-scheme: light !important;
-          }}
-          html, body, .stApp, .main, [class*="block-container"] {{
-            background: #ffffff !important;
-            color: #1a1a1a !important;
-          }}
-          h1, h2, h3, h4, h5, p, li, td, th, span, div, strong, em {{
-            color: #1a1a1a !important;
-          }}
-          * {{
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }}
-          .ai-suggestions, .ai-suggestion-box, .plaud-sugg-box, .plaud-suggestions-box {{
-            background: #f7f7f8 !important;
-            border-left: 4px solid #c0392b !important;
-            color: #1a1a1a !important;
-          }}
-          section[data-testid="stSidebar"],
-          header[data-testid="stHeader"],
-          .no-print,
-          button {{
-            display: none !important;
-          }}
-          h1, h2, h3 {{ page-break-after: avoid; }}
-          .section, .plaud-topic-block {{ page-break-inside: avoid; }}
-        }}
-    </style>
-    """
-    st.markdown(custom_css, unsafe_allow_html=True)
-
-apply_saas_theme(st.session_state.get("theme", "light"))
 
 
 # =============================================================================
@@ -621,18 +216,18 @@ def build_markmap_md(s: dict) -> str:
 def generate_unified_document_html(session_data: Dict[str, Any], meta: Optional[Dict[str, Any]] = None, active_theme: str = "light") -> str:
     """
     Builds ONE self-contained HTML document string with active theme and print styling containing:
-    - Theme & print CSS in <head>
-    - Download PDF action bar
-    - Title, Metadata, TL;DR
-    - Numbered Sections with narrative & inline Action Items
-    - AI Suggestions
+    - Theme & print CSS from styles.theme in <head>
+    - Ghost Download PDF action bar
+    - Title, Metadata pills, TL;DR
+    - Numbered Sections with 78ch narrative & inline Action Items
+    - AI Suggestions callout box
     - Embedded Interactive D3 Markmap Tree
     """
     if meta is None:
         meta = session_data.get("metadata", {})
 
     doc_title = session_data.get("title") or meta.get("source_file", "Meeting Summary")
-    clean_title = re.sub(r"^#+\s*", "", str(doc_title)).strip()
+    clean_title = format_acronyms(re.sub(r"^#+\s*", "", str(doc_title)).strip())
 
     meeting_date = session_data.get("meeting_date") or meta.get("processed_at", "")
     duration_str = meta.get("duration", "")
@@ -644,53 +239,49 @@ def generate_unified_document_html(session_data: Dict[str, Any], meta: Optional[
         raw_spk = meta.get("speakers")
         participants = [raw_spk] if isinstance(raw_spk, str) else list(raw_spk)
 
-    tags = session_data.get("tags", [])
+    tags = [format_acronyms(t) for t in session_data.get("tags", [])]
     tldr = session_data.get("tldr", "")
     sections = session_data.get("sections", []) or session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
     open_questions = session_data.get("open_questions", [])
     ai_suggestions = session_data.get("ai_suggestions", {}) or session_data.get("raw_suggestions_list", [])
 
-    # Metadata Badges & Tags Row
-    meta_spans = []
+    # Metadata Pills Row (All pills identical: 12px, --surface-2, 1px --border, 999px radius, --text-2)
+    meta_pills = []
     if meeting_date:
-        meta_spans.append(f"""<span>📅 <strong>Date:</strong> {meeting_date}</span>""")
+        meta_pills.append(f"""<span class="meta-pill">Date: <span class="mono">{meeting_date}</span></span>""")
     if duration_str:
-        meta_spans.append(f"""<span>⏱️ <strong>Duration:</strong> {duration_str}</span>""")
+        meta_pills.append(f"""<span class="meta-pill">Duration: <span class="mono">{duration_str}</span></span>""")
     if participants:
-        meta_spans.append(f"""<span>👥 <strong>Participants:</strong> {', '.join(participants)}</span>""")
+        meta_pills.append(f"""<span class="meta-pill">Participants: {', '.join(participants)}</span>""")
+    for t in tags:
+        clean_tag = t.lstrip("#")
+        meta_pills.append(f"""<span class="meta-pill">#{clean_tag}</span>""")
 
-    tags_html = ""
-    if tags:
-        tag_badges = "".join([f"""<span style="background: var(--surface); color: var(--link); font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border); display: inline-block; margin-right: 4px;">#{t}</span>""" for t in tags])
-        tags_html = f"""<div style="margin-top: 8px;">{tag_badges}</div>"""
-
-    meta_row = ""
-    if meta_spans or tags_html:
-        meta_row = f"""<div class="meta" style="margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border);"><div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">{''.join(meta_spans)}</div>{tags_html}</div>"""
+    meta_row = f"""<div class="meta-row">{''.join(meta_pills)}</div>""" if meta_pills else ""
 
     # TL;DR Executive Summary Box
     tldr_html = ""
     if tldr:
-        tldr_html = f"""<div style="background: var(--surface); border-left: 3px solid var(--link); padding: 14px 18px; border-radius: 4px 8px 8px 4px; margin-bottom: 24px; border: 1px solid var(--border); border-left: 3px solid var(--link);"><div style="font-size: 12.5px; font-weight: 700; color: var(--link); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">⚡ Executive Summary</div><p style="font-size: 14.5px; line-height: 1.65; margin: 0;">{tldr}</p></div>"""
+        tldr_html = f"""<div class="tldr-box"><div class="tldr-label">Executive Summary</div><p class="tldr-content">{tldr}</p></div>"""
 
     # Numbered Sections
     sections_html = []
     for idx, sec in enumerate(sections):
         n = sec.get("n") or sec.get("index", idx + 1)
         raw_sec_title = sec.get("title", f"Topic {n}")
-        clean_sec_title = re.sub(r"^\d+\.\s*", "", str(raw_sec_title)).strip()
+        clean_sec_title = format_acronyms(re.sub(r"^\d+\.\s*", "", str(raw_sec_title)).strip())
 
         narrative = sec.get("narrative") or sec.get("details", "")
         clean_narrative = re.sub(r"^\*\*(?:Core Topic & Focus|Key Arguments & Perspectives|Key Takeaways & Points|Consensus & Outcome|Context & Objective|Context|Objective|Speaker Perspective|[A-Z][a-z]+'s Perspective)[^\*:]*:\*\*\s*", "", str(narrative))
         clean_narrative = re.sub(r"^[-*•]\s*\*\*[^*]+:\*\*\s*", "", clean_narrative)
-        clean_narrative = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean_narrative).strip()
+        clean_narrative = format_acronyms(re.sub(r"\*\*([^*]+)\*\*", r"\1", clean_narrative).strip())
 
         # Decisions
         decisions_html = ""
         dec_list = sec.get("decisions", [])
         if dec_list:
-            dec_lis = "".join([f"""<li style="margin-bottom: 3px;">{d}</li>""" for d in dec_list])
-            decisions_html = f"""<div style="margin: 8px 0 12px 0; font-size: 13.5px;"><strong>Decisions:</strong><ul style="margin: 4px 0 0 18px; padding: 0;">{dec_lis}</ul></div>"""
+            dec_lis = "".join([f"""<li style="margin-bottom: 4px; color: var(--text-2);">{format_acronyms(d)}</li>""" for d in dec_list])
+            decisions_html = f"""<div style="margin: 12px 0 16px 0; font-size: 13.5px;"><strong style="color: var(--text);">Decisions:</strong><ul style="margin: 6px 0 0 20px; padding: 0;">{dec_lis}</ul></div>"""
 
         # Action Items
         actions_html = ""
@@ -698,25 +289,25 @@ def generate_unified_document_html(session_data: Dict[str, Any], meta: Optional[
         if actions_list:
             act_rows = []
             for a in actions_list:
-                task = a.get("task") or a.get("description") or "Deliverable"
+                task = format_acronyms(a.get("task") or a.get("description") or "Deliverable")
                 owner = a.get("owner") or a.get("assignee") or "Team"
                 due = a.get("due_date") or a.get("due_text") or ""
                 due_s = f" {due}" if due and due != "—" else ""
-                act_rows.append(f"""<div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 13.5px;"><span style="color: var(--muted); font-size: 14px;">☐</span><span>{task} — <em>{owner}</em><span style="color: var(--muted); font-size: 12.5px;">{due_s}</span></span></div>""")
-            actions_html = f"""<div style="margin-top: 12px; padding: 12px 16px; background: var(--surface); border-radius: 6px; border: 1px solid var(--border);"><div style="font-size: 13px; font-weight: 700; color: var(--heading); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.4px;">Action Items</div>{''.join(act_rows)}</div>"""
+                act_rows.append(f"""<div class="action-row"><span class="action-check">☐</span><span>{task} — <span class="action-owner">{owner}</span><span class="action-due">{due_s}</span></span></div>""")
+            actions_html = f"""<div class="section-actions"><div class="section-actions-heading">Action Items</div>{''.join(act_rows)}</div>"""
 
-        sections_html.append(f"""<div style="margin-bottom: 28px;"><h2>{n}. {clean_sec_title}</h2><p style="font-size: 14.5px; line-height: 1.65; margin: 0 0 10px 0;">{clean_narrative}</p>{decisions_html}{actions_html}</div>""")
+        sections_html.append(f"""<div class="section-block" style="margin-bottom: 48px;"><h2 class="section-title">{n}. {clean_sec_title}</h2><p>{clean_narrative}</p>{decisions_html}{actions_html}</div>""")
 
     # Open Questions
     open_q_html = ""
     if open_questions:
         q_rows = []
         for q in open_questions:
-            q_text = q.get("question", "") if isinstance(q, dict) else str(q)
+            q_text = format_acronyms(q.get("question", "") if isinstance(q, dict) else str(q))
             q_by = q.get("raised_by", "") if isinstance(q, dict) else ""
             by_str = f" — <em>{q_by}</em>" if q_by else ""
-            q_rows.append(f"""<div style="font-size: 14px; color: #F59E0B; margin-bottom: 6px; line-height: 1.5;"><strong>• {q_text}</strong><span style="font-size: 12.5px;">{by_str}</span></div>""")
-        open_q_html = f"""<div style="border-left: 3px solid #F59E0B; background: var(--surface); padding: 16px 20px; border-radius: 4px 8px 8px 4px; margin-top: 28px; margin-bottom: 24px; border: 1px solid var(--border); border-left: 3px solid #F59E0B;"><div style="font-size: 15px; font-weight: 700; color: #F59E0B; margin-bottom: 8px;">❓ Open Questions</div>{''.join(q_rows)}</div>"""
+            q_rows.append(f"""<div style="font-size: 14px; margin-bottom: 6px; line-height: 1.6; color: var(--text);"><strong>• {q_text}</strong><span style="font-size: 12.5px; color: var(--text-2);">{by_str}</span></div>""")
+        open_q_html = f"""<div class="questions-box"><div class="questions-label">Open Questions</div>{''.join(q_rows)}</div>"""
 
     # AI Suggestions
     sugg_entries = []
@@ -724,47 +315,49 @@ def generate_unified_document_html(session_data: Dict[str, Any], meta: Optional[
         s_items = ai_suggestions.get("items", [])
         if s_items:
             for s_idx, item in enumerate(s_items):
-                s_t = item.get("label") or item.get("title", f"Suggestion {s_idx+1}")
-                s_b = item.get("detail") or item.get("body", "")
+                s_t = format_acronyms(item.get("label") or item.get("title", f"Suggestion {s_idx+1}"))
+                s_b = format_acronyms(item.get("detail") or item.get("body", ""))
                 if s_b:
-                    sugg_entries.append(f"""<div style="font-size: 14px; line-height: 1.6; margin-bottom: 8px;"><strong class="plaud-sugg-tag">{s_idx+1}. {s_t}</strong>: {s_b}</div>""")
+                    sugg_entries.append(f"""<div class="ai-suggestion-item"><span class="ai-suggestion-title">{s_idx+1}. {s_t}</span>: <span>{s_b}</span></div>""")
                 else:
-                    sugg_entries.append(f"""<div style="font-size: 14px; line-height: 1.6; margin-bottom: 8px;"><strong class="plaud-sugg-tag">{s_idx+1}. {s_t}</strong></div>""")
+                    sugg_entries.append(f"""<div class="ai-suggestion-item"><span class="ai-suggestion-title">{s_idx+1}. {s_t}</span></div>""")
         else:
             combined_suggs = ai_suggestions.get("unresolved", []) + ai_suggestions.get("gaps", []) + ai_suggestions.get("recommendations", [])
             for s_idx, text in enumerate(combined_suggs):
                 if ":" in text:
                     p_t, p_b = text.split(":", 1)
-                    sugg_entries.append(f"""<div style="font-size: 14px; line-height: 1.6; margin-bottom: 8px;"><strong class="plaud-sugg-tag">{s_idx+1}. {p_t.strip()}</strong>: {p_b.strip()}</div>""")
+                    sugg_entries.append(f"""<div class="ai-suggestion-item"><span class="ai-suggestion-title">{s_idx+1}. {format_acronyms(p_t.strip())}</span>: <span>{format_acronyms(p_b.strip())}</span></div>""")
                 else:
-                    sugg_entries.append(f"""<div style="font-size: 14px; line-height: 1.6; margin-bottom: 8px;"><strong class="plaud-sugg-tag">{s_idx+1}. Note</strong>: {text}</div>""")
+                    sugg_entries.append(f"""<div class="ai-suggestion-item"><span class="ai-suggestion-title">{s_idx+1}. Note</span>: <span>{format_acronyms(text)}</span></div>""")
     elif isinstance(ai_suggestions, list):
         for s_idx, item in enumerate(ai_suggestions):
             if isinstance(item, dict):
-                s_t = item.get("label") or item.get("title", f"Suggestion {s_idx+1}")
-                s_b = item.get("detail") or item.get("body", "")
-                sugg_entries.append(f"""<div style="font-size: 14px; line-height: 1.6; margin-bottom: 8px;"><strong class="plaud-sugg-tag">{s_idx+1}. {s_t}</strong>: {s_b}</div>""")
+                s_t = format_acronyms(item.get("label") or item.get("title", f"Suggestion {s_idx+1}"))
+                s_b = format_acronyms(item.get("detail") or item.get("body", ""))
+                sugg_entries.append(f"""<div class="ai-suggestion-item"><span class="ai-suggestion-title">{s_idx+1}. {s_t}</span>: <span>{s_b}</span></div>""")
             else:
-                sugg_entries.append(f"""<div style="font-size: 14px; line-height: 1.6; margin-bottom: 8px;"><strong class="plaud-sugg-tag">{s_idx+1}. Note</strong>: {item}</div>""")
+                sugg_entries.append(f"""<div class="ai-suggestion-item"><span class="ai-suggestion-title">{s_idx+1}. Note</span>: <span>{format_acronyms(item)}</span></div>""")
 
     if not sugg_entries:
-        sugg_entries.append("""<div style="font-size: 14px; line-height: 1.6; margin-bottom: 8px;"><strong class="plaud-sugg-tag">1. Timeline and Scope Dependencies</strong>: Confirm timeline dependencies and required permissions with external collaborators.</div>""")
-        sugg_entries.append("""<div style="font-size: 14px; line-height: 1.6; margin-bottom: 8px;"><strong class="plaud-sugg-tag">2. Action Item Ownership</strong>: Ensure newly identified deliverables have explicit owners and target completion dates.</div>""")
+        sugg_entries.append("""<div class="ai-suggestion-item"><span class="ai-suggestion-title">1. Timeline and Scope Dependencies</span>: Confirm timeline dependencies and required permissions with external collaborators.</div>""")
+        sugg_entries.append("""<div class="ai-suggestion-item"><span class="ai-suggestion-title">2. Action Item Ownership</span>: Ensure newly identified deliverables have explicit owners and target completion dates.</div>""")
 
-    ai_suggestions_markup = f"""<div class="ai-suggestions"><div style="font-size: 16px; font-weight: 700; color: var(--heading); margin-bottom: 4px;">AI Suggestions</div><div class="meta" style="font-size: 13px; margin-bottom: 14px; line-height: 1.5;">AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:</div>{''.join(sugg_entries)}</div>"""
+    ai_suggestions_markup = f"""<div class="ai-suggestions"><div class="ai-suggestions-label">AI Suggestions</div><div class="ai-suggestions-desc">The following items were identified as unresolved discussion points or require explicit ownership:</div>{''.join(sugg_entries)}</div>"""
 
     # Build Markmap Markdown
     markmap_markdown = build_markmap_md(session_data)
     md_json_escaped = json.dumps(markmap_markdown)
 
     # Mind Map Section
-    mindmap_html = f"""<div style="margin-top: 36px; margin-bottom: 20px;">
-      <h2>Mind Map</h2>
+    mindmap_html = f"""<div style="margin-top: 48px; margin-bottom: 24px;">
+      <h2 class="section-title">Mind Map</h2>
       <div class="mindmap-container">
-        <svg id="mindmap" style="width: 100%; height: 1000px;"></svg>
-        <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-          <button class="no-print" onclick="window.mm && window.mm.fit()" style="background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">🔍 Fit to Screen</button>
+        <div class="mindmap-controls no-print">
+          <button class="control-btn" onclick="window.mm && window.mm.fit()">Fit</button>
+          <button class="control-btn" onclick="window.mm && window.mm.rescale(1.25)">Zoom +</button>
+          <button class="control-btn" onclick="window.mm && window.mm.rescale(0.8)">Zoom -</button>
         </div>
+        <svg id="mindmap"></svg>
       </div>
       <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
       <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.18"></script>
@@ -777,20 +370,20 @@ def generate_unified_document_html(session_data: Dict[str, Any], meta: Optional[
           fitRatio: 0.92,
           maxWidth: 360,
           initialExpandLevel: 3,
-          spacingVertical: 10,
+          spacingVertical: 12,
           spacingHorizontal: 90,
           duration: 300,
         }}, root);
-        window.addEventListener('resize', () => window.mm.fit());
-        setTimeout(() => window.mm.fit(), 300);
+        window.addEventListener('resize', () => window.mm && window.mm.fit());
+        setTimeout(() => window.mm && window.mm.fit(), 300);
       </script>
     </div>"""
 
     content = f"""
-  <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
-    <button class="no-print" onclick="window.print()" style="background: var(--heading); color: var(--bg); border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">📥 Download PDF</button>
+  <div style="display: flex; justify-content: flex-end; margin-bottom: 24px;">
+    <button class="no-print btn-ghost" onclick="window.print()">Download PDF</button>
   </div>
-  <h1>{clean_title}</h1>
+  <h1 class="display-title">{clean_title}</h1>
   {meta_row}
   {tldr_html}
   {''.join(sections_html)}
@@ -804,87 +397,7 @@ def generate_unified_document_html(session_data: Dict[str, Any], meta: Optional[
 <head>
   <meta charset="utf-8">
   <style>
-    :root {{
-      --bg: #ffffff;
-      --surface: #f6f7f9;
-      --text: #111111;
-      --muted: #5a5f66;
-      --heading: #0d0d0d;
-      --border: #e4e6ea;
-      --accent: #c0392b;
-      --link: #1a5fb4;
-    }}
-    [data-theme="dark"] {{
-      --bg: #0f1116;
-      --surface: #1a1d24;
-      --text: #e8eaed;
-      --muted: #a0a6b0;
-      --heading: #ffffff;
-      --border: #2b3039;
-      --accent: #ff6b5a;
-      --link: #7cb0ff;
-    }}
-    html, body {{
-      background: var(--bg) !important;
-      color: var(--text) !important;
-      margin: 0;
-      padding: 32px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 14px;
-      line-height: 1.65;
-      transition: background-color 0.2s ease, color 0.2s ease;
-    }}
-    h1, h2, h3, h4 {{ color: var(--heading) !important; }}
-    h1 {{ font-size: 26px; margin-bottom: 8px; }}
-    h2 {{ font-size: 19px; border-bottom: 1px solid var(--border) !important; padding-bottom: 6px; margin-top: 28px; }}
-    h3 {{ font-size: 15px; margin-top: 16px; }}
-    p, li, td, th, div, span, strong {{ color: inherit; }}
-    .meta {{ color: var(--muted) !important; }}
-    .ai-suggestions, .ai-suggestion-box, .plaud-sugg-box {{
-      background: var(--surface) !important;
-      border-left: 4px solid var(--accent) !important;
-      color: var(--text) !important;
-      padding: 16px;
-      border-radius: 4px;
-      margin-top: 24px;
-    }}
-    .ai-suggestions .label, .plaud-sugg-tag {{
-      color: var(--accent) !important;
-      font-weight: 600;
-    }}
-    .mindmap-container {{
-      margin-top: 20px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      background: var(--bg);
-    }}
-
-    /* Mindmap theme adaptation */
-    [data-theme="dark"] #mindmap {{ background: var(--bg) !important; }}
-    [data-theme="dark"] #mindmap text {{ fill: var(--text) !important; }}
-    [data-theme="dark"] #mindmap .markmap-node > line,
-    [data-theme="dark"] #mindmap path.markmap-link {{ stroke-opacity: 0.85; }}
-
-    /* ALWAYS LIGHT FOR PRINT / PDF EXPORT */
-    @media print {{
-      :root, [data-theme="dark"] {{
-        --bg: #ffffff !important;
-        --surface: #f6f7f9 !important;
-        --text: #111111 !important;
-        --muted: #4a4f56 !important;
-        --heading: #000000 !important;
-        --border: #dcdee2 !important;
-        --accent: #c0392b !important;
-        --link: #0b3d91 !important;
-      }}
-      html, body {{ background: #ffffff !important; color: #111111 !important; padding: 0 !important; }}
-      .no-print {{ display: none !important; }}
-      @page {{ size: A4; margin: 16mm; }}
-      * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
-      #mindmap {{ background: #ffffff !important; }}
-      #mindmap text {{ fill: #111111 !important; }}
-    }}
+{get_iframe_theme_css(active_theme)}
   </style>
 </head>
 <body>
@@ -1822,37 +1335,58 @@ def render_meeting_detail_view(session_id: str):
     model_name = meta.get("model", "Groq Whisper-large-v3 + Gemini 2.5 Flash")
     tpl_name = active_item.get("template_type", "executive").capitalize()
 
+    clean_title = format_acronyms(title)
+
     # Header Title Banner & Export Suite
-    col_h_left, col_h_right = st.columns([2.8, 2.0])
+    col_h_left, col_h_right = st.columns([2.8, 1.8])
     with col_h_left:
-        tags_badges = ' '.join([f'<span class="saas-badge">{t}</span>' for t in active_item['tags']])
-        header_markup = f"""<div style="margin-bottom: 16px;"><div style="font-size: 24px; font-weight: 800; color: var(--hesh-text-primary); letter-spacing: -0.5px; margin-bottom: 6px;">{title}</div><div style="display: flex; gap: 10px; font-size: 12px; color: var(--hesh-text-muted); font-weight: 500;"><span>⏱️ {duration}</span><span>•</span><span>📅 {date_str}</span><span>•</span><span>⚡ {model_name}</span><span class="saas-badge">{tpl_name} Template</span>{tags_badges}</div></div>"""
+        pills = []
+        if duration:
+            pills.append(f'<span class="pill">{duration}</span>')
+        if date_str:
+            pills.append(f'<span class="pill">{date_str}</span>')
+        if model_name:
+            pills.append(f'<span class="pill">{model_name}</span>')
+        if tpl_name:
+            pills.append(f'<span class="pill">{tpl_name} Template</span>')
+        for t in active_item.get("tags", []):
+            clean_t = format_acronyms(t.lstrip("#"))
+            pills.append(f'<span class="pill">#{clean_t}</span>')
+
+        header_markup = f"""
+        <div style="margin-bottom: 20px;">
+            <h1 class="display-title">{clean_title}</h1>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px;">
+                {''.join(pills)}
+            </div>
+        </div>
+        """
         st.markdown(header_markup, unsafe_allow_html=True)
 
     with col_h_right:
-        col_back, col_md, col_pdf, col_json = st.columns([0.8, 0.7, 0.9, 0.7])
+        col_back, col_md, col_pdf, col_json = st.columns([0.8, 0.9, 0.9, 0.7])
         raw_md = data.get("raw_markdown", "# Meeting Report")
-        printable_html = generate_printable_html(data)
+        printable_html = generate_printable_html(data, active_theme=st.session_state.get("theme", "light"))
 
         with col_back:
-            if st.button("← Back", key="btn_back_detail", type="secondary", use_container_width=True):
+            if st.button("Back", key="btn_back_detail", type="secondary", use_container_width=True):
                 st.session_state.active_session_id = None
                 st.rerun()
         with col_md:
-            st.download_button("📄 .MD", data=raw_md, file_name=f"{session_id}.md", mime="text/markdown", use_container_width=True)
+            st.download_button("Markdown", data=raw_md, file_name=f"{session_id}.md", mime="text/markdown", use_container_width=True)
         with col_pdf:
-            st.download_button("🖨️ PDF View", data=printable_html, file_name=f"{session_id}_report.html", mime="text/html", use_container_width=True)
+            st.download_button("PDF View", data=printable_html, file_name=f"{session_id}_report.html", mime="text/html", use_container_width=True)
         with col_json:
-            st.download_button("📦 .JSON", data=json.dumps(data, indent=2), file_name=f"{session_id}.json", mime="application/json", use_container_width=True)
+            st.download_button("JSON", data=json.dumps(data, indent=2), file_name=f"{session_id}.json", mime="application/json", use_container_width=True)
 
-    st.markdown("<hr style='border: none; border-top: 1px solid var(--hesh-border); margin-bottom: 16px;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: none; border-top: 1px solid var(--border); margin-bottom: 24px;'>", unsafe_allow_html=True)
 
-    # 4 Dedicated Tabs
+    # 4 Dedicated Tabs (Clean, no emoji)
     tab_summary, tab_actions, tab_transcript, tab_chat = st.tabs([
-        "📊 Meeting Document & Mind Map",
-        "📋 Action Items Tracker",
-        "🗣️ Diarized Transcript & Synced Player",
-        "💬 Chat with Hesh Rec Bot"
+        "Summary",
+        "Action Items",
+        "Transcript",
+        "Chat"
     ])
 
     user_id = get_current_user_id()
