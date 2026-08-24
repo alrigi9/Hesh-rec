@@ -41,7 +41,8 @@ from cloud_pipeline import (
     generate_printable_html,
     get_secret,
     build_contextual_mindmap,
-    sanitize_mermaid_node
+    sanitize_mermaid_node,
+    DEFAULT_GEMINI_MODEL
 )
 
 SESSIONS_DIR = BASE_DIR / "sessions"
@@ -122,7 +123,7 @@ if "current_nav" not in st.session_state:
 if "search_query" not in st.session_state:
     st.session_state.search_query = ""
 if "model_choice" not in st.session_state:
-    st.session_state.model_choice = "gemini-2.5-flash"
+    st.session_state.model_choice = DEFAULT_GEMINI_MODEL
 if "template_choice" not in st.session_state:
     st.session_state.template_choice = "executive"
 if "rename_target" not in st.session_state:
@@ -609,19 +610,11 @@ def new_recording_dialog():
             label_visibility="collapsed"
         )
 
-        col_t1, col_t2 = st.columns([1.2, 1.2])
-        with col_t1:
-            template_mode = st.selectbox(
-                "Summary Template",
-                ["Executive Meeting", "Academic Lecture", "Brainstorm & Ideation"],
-                index=0
-            )
-        with col_t2:
-            model_mode = st.selectbox(
-                "Intelligence Engine",
-                ["gemini-2.5-flash", "gemini-3.6-flash", "gemini-flash-latest"],
-                index=0
-            )
+        template_mode = st.selectbox(
+            "Summary Template",
+            ["Executive Meeting", "Academic Lecture", "Brainstorm & Ideation"],
+            index=0
+        )
 
         tpl_key = "executive"
         if "Academic" in template_mode:
@@ -639,7 +632,7 @@ def new_recording_dialog():
                     try:
                         result = process_meeting_file_cloud(
                             save_path,
-                            model_choice=model_mode,
+                            model_choice=DEFAULT_GEMINI_MODEL,
                             user_id=user_id,
                             template_type=tpl_key
                         )
@@ -1077,21 +1070,12 @@ def render_dashboard_view():
 
     with tab_up:
         uploaded_file = st.file_uploader("Drop audio files here", type=["mp3", "wav", "m4a", "mp4", "aac", "ogg", "flac"], label_visibility="collapsed")
-        col_opt1, col_opt2 = st.columns([1.2, 1.2])
-        with col_opt1:
-            template_mode = st.selectbox(
-                "Summary Template",
-                ["Executive Meeting", "Academic Lecture", "Brainstorm & Ideation"],
-                key="dash_tpl_select",
-                index=0
-            )
-        with col_opt2:
-            model_mode = st.selectbox(
-                "Intelligence Engine",
-                ["gemini-2.5-flash", "gemini-3.6-flash", "gemini-flash-latest"],
-                key="dash_model_select",
-                index=0
-            )
+        template_mode = st.selectbox(
+            "Summary Template",
+            ["Executive Meeting", "Academic Lecture", "Brainstorm & Ideation"],
+            key="dash_tpl_select",
+            index=0
+        )
 
         tpl_key = "executive"
         if "Academic" in template_mode:
@@ -1112,7 +1096,7 @@ def render_dashboard_view():
                         try:
                             result = process_meeting_file_cloud(
                                 save_path,
-                                model_choice=model_mode,
+                                model_choice=DEFAULT_GEMINI_MODEL,
                                 user_id=user_id,
                                 template_type=tpl_key
                             )
