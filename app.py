@@ -8,6 +8,7 @@ import base64
 import textwrap
 from pathlib import Path
 from datetime import datetime
+from typing import Dict, Any, List, Optional, Tuple, Union
 
 # Enforce UTF-8 on Windows standard streams
 if sys.platform == "win32":
