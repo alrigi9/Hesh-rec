@@ -1,6 +1,7 @@
 import { MeetingSession } from "@/types/meeting";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const rawApiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = rawApiBase.replace(/\/+$/, "");
 
 export async function checkApiHealth(): Promise<boolean> {
   try {
