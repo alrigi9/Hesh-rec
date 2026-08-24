@@ -1,8 +1,23 @@
 # -*- coding: utf-8 -*-
 import os
-from dotenv import load_dotenv
+import toml
 from pathlib import Path
+from dotenv import load_dotenv
 
+# Force load from .streamlit/secrets.toml
+for p in [Path(".streamlit/secrets.toml"), Path(__file__).parent / ".streamlit/secrets.toml"]:
+    if p.exists():
+        try:
+            data = toml.loads(p.read_text(encoding="utf-8"))
+            for k, v in data.items():
+                if isinstance(v, str):
+                    clean_v = v.strip("\"' ")
+                    if clean_v:
+                        os.environ[k] = clean_v
+        except Exception:
+            pass
+
+# Force load from .env
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
 
@@ -10,8 +25,6 @@ import shutil
 import tempfile
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-
-import toml
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
