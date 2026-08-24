@@ -182,14 +182,14 @@ export default function AdminDashboardPage() {
             className="flex items-center gap-1 text-[11px] py-1 px-3 border-[#232529] bg-[#18191c] text-[#3ec98a]"
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Enterprise Security</span>
+            <span>Enterprise Controls</span>
           </Badge>
           <Badge
             variant="outline"
-            className="flex items-center gap-1 text-[11px] py-1 px-3 border-[#232529] bg-[#18191c] text-[#3ec98a]"
+            className="flex items-center gap-1 text-[11px] py-1 px-3 border-[#ff5c47]/30 bg-[#ff5c47]/10 text-[#ff5c47]"
           >
             <ShieldCheck className="w-3 h-3" />
-            <span>SOC 2 Type II</span>
+            <span>Full Access</span>
           </Badge>
         </div>
       </header>
