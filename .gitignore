@@ -19,3 +19,7 @@ inputs/
 # Python Cache & Streamlit Cache
 .pytest_cache/
 .streamlit/secrets.toml
+
+# Installers & Binaries
+*.msi
+*.exe
