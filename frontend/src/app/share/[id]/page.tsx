@@ -1,15 +1,14 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import React, { useEffect, useState, use } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { 
   AudioWaveform, 
   ArrowLeft, 
   Globe, 
   ShieldCheck, 
-  Loader2,
+  Loader2, 
   AlertCircle 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,14 +17,9 @@ import { MeetingView } from "@/components/MeetingView";
 import { MeetingSession } from "@/types/meeting";
 import { fetchSessionById } from "@/lib/api";
 
-interface SharePageProps {
-  params: Promise<{ id: string }> | { id: string };
-}
-
-export default function SharePage({ params }: SharePageProps) {
-  // Unwrap params safely for Next.js App Router
-  const resolvedParams = params instanceof Promise ? use(params) : params;
-  const sessionId = resolvedParams.id;
+export default function SharePage() {
+  const routeParams = useParams();
+  const sessionId = Array.isArray(routeParams?.id) ? routeParams.id[0] : (routeParams?.id as string);
 
   const [session, setSession] = useState<MeetingSession | null>(null);
   const [loading, setLoading] = useState(true);
