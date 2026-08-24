@@ -1422,49 +1422,47 @@ def render_meeting_detail_view(session_id: str):
 
     clean_title = format_acronyms(title)
 
-    # Header Title Banner & Export Suite
-    col_h_left, col_h_right = st.columns([2.8, 1.8])
-    with col_h_left:
-        pills = []
-        if duration:
-            pills.append(f'<span class="pill">{duration}</span>')
-        if date_str:
-            pills.append(f'<span class="pill">{date_str}</span>')
-        if model_name:
-            pills.append(f'<span class="pill">{model_name}</span>')
-        if tpl_name:
-            pills.append(f'<span class="pill">{tpl_name} Template</span>')
-        for t in active_item.get("tags", []):
-            clean_t = format_acronyms(t.lstrip("#"))
-            pills.append(f'<span class="pill">#{clean_t}</span>')
+    # Header Title Banner
+    pills = []
+    if duration:
+        pills.append(f'<span class="pill">{duration}</span>')
+    if date_str:
+        pills.append(f'<span class="pill">{date_str}</span>')
+    if model_name:
+        pills.append(f'<span class="pill">{model_name}</span>')
+    if tpl_name:
+        pills.append(f'<span class="pill">{tpl_name} Template</span>')
+    for t in active_item.get("tags", []):
+        clean_t = format_acronyms(t.lstrip("#"))
+        pills.append(f'<span class="pill">#{clean_t}</span>')
 
-        header_markup = f"""
-        <div style="margin-bottom: 20px;">
-            <h1 class="display-title">{clean_title}</h1>
-            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px;">
-                {''.join(pills)}
-            </div>
+    header_markup = f"""
+    <div style="margin-bottom: 16px;">
+        <h1 class="display-title">{clean_title}</h1>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px;">
+            {''.join(pills)}
         </div>
-        """
-        st.markdown(header_markup, unsafe_allow_html=True)
+    </div>
+    """
+    st.markdown(header_markup, unsafe_allow_html=True)
 
-    with col_h_right:
-        col_back, col_md, col_pdf, col_json = st.columns([0.8, 0.9, 0.9, 0.7])
-        raw_md = data.get("raw_markdown", "# Meeting Report")
-        printable_html = generate_printable_html(data, active_theme=st.session_state.get("theme", "light"))
+    # Action Toolbar (Full width, wrapping, never breaks into single characters)
+    raw_md = data.get("raw_markdown", "# Meeting Report")
+    printable_html = generate_printable_html(data, active_theme=st.session_state.get("theme", "light"))
 
-        with col_back:
-            if st.button("Back", key="btn_back_detail", type="secondary", use_container_width=True):
-                st.session_state.active_session_id = None
-                st.rerun()
-        with col_md:
-            st.download_button("Markdown", data=raw_md, file_name=f"{session_id}.md", mime="text/markdown", use_container_width=True)
-        with col_pdf:
-            st.download_button("PDF View", data=printable_html, file_name=f"{session_id}_report.html", mime="text/html", use_container_width=True)
-        with col_json:
-            st.download_button("JSON", data=json.dumps(data, indent=2), file_name=f"{session_id}.json", mime="application/json", use_container_width=True)
+    col_back, col_md, col_pdf, col_json, col_space = st.columns([1.1, 1.3, 1.3, 1.0, 4.3])
+    with col_back:
+        if st.button("← Back", key="btn_back_detail", type="secondary", use_container_width=True):
+            st.session_state.active_session_id = None
+            st.rerun()
+    with col_md:
+        st.download_button("Markdown", data=raw_md, file_name=f"{session_id}.md", mime="text/markdown", use_container_width=True)
+    with col_pdf:
+        st.download_button("PDF View", data=printable_html, file_name=f"{session_id}_report.html", mime="text/html", use_container_width=True)
+    with col_json:
+        st.download_button("JSON", data=json.dumps(data, indent=2), file_name=f"{session_id}.json", mime="application/json", use_container_width=True)
 
-    st.markdown("<hr style='border: none; border-top: 1px solid var(--border); margin-bottom: 24px;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: none; border-top: 1px solid var(--border); margin-top: 16px; margin-bottom: 24px;'>", unsafe_allow_html=True)
 
     # 4 Dedicated Tabs (Clean, no emoji)
     tab_summary, tab_actions, tab_transcript, tab_chat = st.tabs([

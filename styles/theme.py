@@ -574,6 +574,31 @@ def inject_theme(theme: str = "light"):
         outline-offset: 2px !important;
       }}
 
+      /* Button Global & Variant Specification */
+      .stButton > button, 
+      .stDownloadButton > button, 
+      div[data-testid="stButton"] > button, 
+      div[data-testid="stDownloadButton"] > button,
+      button[kind="primary"], 
+      button[kind="secondary"], 
+      button[kind="tertiary"],
+      .btn-primary, 
+      .btn-secondary, 
+      .btn-ghost {{
+        white-space: nowrap !important;
+        min-width: max-content !important;
+        word-break: keep-all !important;
+      }}
+
+      @media (max-width: 900px) {{
+        .header-actions-row {{
+          display: flex !important;
+          flex-wrap: wrap !important;
+          gap: 8px !important;
+          margin-top: 12px !important;
+        }}
+      }}
+
       /* Button Variants (3 Variants: Primary, Secondary, Ghost) */
       button[kind="primary"], .btn-primary {{
         background-color: var(--accent) !important;
