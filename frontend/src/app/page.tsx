@@ -45,16 +45,20 @@ export default function Home() {
     user?.email === "h.alraiqe@gmail.com" ||
     user?.email === "alrigi9@gmail.com";
 
-  // Load sessions on mount or when user changes
+  // Load sessions on mount or when authenticated user changes
   useEffect(() => {
-    fetchSessions(user?.id, token || undefined).then((data) => {
+    if (!user || !user.id || user.id === "guest") {
+      setSessions([]);
+      return;
+    }
+    fetchSessions(user.id, token || undefined).then((data) => {
       if (data && data.length > 0) {
         setSessions(data);
       } else {
         setSessions([]);
       }
     });
-  }, [user?.id, token]);
+  }, [user, token]);
 
   const handleOpenUpload = () => {
     if (!user) {
@@ -279,8 +283,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Recent Sessions List */}
-            {sessions.length > 0 && (
+            {/* Recent Workspaces List (Only rendered for authenticated users) */}
+            {user && sessions && sessions.length > 0 && (
               <div className="space-y-3">
                 <div className="text-sm font-semibold text-[#f0f2f5] font-heading flex items-center justify-between">
                   <span>Recent Workspaces</span>
