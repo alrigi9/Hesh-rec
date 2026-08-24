@@ -104,9 +104,8 @@ export function AdminPortalModal({ isOpen, onClose }: AdminPortalModalProps) {
       setTimeout(() => {
         setSaveStatus((prev) => ({ ...prev, [userId]: "idle" }));
       }, 2000);
-      if (userId === user?.id) {
-        refreshProfile();
-      }
+      // Immediately refresh auth context so sidebar and header update dynamically
+      refreshProfile();
     } catch (err) {
       console.error("Failed to update user limit:", err);
       setSaveStatus((prev) => ({ ...prev, [userId]: "idle" }));

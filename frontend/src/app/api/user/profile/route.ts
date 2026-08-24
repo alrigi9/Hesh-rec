@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         const p = data[0];
-        const limit = Number(p.monthly_minutes_limit ?? 300.0);
+        const limit = Number(p.monthly_minutes_limit ?? p.monthly_quota_limit ?? p.quota_limit ?? p.monthly_quota ?? 300.0);
         const used = Number(p.minutes_used_this_month ?? 0.0);
         const remaining = Math.max(0, limit - used);
         const percent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;

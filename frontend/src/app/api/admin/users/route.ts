@@ -15,18 +15,24 @@ export async function GET(_request: NextRequest) {
     }
 
     const profiles = await res.json();
-    const users = (profiles || []).map((p: any) => ({
-      id: p.id,
-      email: p.email || "user@recmap.tech",
-      role: p.role || "user",
-      created_at: p.created_at || new Date().toISOString(),
-      email_confirmed: p.email_confirmed ?? true,
-      monthly_minutes_limit: Number(p.monthly_minutes_limit ?? 300.0),
-      minutes_used_this_month: Number(p.minutes_used_this_month ?? 0.0),
-      minutes_remaining: Math.max(0, Number(p.monthly_minutes_limit ?? 300.0) - Number(p.minutes_used_this_month ?? 0.0)),
-      percent_used: Number(p.monthly_minutes_limit) > 0 ? Math.round((Number(p.minutes_used_this_month ?? 0.0) / Number(p.monthly_minutes_limit)) * 100) : 0,
-      can_upload: Number(p.minutes_used_this_month ?? 0.0) < Number(p.monthly_minutes_limit ?? 300.0) || p.role === "admin",
-    }));
+    const users = (profiles || []).map((p: any) => {
+      const limit = Number(p.monthly_minutes_limit ?? p.monthly_quota_limit ?? p.quota_limit ?? p.monthly_quota ?? 300.0);
+      const used = Number(p.minutes_used_this_month ?? 0.0);
+      const remaining = Math.max(0, limit - used);
+      const percent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+      return {
+        id: p.id,
+        email: p.email || "user@recmap.tech",
+        role: p.role || "user",
+        created_at: p.created_at || new Date().toISOString(),
+        email_confirmed: p.email_confirmed ?? true,
+        monthly_minutes_limit: limit,
+        minutes_used_this_month: used,
+        minutes_remaining: remaining,
+        percent_used: percent,
+        can_upload: used < limit || p.role === "admin",
+      };
+    });
 
     const totalUsers = users.length;
     const totalMinutes = users.reduce((acc: number, u: any) => acc + (u.minutes_used_this_month || 0), 0);
