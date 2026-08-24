@@ -315,37 +315,147 @@ export async function fetchSessions(
   userId?: string,
   token?: string
 ): Promise<MeetingSession[]> {
+  if (!userId || userId === "guest") return [];
+
+  // Tier 1: Next.js Serverless Route on current origin
   try {
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const url = userId
-      ? `${API_BASE}/api/sessions?user_id=${encodeURIComponent(userId)}`
-      : `${API_BASE}/api/sessions`;
-
-    const res = await fetch(url, { headers });
-    if (!res.ok) return [];
-    const data = await safeReadResponse(res);
-    return Array.isArray(data) ? data : data.sessions || [];
-  } catch {
-    return [];
+    const res = await fetch(`/api/sessions?user_id=${encodeURIComponent(userId)}`, { headers });
+    if (res.ok) {
+      const data = await safeReadResponse(res);
+      const list = Array.isArray(data) ? data : data.sessions || [];
+      if (list.length > 0) return list;
+    }
+  } catch (err) {
+    console.warn("Next.js /api/sessions fetch note:", err);
   }
+
+  // Tier 2: Direct Supabase Cloud Database Client Query
+  try {
+    const { data: rows, error } = await supabase
+      .from("sessions")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && rows) {
+      const userRows = rows.filter((r: any) => {
+        const u = r.strategic_insights?.user_id || r.user_id;
+        return u === userId;
+      });
+
+      if (userRows.length > 0) {
+        return userRows.map((row: any) => {
+          const meta = row.strategic_insights || {};
+          const meetingDate = meta.meeting_date || (row.created_at ? row.created_at.split("T")[0] : "Recent");
+          const durationMinutes = Number(meta.duration_minutes || 0);
+
+          return {
+            id: row.id,
+            title: row.title || "Untitled Session",
+            meeting_date: meetingDate,
+            date: meetingDate,
+            duration_minutes: durationMinutes,
+            duration: `${durationMinutes}m`,
+            tags: meta.tags || ["Intelligence"],
+            participants: meta.participants || ["Speaker 1"],
+            summary: row.summary || row.executive_summary || "",
+            executive_summary: row.executive_summary || row.summary || "",
+            tldr: row.summary || row.executive_summary || "",
+            sections: row.discussion_pillars || [],
+            discussion_pillars: row.discussion_pillars || [],
+            action_items: row.action_items || [],
+            open_questions: meta.open_questions || [],
+            strategic_insights: meta.insights || [],
+            mindmap_markdown: row.mindmap_markdown || "",
+            transcript_segments: row.transcript_segments || [],
+            transcript: row.transcript || "",
+            full_transcript_text: row.transcript || "",
+            raw_markdown: `# ${row.title}\n\n${row.summary || ""}`,
+            metadata: {
+              session_id: row.id,
+              duration: `${durationMinutes}m`,
+              audio_filename: meta.audio_filename || "meeting_audio.mp3",
+            },
+            user_id: meta.user_id || userId,
+            created_at: row.created_at,
+          };
+        });
+      }
+    }
+  } catch (sbErr) {
+    console.warn("Direct Supabase query note:", sbErr);
+  }
+
+  return [];
 }
 
 export async function fetchSessionById(
   id: string,
   token?: string
 ): Promise<MeetingSession | null> {
+  // Tier 1: Next.js Serverless Route
   try {
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`, { headers });
-    if (!res.ok) return null;
-    return await safeReadResponse(res);
-  } catch {
-    return null;
+    const res = await fetch(`/api/sessions/${encodeURIComponent(id)}`, { headers });
+    if (res.ok) {
+      return await safeReadResponse(res);
+    }
+  } catch (err) {
+    console.warn("Next.js /api/sessions/[id] note:", err);
   }
+
+  // Tier 2: Direct Supabase Cloud Database Client Query
+  try {
+    const { data: rows } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("id", id)
+      .limit(1);
+
+    if (rows && rows.length > 0) {
+      const row = rows[0];
+      const meta = row.strategic_insights || {};
+      const meetingDate = meta.meeting_date || (row.created_at ? row.created_at.split("T")[0] : "Recent");
+      const durationMinutes = Number(meta.duration_minutes || 0);
+
+      return {
+        id: row.id,
+        title: row.title || "Untitled Session",
+        meeting_date: meetingDate,
+        date: meetingDate,
+        duration_minutes: durationMinutes,
+        duration: `${durationMinutes}m`,
+        tags: meta.tags || ["Intelligence"],
+        participants: meta.participants || ["Speaker 1"],
+        summary: row.summary || row.executive_summary || "",
+        executive_summary: row.executive_summary || row.summary || "",
+        tldr: row.summary || row.executive_summary || "",
+        sections: row.discussion_pillars || [],
+        discussion_pillars: row.discussion_pillars || [],
+        action_items: row.action_items || [],
+        open_questions: meta.open_questions || [],
+        strategic_insights: meta.insights || [],
+        mindmap_markdown: row.mindmap_markdown || "",
+        transcript_segments: row.transcript_segments || [],
+        transcript: row.transcript || "",
+        full_transcript_text: row.transcript || "",
+        raw_markdown: `# ${row.title}\n\n${row.summary || ""}`,
+        metadata: {
+          session_id: row.id,
+          duration: `${durationMinutes}m`,
+          audio_filename: meta.audio_filename || "meeting_audio.mp3",
+        },
+        user_id: meta.user_id,
+        created_at: row.created_at,
+      };
+    }
+  } catch (e) {}
+
+  return null;
 }
 
 export async function deleteSession(id: string, token?: string): Promise<boolean> {
@@ -353,7 +463,7 @@ export async function deleteSession(id: string, token?: string): Promise<boolean
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`, {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers,
     });
@@ -372,7 +482,7 @@ export async function updateSessionTitle(
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`, {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers,
       body: JSON.stringify({ title }),
@@ -392,7 +502,7 @@ export async function togglePublicSession(
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`, {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers,
       body: JSON.stringify({ is_public: isPublic }),

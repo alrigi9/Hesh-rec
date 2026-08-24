@@ -46,7 +46,10 @@ export interface MeetingMetadata {
   processed_at?: string;
   model?: string;
   audio_url?: string;
+  audio_filename?: string;
   file_size?: string;
+  file_size_bytes?: number;
+  [key: string]: any;
 }
 
 export interface MeetingSession {
@@ -81,6 +84,9 @@ export interface MeetingSession {
   full_transcript_text?: string;
   metadata?: MeetingMetadata;
   raw_markdown?: string;
+  user_id?: string;
+  created_at?: string;
+  [key: string]: any;
 }
 
 export interface SessionListItem {

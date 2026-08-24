@@ -421,7 +421,7 @@ LANGUAGE DIRECTIVE: ${langInstruction}
           is_public: false,
         };
 
-        await fetch(`${SUPABASE_URL}/rest/v1/sessions`, {
+        const dbRes = await fetch(`${SUPABASE_URL}/rest/v1/sessions`, {
           method: "POST",
           headers: {
             apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -431,6 +431,8 @@ LANGUAGE DIRECTIVE: ${langInstruction}
           },
           body: JSON.stringify(dbPayload),
         });
+        const dbResText = await dbRes.text();
+        console.log("Supabase insert session response:", dbRes.status, dbResText.substring(0, 150));
 
         // Update user usage quota
         if (userId && userId !== "guest") {
