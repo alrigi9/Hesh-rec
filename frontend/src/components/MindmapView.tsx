@@ -16,36 +16,57 @@ export function MindmapView({ session }: MindmapViewProps) {
   const mmRef = useRef<Markmap | null>(null);
 
   const buildMarkdown = (): string => {
+    if (session.mindmap_markdown && session.mindmap_markdown.trim().startsWith("#")) {
+      return session.mindmap_markdown;
+    }
     const title = session.title || "Meeting Intelligence";
     const lines = [`# ${title}`];
 
-    const sections = session.sections || [];
-    sections.forEach((sec, idx) => {
-      const n = sec.n || idx + 1;
-      const t = (sec.title || `Topic ${n}`).replace(/^\d+\.\s*/, "");
-      lines.push(`## ${n}. ${t}`);
+    const sections = (session.discussion_pillars && session.discussion_pillars.length > 0)
+      ? session.discussion_pillars
+      : (session.sections || []);
 
-      if (sec.narrative) {
-        const cleanNarrative = sec.narrative.replace(/\n+/g, " ").trim();
-        lines.push(`- ${cleanNarrative}`);
+    if (sections.length > 0) {
+      sections.forEach((sec, idx) => {
+        const n = sec.n || idx + 1;
+        const t = (sec.title || `Topic ${n}`).replace(/^\d+\.\s*/, "");
+        lines.push(`## ${n}. ${t}`);
+
+        if (sec.narrative) {
+          const cleanNarrative = sec.narrative.replace(/\n+/g, " ").trim();
+          lines.push(`- ${cleanNarrative}`);
+        }
+
+        if (sec.decisions && sec.decisions.length > 0) {
+          lines.push(`### Decisions`);
+          sec.decisions.forEach((d) => lines.push(`- ${d}`));
+        }
+
+        if (sec.action_items && sec.action_items.length > 0) {
+          lines.push(`### Action Items`);
+          sec.action_items.forEach((a) => {
+            const task = a.task || a.description || "Deliverable";
+            const owner = a.owner || a.assignee || "Team";
+            const due = a.due_date || a.due_text || "";
+            const dueStr = due && due !== "—" ? ` (${due})` : "";
+            lines.push(`- [ ] ${task} — *${owner}*${dueStr}`);
+          });
+        }
+      });
+    } else {
+      const summaryText = session.executive_summary || session.summary || session.tldr || "";
+      if (summaryText) {
+        lines.push(`## Executive Summary`);
+        lines.push(`- ${summaryText.substring(0, 160)}...`);
       }
-
-      if (sec.decisions && sec.decisions.length > 0) {
-        lines.push(`### Decisions`);
-        sec.decisions.forEach((d) => lines.push(`- ${d}`));
-      }
-
-      if (sec.action_items && sec.action_items.length > 0) {
-        lines.push(`### Action Items`);
-        sec.action_items.forEach((a) => {
-          const task = a.task || a.description || "Deliverable";
-          const owner = a.owner || a.assignee || "Team";
-          const due = a.due_date || a.due_text || "";
-          const dueStr = due && due !== "—" ? ` (${due})` : "";
-          lines.push(`- [ ] ${task} — *${owner}*${dueStr}`);
+      const actions = session.action_items || [];
+      if (actions.length > 0) {
+        lines.push(`## Action Items`);
+        actions.forEach((a) => {
+          lines.push(`- [ ] ${a.task || a.description} (${a.owner || "Team"})`);
         });
       }
-    });
+    }
 
     return lines.join("\n");
   };

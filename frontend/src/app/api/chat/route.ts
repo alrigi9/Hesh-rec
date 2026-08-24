@@ -12,8 +12,10 @@ export async function POST(request: NextRequest) {
 
     const sessionContext = `Meeting Title: ${session?.title || "Meeting"}
 Date: ${session?.meeting_date || session?.date || "N/A"}
-Executive Summary: ${session?.summary || session?.tldr || ""}
+Executive Summary: ${session?.executive_summary || session?.summary || session?.tldr || ""}
+Discussion Pillars & Decisions: ${JSON.stringify(session?.discussion_pillars || session?.sections || [])}
 Action Items: ${JSON.stringify(session?.action_items || [])}
+Mind Map Structure: ${session?.mindmap_markdown || ""}
 Transcript: ${(session?.transcript_segments || []).map((s: any) => `${s.speaker}: ${s.text}`).join("\n") || session?.transcript || ""}`;
 
     const prompt = `You are an AI meeting assistant. Answer the user's question clearly and concisely based strictly on this meeting context:
