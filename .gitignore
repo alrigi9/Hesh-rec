@@ -27,3 +27,4 @@ inputs/
 # Local Sessions & Cache
 sessions/
 frontend/.env.local
+.vercel

@@ -1,0 +1,5 @@
+node_modules
+.next
+*.wav
+*.mp3
+*.m4a
