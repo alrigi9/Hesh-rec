@@ -16,7 +16,6 @@ import {
   Sliders,
   ArrowRight,
   Lock,
-  Mic,
   Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -205,30 +204,21 @@ export default function Home() {
                 Fast, secure audio transcription and intelligent breakdown powered by advanced AI models. Get instant executive summaries, mind maps, and structured action items.
               </p>
               
-              {/* Direct Ingestion Action Buttons */}
+              {/* Direct Ingestion Action Button */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Button
                   onClick={handleOpenUpload}
-                  className="w-full sm:w-auto h-11 px-7 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-semibold text-xs shadow-lg shadow-[#ff5c47]/25 transition-all gap-2"
+                  className="w-full sm:w-auto h-11 px-8 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-semibold text-xs shadow-lg shadow-[#ff5c47]/25 transition-all gap-2"
                 >
                   <Upload className="w-4 h-4" />
-                  Upload Audio
-                </Button>
-
-                <Button
-                  onClick={handleOpenUpload}
-                  variant="outline"
-                  className="w-full sm:w-auto h-11 px-6 rounded-full border-white/10 bg-[#13151B] hover:bg-[#18191c] text-[#f0f2f5] text-xs font-medium gap-2"
-                >
-                  <Mic className="w-4 h-4 text-[#ff5c47]" />
-                  Record Live
+                  Upload File
                 </Button>
 
                 {!user && (
                   <Link href="/login" className="w-full sm:w-auto">
                     <Button
-                      variant="ghost"
-                      className="w-full sm:w-auto h-11 px-5 rounded-full text-[#8b909a] hover:text-[#f0f2f5] text-xs font-medium gap-1.5"
+                      variant="outline"
+                      className="w-full sm:w-auto h-11 px-6 rounded-full border-white/10 bg-[#13151B] hover:bg-[#18191c] text-[#f0f2f5] text-xs font-medium gap-1.5"
                     >
                       <LogIn className="w-3.5 h-3.5 text-[#ff5c47]" />
                       Sign In
