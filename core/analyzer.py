@@ -1,13 +1,53 @@
 import os
+import re
+import json
 import time
 from pathlib import Path
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 from google import genai
 from google.genai import types
 
 from core.config import get_api_key, get_mime_type, DEFAULT_MODEL, OUTPUTS_DIR
 from core.parser import save_report_files
 from core.ui import console, print_step, print_error
+
+
+def safe_parse_json(content: Any) -> Dict[str, Any]:
+    """Safely parses JSON content from dict or string, stripping markdown fences."""
+    if isinstance(content, dict):
+        return content
+    if isinstance(content, str):
+        cleaned = content.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        elif cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        try:
+            res = json.loads(cleaned)
+            if isinstance(res, dict):
+                return res
+        except Exception:
+            pass
+        match = re.search(r'\{[\s\S]*\}', cleaned)
+        if match:
+            try:
+                res = json.loads(match.group(0))
+                if isinstance(res, dict):
+                    return res
+            except Exception:
+                try:
+                    repaired = re.sub(r",\s*([\]}])", r"\1", match.group(0))
+                    res = json.loads(repaired)
+                    if isinstance(res, dict):
+                        return res
+                except Exception:
+                    pass
+    return {}
+
 
 def build_meeting_prompt(topic: str, current_date: str) -> str:
     """Build the prompt instructions for exact Plaud document-first meeting intelligence."""
@@ -71,71 +111,95 @@ Transcribe the dialogue faithfully with timestamps and speaker attribution:
 **[00:00:15] Speaker 2 (Name if identified):** [Accurate transcript...]
 """
 
-def generate_detailed_markmap_md(session_data: dict) -> str:
+
+def generate_detailed_markmap_md(session_data: Any) -> str:
     """Dynamically builds deep hierarchical markdown for Markmap strictly from sections and action items, never using stale mindmap JSON."""
+    session_data = safe_parse_json(session_data)
     # Use title or summary title
     title = session_data.get("title") or session_data.get("meeting_title") or "Meeting Summary"
     clean_title = re.sub(r"^#+\s*", "", str(title)).strip() or "Meeting Summary"
     lines = [f"# {clean_title}"]
     
     sections = session_data.get("sections") or []
-    if not sections:
+    if not sections or not isinstance(sections, list):
         sections = session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
+    if not isinstance(sections, list):
+        sections = []
         
     has_section_actions = False
-    for sec in sections:
-        n = sec.get("n", "") or sec.get("index", "")
+    for idx, sec in enumerate(sections):
+        if not isinstance(sec, dict):
+            continue
+        n = sec.get("n", "") or sec.get("index", "") or idx + 1
         t = sec.get("title", "")
         clean_t = re.sub(r"^\d+\.\s*", "", str(t)).strip()
         header = f"## {n}. {clean_t}" if n else f"## {clean_t}"
         lines.append(header)
         
         # Narrative branch
-        narrative = (sec.get("narrative") or sec.get("details") or "").strip()
-        if narrative:
-            clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", narrative)
+        narrative = (sec.get("narrative") or sec.get("details") or "")
+        if isinstance(narrative, str) and narrative.strip():
+            clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", narrative.strip())
             clean_narrative = re.sub(r"^[-*•]\s*", "", clean_narrative)
-            # Flatten multi-line text into a single line for Markmap
             clean_narrative = " ".join(clean_narrative.split())
             if clean_narrative:
                 lines.append(f"- {clean_narrative}")
             
         # Action Items branch with individual task leaves
         action_items = sec.get("action_items") or []
-        if action_items:
-            has_section_actions = True
-            lines.append("- Action Items")
-            for item in action_items:
-                task = (item.get("task") or item.get("description") or "").strip()
-                owner = (item.get("owner") or item.get("assignee") or "Unassigned").strip()
-                due = f" -- {item.get('due_date')}" if item.get("due_date") else (f" -- {item.get('due_text')}" if item.get("due_text") else "")
-                lines.append(f"  - {task} -- {owner}{due}")
+        if isinstance(action_items, list) and action_items:
+            valid_actions = [a for a in action_items if isinstance(a, dict)]
+            if valid_actions:
+                has_section_actions = True
+                lines.append("- Action Items")
+                for item in valid_actions:
+                    task = str(item.get("task") or item.get("description") or "").strip()
+                    owner = str(item.get("owner") or item.get("assignee") or "Unassigned").strip()
+                    due_val = item.get("due_date") or item.get("due_text")
+                    due = f" -- {due_val}" if due_val and str(due_val).strip() != "—" else ""
+                    if task:
+                        lines.append(f"  - {task} -- {owner}{due}")
 
     # Fallback to top-level action_items if not inside sections
-    if not has_section_actions and session_data.get("action_items"):
+    top_actions = session_data.get("action_items", [])
+    if not has_section_actions and isinstance(top_actions, list) and top_actions:
         lines.append("## Action Items")
-        for item in session_data["action_items"]:
-            task = (item.get("task") or item.get("description") or "").strip()
-            owner = (item.get("owner") or item.get("assignee") or "Unassigned").strip()
-            due = f" -- {item.get('due_date')}" if item.get("due_date") else (f" -- {item.get('due_text')}" if item.get("due_text") else "")
-            lines.append(f"- {task} -- {owner}{due}")
+        for item in top_actions:
+            if isinstance(item, dict):
+                task = str(item.get("task") or item.get("description") or "").strip()
+                owner = str(item.get("owner") or item.get("assignee") or "Unassigned").strip()
+                due_val = item.get("due_date") or item.get("due_text")
+                due = f" -- {due_val}" if due_val and str(due_val).strip() != "—" else ""
+                if task:
+                    lines.append(f"- {task} -- {owner}{due}")
+            elif isinstance(item, str) and item.strip():
+                lines.append(f"- {item.strip()}")
                 
-    ai_suggestions = session_data.get("ai_suggestions") or []
+    ai_suggestions = session_data.get("ai_suggestions") or session_data.get("raw_suggestions_list") or []
     if ai_suggestions:
         lines.append("## AI Suggestions")
         if isinstance(ai_suggestions, list):
-            for sugg in ai_suggestions:
-                if isinstance(sugg, dict):
-                    lbl = sugg.get("label", "").strip()
-                    det = sugg.get("detail", "").strip()
+            for item in ai_suggestions:
+                if isinstance(item, dict):
+                    lbl = str(item.get("label") or item.get("title") or "Suggestion").strip()
+                    det = str(item.get("detail") or item.get("body") or "").strip()
                     lines.append(f"- **{lbl}**: {det}")
-                else:
-                    lines.append(f"- {sugg}")
+                elif isinstance(item, str) and item.strip():
+                    lines.append(f"- {item.strip()}")
         elif isinstance(ai_suggestions, dict):
-            for sugg in ai_suggestions.get("items", []):
-                lbl = sugg.get("label", "").strip()
-                det = sugg.get("detail", "").strip()
-                lines.append(f"- **{lbl}**: {det}")
+            items_list = ai_suggestions.get("items", [])
+            if isinstance(items_list, list) and items_list:
+                for item in items_list:
+                    if isinstance(item, dict):
+                        lbl = str(item.get("label") or item.get("title") or "Suggestion").strip()
+                        det = str(item.get("detail") or item.get("body") or "").strip()
+                        lines.append(f"- **{lbl}**: {det}")
+                    elif isinstance(item, str) and item.strip():
+                        lines.append(f"- {item.strip()}")
+            else:
+                combined = ai_suggestions.get("unresolved", []) + ai_suggestions.get("gaps", []) + ai_suggestions.get("recommendations", [])
+                for item in combined:
+                    lines.append(f"- {item}")
             
     return "\n".join(lines)
 

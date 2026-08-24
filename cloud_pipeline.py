@@ -309,16 +309,20 @@ def convert_structured_mindmap_to_mermaid(mindmap_dict: Any, fallback_title: str
     return "\n".join(lines)
 
 
-def convert_structured_json_to_markdown(json_obj: Dict[str, Any]) -> str:
-    """Generates clean Plaud-style markdown document from structured JSON."""
-    lines = []
-    title = json_obj.get("title", "Meeting Report")
-    lines.append(f"# {title}\n")
+def convert_structured_json_to_markdown(json_obj: Any) -> str:
+    """Converts structured meeting JSON back to readable markdown representation."""
+    json_obj = safe_parse_json(json_obj)
+    title = json_obj.get("title", "Meeting Intelligence")
+    lines = [f"# {title}\n"]
     
-    m_date = json_obj.get("meeting_date", "")
+    m_date = json_obj.get("meeting_date")
     dur = json_obj.get("duration_minutes")
     parts = json_obj.get("participants", [])
+    if not isinstance(parts, list):
+        parts = []
     tags = json_obj.get("tags", [])
+    if not isinstance(tags, list):
+        tags = []
     
     meta_items = []
     if m_date:
@@ -326,9 +330,9 @@ def convert_structured_json_to_markdown(json_obj: Dict[str, Any]) -> str:
     if dur:
         meta_items.append(f"**Duration:** {dur} min")
     if parts:
-        meta_items.append(f"**Participants:** {', '.join(parts)}")
+        meta_items.append(f"**Participants:** {', '.join([str(p) for p in parts])}")
     if tags:
-        meta_items.append(f"**Tags:** {', '.join(tags)}")
+        meta_items.append(f"**Tags:** {', '.join([str(t) for t in tags])}")
     if meta_items:
         lines.append(" • ".join(meta_items) + "\n")
         
@@ -336,56 +340,81 @@ def convert_structured_json_to_markdown(json_obj: Dict[str, Any]) -> str:
     if tldr:
         lines.append(f"{tldr}\n")
         
-    for sec in json_obj.get("sections", []):
-        n = sec.get("n", 1)
-        stitle = sec.get("title", "")
-        lines.append(f"## {n}. {stitle}\n")
-        narrative = sec.get("narrative", "")
-        if narrative:
-            lines.append(f"{narrative}\n")
-            
-        decs = sec.get("decisions", [])
-        if decs:
-            lines.append("**Decisions:**")
-            for d in decs:
-                lines.append(f"- {d}")
-            lines.append("")
-            
-        actions = sec.get("action_items", [])
-        if actions:
-            lines.append("### Action Items")
-            for a in actions:
-                t = a.get("task", "")
-                o = a.get("owner", "Team")
-                due = a.get("due_date") or a.get("due_text") or ""
-                due_s = f" {due}" if due and due != "—" else ""
-                lines.append(f"- [ ] {t} — *{o}*{due_s}")
-            lines.append("")
+    sections = json_obj.get("sections", [])
+    if isinstance(sections, list):
+        for idx, sec in enumerate(sections):
+            if not isinstance(sec, dict):
+                continue
+            n = sec.get("n", idx + 1)
+            stitle = sec.get("title", "")
+            lines.append(f"## {n}. {stitle}\n")
+            narrative = sec.get("narrative", "")
+            if narrative:
+                lines.append(f"{narrative}\n")
+                
+            decs = sec.get("decisions", [])
+            if isinstance(decs, list) and decs:
+                lines.append("**Decisions:**")
+                for d in decs:
+                    lines.append(f"- {d}")
+                lines.append("")
+                
+            actions = sec.get("action_items", [])
+            if isinstance(actions, list) and actions:
+                lines.append("### Action Items")
+                for a in actions:
+                    if not isinstance(a, dict):
+                        continue
+                    t = a.get("task", "")
+                    o = a.get("owner", "Team")
+                    due = a.get("due_date") or a.get("due_text") or ""
+                    due_s = f" {due}" if due and due != "—" else ""
+                    lines.append(f"- [ ] {t} — *{o}*{due_s}")
+                lines.append("")
             
     open_q = json_obj.get("open_questions", [])
-    if open_q:
+    if isinstance(open_q, list) and open_q:
         lines.append("## Open Questions")
         for q in open_q:
-            q_txt = q.get("question", "")
-            r_by = q.get("raised_by", "")
-            lines.append(f"- **{q_txt}** (Raised by: {r_by})")
+            if isinstance(q, dict):
+                q_txt = q.get("question", "")
+                r_by = q.get("raised_by", "")
+                lines.append(f"- **{q_txt}** (Raised by: {r_by})")
+            elif isinstance(q, str):
+                lines.append(f"- **{q}**")
         lines.append("")
         
     suggs = json_obj.get("ai_suggestions", [])
-    if suggs:
+    if isinstance(suggs, list) and suggs:
         lines.append("## AI Suggestions")
         lines.append("> AI has identified the following issues that were not concluded in the meeting or lack clear action items; please pay attention:\n")
         for idx, s in enumerate(suggs):
-            lbl = s.get("label", "")
-            det = s.get("detail", "")
-            lines.append(f"{idx+1}. **{lbl}**: {det}")
+            if isinstance(s, dict):
+                lbl = s.get("label", "")
+                det = s.get("detail", "")
+                lines.append(f"{idx+1}. **{lbl}**: {det}")
+            elif isinstance(s, str):
+                lines.append(f"{idx+1}. **Note**: {s}")
         lines.append("")
+    elif isinstance(suggs, dict):
+        items_list = suggs.get("items", [])
+        if isinstance(items_list, list) and items_list:
+            lines.append("## AI Suggestions")
+            for idx, s in enumerate(items_list):
+                if isinstance(s, dict):
+                    lbl = s.get("label", "")
+                    det = s.get("detail", "")
+                    lines.append(f"{idx+1}. **{lbl}**: {det}")
+                elif isinstance(s, str):
+                    lines.append(f"{idx+1}. **Note**: {s}")
+            lines.append("")
         
     return "\n".join(lines)
 
 
-def build_contextual_mindmap(session_data: Dict[str, Any], meeting_title: str = "Meeting Intelligence") -> str:
+def build_contextual_mindmap(session_data: Any, meeting_title: str = "Meeting Intelligence") -> str:
     """Fallback mindmap builder for legacy session dictionaries."""
+    session_data = safe_parse_json(session_data)
     clean_root = sanitize_mermaid_node(meeting_title, max_len=40) or "Meeting Intelligence"
     lines = [
         "mindmap",
@@ -393,8 +422,10 @@ def build_contextual_mindmap(session_data: Dict[str, Any], meeting_title: str = 
     ]
 
     topics = session_data.get("discussion_pillars", []) or session_data.get("numbered_topics", []) or session_data.get("sections", [])
-    if topics:
+    if isinstance(topics, list) and topics:
         for idx, t in enumerate(topics[:5]):
+            if not isinstance(t, dict):
+                continue
             t_num = t.get("index") or t.get("n", idx + 1)
             raw_title = t.get("title", f"Topic {t_num}")
             clean_title = sanitize_mermaid_node(raw_title, max_len=30)
@@ -402,70 +433,90 @@ def build_contextual_mindmap(session_data: Dict[str, Any], meeting_title: str = 
             lines.append(f'    ["{t_num}. {clean_title}"]')
             
             narrative = t.get("narrative") or t.get("details", "")
-            if narrative:
+            if isinstance(narrative, str) and narrative:
                 first_sentence = re.split(r"[\.\n]", narrative)[0].strip()
                 clean_first = sanitize_mermaid_node(first_sentence, max_len=30)
                 if clean_first and clean_first.lower() != clean_title.lower():
                     lines.append(f'      ["{clean_first}"]')
             
             topic_actions = t.get("action_items", [])
-            for a in topic_actions[:2]:
-                desc = a.get("task") or a.get("description") or "Deliverable"
-                owner = a.get("owner") or a.get("assignee") or "Team"
-                clean_desc = sanitize_mermaid_node(desc, max_len=24)
-                clean_owner = sanitize_mermaid_node(owner, max_len=12)
-                if clean_desc:
-                    lines.append(f'      ["Action: {clean_desc} ({clean_owner})"]')
+            if isinstance(topic_actions, list):
+                for a in topic_actions[:2]:
+                    if not isinstance(a, dict):
+                        continue
+                    desc = a.get("task") or a.get("description") or "Deliverable"
+                    owner = a.get("owner") or a.get("assignee") or "Team"
+                    clean_desc = sanitize_mermaid_node(desc, max_len=24)
+                    clean_owner = sanitize_mermaid_node(owner, max_len=12)
+                    if clean_desc:
+                        lines.append(f'      ["Action: {clean_desc} ({clean_owner})"]')
 
     return "\n".join(lines)
 
 
-def parse_json_or_repair(raw_text: str) -> Dict[str, Any]:
-    """Robust parser for JSON response from LLM, with repair logic."""
-    text = raw_text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"\s*```$", "", text)
-        text = text.strip()
-
-    try:
-        return json.loads(text)
-    except Exception:
-        pass
-
-    # Extract outer JSON object
-    first_brace = text.find("{")
-    last_brace = text.rfind("}")
-    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-        json_slice = text[first_brace:last_brace + 1]
+def safe_parse_json(content: Any) -> Dict[str, Any]:
+    """Safely parses JSON content from dict or string, stripping markdown fences."""
+    if isinstance(content, dict):
+        return content
+    if isinstance(content, str):
+        cleaned = content.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        elif cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
         try:
-            return json.loads(json_slice)
+            res = json.loads(cleaned)
+            if isinstance(res, dict):
+                return res
         except Exception:
-            cleaned = re.sub(r",\s*([\]}])", r"\1", json_slice)
+            pass
+        match = re.search(r'\{[\s\S]*\}', cleaned)
+        if match:
             try:
-                return json.loads(cleaned)
+                res = json.loads(match.group(0))
+                if isinstance(res, dict):
+                    return res
             except Exception:
-                pass
+                try:
+                    repaired = re.sub(r",\s*([\]}])", r"\1", match.group(0))
+                    res = json.loads(repaired)
+                    if isinstance(res, dict):
+                        return res
+                except Exception:
+                    pass
+    return {}
 
-    # Fallback to markdown parser if string was purely markdown
-    return parse_markdown_to_session_dict(raw_text, "fallback_parser")
+
+parse_json_or_repair = safe_parse_json
 
 
 def process_structured_meeting_json(
-    json_data: Dict[str, Any],
+    json_data: Any,
     model_name: str,
     raw_response: str = ""
 ) -> Dict[str, Any]:
     """Converts the structured JSON meeting model into the unified session data dictionary."""
+    json_data = safe_parse_json(json_data)
     title = json_data.get("title", "Meeting Intelligence")
     meeting_date = json_data.get("meeting_date", datetime.now().strftime("%Y-%m-%d"))
     duration_minutes = json_data.get("duration_minutes")
     participants = json_data.get("participants", [])
+    if not isinstance(participants, list):
+        participants = []
     tags = json_data.get("tags", [])
+    if not isinstance(tags, list):
+        tags = []
     tldr = json_data.get("tldr", "")
     
     sections = json_data.get("sections", [])
+    if not isinstance(sections, list):
+        sections = []
     open_questions = json_data.get("open_questions", [])
+    if not isinstance(open_questions, list):
+        open_questions = []
     ai_suggestions = json_data.get("ai_suggestions", [])
     mindmap_obj = json_data.get("mindmap", {})
 
@@ -478,44 +529,53 @@ def process_structured_meeting_json(
     all_decisions = []
 
     for idx, sec in enumerate(sections):
+        if not isinstance(sec, dict):
+            continue
         n = sec.get("n", idx + 1)
         sec_title = sec.get("title", f"Section {n}")
         sec_narrative = sec.get("narrative", "")
         sec_decisions = sec.get("decisions", [])
-        all_decisions.extend(sec_decisions)
+        if isinstance(sec_decisions, list):
+            all_decisions.extend(sec_decisions)
+        else:
+            sec_decisions = []
 
         sec_actions = []
-        for a in sec.get("action_items", []):
-            task_desc = a.get("task") or a.get("description") or "Deliverable"
-            owner = a.get("owner") or a.get("assignee") or "Team"
-            due = a.get("due_date") or a.get("due_text") or "Next Sprint"
-            due_text = a.get("due_text") or a.get("due_date") or ""
-            prio = (a.get("priority") or "MED").upper()
-            if "HIGH" in prio or "P0" in prio:
-                prio = "HIGH"
-            elif "LOW" in prio or "P2" in prio:
-                prio = "LOW"
-            else:
-                prio = "MED"
+        raw_actions = sec.get("action_items", [])
+        if isinstance(raw_actions, list):
+            for a in raw_actions:
+                if not isinstance(a, dict):
+                    continue
+                task_desc = a.get("task") or a.get("description") or "Deliverable"
+                owner = a.get("owner") or a.get("assignee") or "Team"
+                due = a.get("due_date") or a.get("due_text") or "Next Sprint"
+                due_text = a.get("due_text") or a.get("due_date") or ""
+                prio = (a.get("priority") or "MED").upper()
+                if "HIGH" in prio or "P0" in prio:
+                    prio = "HIGH"
+                elif "LOW" in prio or "P2" in prio:
+                    prio = "LOW"
+                else:
+                    prio = "MED"
 
-            act_dict = {
-                "number": len(all_action_items) + 1,
-                "id": a.get("id", f"A{len(all_action_items) + 1}"),
-                "task": task_desc,
-                "description": task_desc,
-                "owner": owner,
-                "assignee": owner,
-                "co_owners": a.get("co_owners", []),
-                "due_date": due,
-                "due_text": due_text,
-                "priority": prio,
-                "context": a.get("context", ""),
-                "blocked_by": a.get("blocked_by"),
-                "status": "pending",
-                "notes": f"Section {n}: {sec_title}"
-            }
-            sec_actions.append(act_dict)
-            all_action_items.append(act_dict)
+                act_dict = {
+                    "number": len(all_action_items) + 1,
+                    "id": a.get("id", f"A{len(all_action_items) + 1}"),
+                    "task": task_desc,
+                    "description": task_desc,
+                    "owner": owner,
+                    "assignee": owner,
+                    "co_owners": a.get("co_owners", []) if isinstance(a.get("co_owners"), list) else [],
+                    "due_date": due,
+                    "due_text": due_text,
+                    "priority": prio,
+                    "context": a.get("context", ""),
+                    "blocked_by": a.get("blocked_by"),
+                    "status": "pending",
+                    "notes": f"Section {n}: {sec_title}"
+                }
+                sec_actions.append(act_dict)
+                all_action_items.append(act_dict)
 
         topic_entry = {
             "index": n,
@@ -537,8 +597,14 @@ def process_structured_meeting_json(
     }
     if isinstance(ai_suggestions, list):
         for s in ai_suggestions:
-            lbl = s.get("label", "Suggestion") if isinstance(s, dict) else "Note"
-            det = s.get("detail", str(s)) if isinstance(s, dict) else str(s)
+            if isinstance(s, dict):
+                lbl = s.get("label") or s.get("title") or "Suggestion"
+                det = s.get("detail") or s.get("body") or ""
+            elif isinstance(s, str):
+                lbl = "Suggestion"
+                det = s
+            else:
+                continue
             full_txt = f"{lbl}: {det}" if det else lbl
             sugg_dict["items"].append({"label": lbl, "title": lbl, "detail": det, "body": det, "text": full_txt})
             
@@ -548,6 +614,8 @@ def process_structured_meeting_json(
                 sugg_dict["gaps"].append(full_txt)
             else:
                 sugg_dict["recommendations"].append(full_txt)
+    elif isinstance(ai_suggestions, dict):
+        sugg_dict = ai_suggestions
 
     # 4. Generate Mermaid Mindmap
     mermaid_mindmap = convert_structured_mindmap_to_mermaid(mindmap_obj, fallback_title=title)
@@ -805,13 +873,14 @@ def extract_intelligence_gemini(
     if not resp_text:
         raise RuntimeError("Failed to generate intelligence report from all available AI providers.")
 
-    parsed_json = parse_json_or_repair(resp_text)
-    if isinstance(parsed_json, dict) and "sections" in parsed_json:
+    parsed_json = safe_parse_json(resp_text)
+    if isinstance(parsed_json, dict) and parsed_json and ("sections" in parsed_json or "discussion_pillars" in parsed_json or "title" in parsed_json):
         return process_structured_meeting_json(parsed_json, used_model, raw_response=resp_text)
-    elif isinstance(parsed_json, dict) and "discussion_pillars" in parsed_json:
-        return parsed_json
     else:
-        return parse_markdown_to_session_dict(resp_text, used_model, template_type=template_type)
+        parsed_md = parse_markdown_to_session_dict(resp_text, used_model, template_type=template_type)
+        if isinstance(parsed_md, dict):
+            return parsed_md
+        return process_structured_meeting_json({}, used_model, raw_response=resp_text)
 
 
 # =============================================================================
@@ -891,29 +960,34 @@ Answer the user's questions clearly, concisely, and accurately in the user's lan
 # =============================================================================
 # 4. PRINTABLE HTML / PDF EXPORT GENERATOR & MARKMAP BUILDER
 # =============================================================================
-def generate_detailed_markmap_md(session_data: dict) -> str:
+def generate_detailed_markmap_md(session_data: Any) -> str:
     """Dynamically builds deep hierarchical markdown for Markmap strictly from sections and action items, never using stale mindmap JSON."""
+    session_data = safe_parse_json(session_data)
     # Use title or summary title
     title = session_data.get("title") or session_data.get("meeting_title") or "Meeting Summary"
     clean_title = re.sub(r"^#+\s*", "", str(title)).strip() or "Meeting Summary"
     lines = [f"# {clean_title}"]
     
     sections = session_data.get("sections") or []
-    if not sections:
+    if not sections or not isinstance(sections, list):
         sections = session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
+    if not isinstance(sections, list):
+        sections = []
         
     has_section_actions = False
-    for sec in sections:
-        n = sec.get("n", "") or sec.get("index", "")
+    for idx, sec in enumerate(sections):
+        if not isinstance(sec, dict):
+            continue
+        n = sec.get("n", "") or sec.get("index", "") or idx + 1
         t = sec.get("title", "")
         clean_t = re.sub(r"^\d+\.\s*", "", str(t)).strip()
         header = f"## {n}. {clean_t}" if n else f"## {clean_t}"
         lines.append(header)
         
         # Narrative branch
-        narrative = (sec.get("narrative") or sec.get("details") or "").strip()
-        if narrative:
-            clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", narrative)
+        narrative = (sec.get("narrative") or sec.get("details") or "")
+        if isinstance(narrative, str) and narrative.strip():
+            clean_narrative = re.sub(r"^\*\*[^*]+:\*\*\s*", "", narrative.strip())
             clean_narrative = re.sub(r"^[-*•]\s*", "", clean_narrative)
             # Flatten multi-line text into a single line for Markmap
             clean_narrative = " ".join(clean_narrative.split())
@@ -922,40 +996,59 @@ def generate_detailed_markmap_md(session_data: dict) -> str:
             
         # Action Items branch with individual task leaves
         action_items = sec.get("action_items") or []
-        if action_items:
-            has_section_actions = True
-            lines.append("- Action Items")
-            for item in action_items:
-                task = (item.get("task") or item.get("description") or "").strip()
-                owner = (item.get("owner") or item.get("assignee") or "Unassigned").strip()
-                due = f" -- {item.get('due_date')}" if item.get("due_date") else (f" -- {item.get('due_text')}" if item.get("due_text") else "")
-                lines.append(f"  - {task} -- {owner}{due}")
+        if isinstance(action_items, list) and action_items:
+            valid_actions = [a for a in action_items if isinstance(a, dict)]
+            if valid_actions:
+                has_section_actions = True
+                lines.append("- Action Items")
+                for item in valid_actions:
+                    task = str(item.get("task") or item.get("description") or "").strip()
+                    owner = str(item.get("owner") or item.get("assignee") or "Unassigned").strip()
+                    due_val = item.get("due_date") or item.get("due_text")
+                    due = f" -- {due_val}" if due_val and str(due_val).strip() != "—" else ""
+                    if task:
+                        lines.append(f"  - {task} -- {owner}{due}")
 
     # Fallback to top-level action_items if not inside sections
-    if not has_section_actions and session_data.get("action_items"):
+    top_actions = session_data.get("action_items", [])
+    if not has_section_actions and isinstance(top_actions, list) and top_actions:
         lines.append("## Action Items")
-        for item in session_data["action_items"]:
-            task = (item.get("task") or item.get("description") or "").strip()
-            owner = (item.get("owner") or item.get("assignee") or "Unassigned").strip()
-            due = f" -- {item.get('due_date')}" if item.get("due_date") else (f" -- {item.get('due_text')}" if item.get("due_text") else "")
-            lines.append(f"- {task} -- {owner}{due}")
+        for item in top_actions:
+            if isinstance(item, dict):
+                task = str(item.get("task") or item.get("description") or "").strip()
+                owner = str(item.get("owner") or item.get("assignee") or "Unassigned").strip()
+                due_val = item.get("due_date") or item.get("due_text")
+                due = f" -- {due_val}" if due_val and str(due_val).strip() != "—" else ""
+                if task:
+                    lines.append(f"- {task} -- {owner}{due}")
+            elif isinstance(item, str) and item.strip():
+                lines.append(f"- {item.strip()}")
                 
-    ai_suggestions = session_data.get("ai_suggestions") or []
+    ai_suggestions = session_data.get("ai_suggestions") or session_data.get("raw_suggestions_list") or []
     if ai_suggestions:
         lines.append("## AI Suggestions")
         if isinstance(ai_suggestions, list):
-            for sugg in ai_suggestions:
-                if isinstance(sugg, dict):
-                    lbl = sugg.get("label", "").strip()
-                    det = sugg.get("detail", "").strip()
+            for item in ai_suggestions:
+                if isinstance(item, dict):
+                    lbl = str(item.get("label") or item.get("title") or "Suggestion").strip()
+                    det = str(item.get("detail") or item.get("body") or "").strip()
                     lines.append(f"- **{lbl}**: {det}")
-                else:
-                    lines.append(f"- {sugg}")
+                elif isinstance(item, str) and item.strip():
+                    lines.append(f"- {item.strip()}")
         elif isinstance(ai_suggestions, dict):
-            for sugg in ai_suggestions.get("items", []):
-                lbl = sugg.get("label", "").strip()
-                det = sugg.get("detail", "").strip()
-                lines.append(f"- **{lbl}**: {det}")
+            items_list = ai_suggestions.get("items", [])
+            if isinstance(items_list, list) and items_list:
+                for item in items_list:
+                    if isinstance(item, dict):
+                        lbl = str(item.get("label") or item.get("title") or "Suggestion").strip()
+                        det = str(item.get("detail") or item.get("body") or "").strip()
+                        lines.append(f"- **{lbl}**: {det}")
+                    elif isinstance(item, str) and item.strip():
+                        lines.append(f"- {item.strip()}")
+            else:
+                combined = ai_suggestions.get("unresolved", []) + ai_suggestions.get("gaps", []) + ai_suggestions.get("recommendations", [])
+                for item in combined:
+                    lines.append(f"- {item}")
             
     return "\n".join(lines)
 
@@ -963,11 +1056,15 @@ def generate_detailed_markmap_md(session_data: dict) -> str:
 build_markmap_md = generate_detailed_markmap_md
 
 
-def generate_printable_html(session_data: Dict[str, Any], active_theme: str = "light") -> str:
+def generate_printable_html(session_data: Any, active_theme: str = "light") -> str:
     """Generates a standalone, calm professional HTML document with embedded Markmap and design tokens."""
     from styles.theme import get_iframe_theme_css, format_acronyms
 
+    session_data = safe_parse_json(session_data)
     meta = session_data.get("metadata", {})
+    if not isinstance(meta, dict):
+        meta = {}
+
     title = session_data.get("title") or meta.get("source_file", "Meeting Intelligence Report")
     clean_title = format_acronyms(re.sub(r"^#+\s*", "", str(title)).strip())
     duration = meta.get("duration", "N/A")
@@ -975,13 +1072,18 @@ def generate_printable_html(session_data: Dict[str, Any], active_theme: str = "l
     model_str = session_data.get("model_used") or meta.get("model", "Hesh-rec AI")
     
     participants = session_data.get("participants", [])
+    if not isinstance(participants, list):
+        participants = []
     if not participants and meta.get("speakers"):
         raw_spk = meta.get("speakers")
         participants = [raw_spk] if isinstance(raw_spk, str) else list(raw_spk)
 
-    tags = [format_acronyms(t) for t in session_data.get("tags", [])]
+    raw_tags = session_data.get("tags", [])
+    tags = [format_acronyms(str(t)) for t in raw_tags] if isinstance(raw_tags, list) else []
     tldr = session_data.get("tldr", "")
     topics = session_data.get("sections", []) or session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
+    if not isinstance(topics, list):
+        topics = []
     open_questions = session_data.get("open_questions", [])
     ai_suggestions = session_data.get("ai_suggestions", {}) or session_data.get("raw_suggestions_list", [])
 
@@ -991,7 +1093,7 @@ def generate_printable_html(session_data: Dict[str, Any], active_theme: str = "l
     if duration and duration != "N/A":
         meta_pills.append(f"""<span class="meta-pill">Duration: <span class="mono">{duration}</span></span>""")
     if participants:
-        meta_pills.append(f"""<span class="meta-pill">Participants: {', '.join(participants)}</span>""")
+        meta_pills.append(f"""<span class="meta-pill">Participants: {', '.join([str(p) for p in participants])}</span>""")
     for t in tags:
         clean_tag = t.lstrip("#")
         meta_pills.append(f"""<span class="meta-pill">#{clean_tag}</span>""")
@@ -1005,6 +1107,8 @@ def generate_printable_html(session_data: Dict[str, Any], active_theme: str = "l
     # Numbered Topics & Inline Actions
     topics_html = []
     for idx, t in enumerate(topics):
+        if not isinstance(t, dict):
+            continue
         t_num = t.get("n") or t.get("index", idx + 1)
         t_title = t.get("title", f"Topic {t_num}")
         clean_t_title = format_acronyms(re.sub(r"^\d+\.\s*", "", str(t_title)).strip())
@@ -1015,18 +1119,20 @@ def generate_printable_html(session_data: Dict[str, Any], active_theme: str = "l
 
         decisions_html = ""
         dec_list = t.get("decisions", [])
-        if dec_list:
-            dec_lis = "".join([f"""<li style="margin-bottom: 4px; color: var(--text-2);">{format_acronyms(d)}</li>""" for d in dec_list])
+        if isinstance(dec_list, list) and dec_list:
+            dec_lis = "".join([f"""<li style="margin-bottom: 4px; color: var(--text-2);">{format_acronyms(str(d))}</li>""" for d in dec_list])
             decisions_html = f"""<div style="margin: 12px 0 16px 0; font-size: 13.5px;"><strong style="color: var(--text);">Decisions:</strong><ul style="margin: 6px 0 0 20px; padding: 0;">{dec_lis}</ul></div>"""
         
         t_actions = t.get("action_items", [])
         actions_html = ""
-        if t_actions:
+        if isinstance(t_actions, list) and t_actions:
             items_li = []
             for a in t_actions:
-                desc = format_acronyms(a.get("task") or a.get("description", ""))
-                owner = a.get("owner") or a.get("assignee", "Team")
-                due = a.get("due_date") or a.get("due_text", "")
+                if not isinstance(a, dict):
+                    continue
+                desc = format_acronyms(str(a.get("task") or a.get("description", "")))
+                owner = str(a.get("owner") or a.get("assignee", "Team"))
+                due = str(a.get("due_date") or a.get("due_text", ""))
                 due_str = f" {due}" if due and due != "—" else ""
                 items_li.append(f"""<div class="action-row"><span class="action-check">☐</span><span>{desc} — <span class="action-owner">{owner}</span><span class="action-due">{due_str}</span></span></div>""")
             actions_html = f"""<div class="section-actions"><div class="section-actions-heading">Action Items</div>{''.join(items_li)}</div>"""
@@ -1035,36 +1141,41 @@ def generate_printable_html(session_data: Dict[str, Any], active_theme: str = "l
 
     # Open Questions
     open_q_html = ""
-    if open_questions:
+    if isinstance(open_questions, list) and open_questions:
         q_rows = []
         for q in open_questions:
-            q_text = format_acronyms(q.get("question", "") if isinstance(q, dict) else str(q))
-            q_by = q.get("raised_by", "") if isinstance(q, dict) else ""
+            q_text = format_acronyms(str(q.get("question", "")) if isinstance(q, dict) else str(q))
+            q_by = str(q.get("raised_by", "")) if isinstance(q, dict) else ""
             by_str = f" — <em>{q_by}</em>" if q_by else ""
             q_rows.append(f"""<div style="font-size: 14px; margin-bottom: 6px; line-height: 1.6; color: var(--text);"><strong>• {q_text}</strong><span style="font-size: 12.5px; color: var(--text-2);">{by_str}</span></div>""")
         open_q_html = f"""<div class="questions-box"><div class="questions-label">Open Questions</div>{''.join(q_rows)}</div>"""
 
     # AI Suggestions Callout
-    suggestions_html = ""
+    sugg_rows = []
     if isinstance(ai_suggestions, dict):
         s_items = ai_suggestions.get("items", [])
-        if s_items:
-            sugg_rows = [f"<div class='ai-suggestion-item'><span class='ai-suggestion-title'>{i+1}. {format_acronyms(it.get('label') or it.get('title'))}</span>: <span>{format_acronyms(it.get('detail') or it.get('body'))}</span></div>" for i, it in enumerate(s_items)]
+        if isinstance(s_items, list) and s_items:
+            for i, it in enumerate(s_items):
+                if isinstance(it, dict):
+                    sugg_rows.append(f"<div class='ai-suggestion-item'><span class='ai-suggestion-title'>{i+1}. {format_acronyms(str(it.get('label') or it.get('title', f'Suggestion {i+1}')))}</span>: <span>{format_acronyms(str(it.get('detail') or it.get('body', '')))}</span></div>")
+                elif isinstance(it, str):
+                    sugg_rows.append(f"<div class='ai-suggestion-item'><span class='ai-suggestion-title'>{i+1}. Note</span>: <span>{format_acronyms(it)}</span></div>")
         else:
             combined = ai_suggestions.get("unresolved", []) + ai_suggestions.get("gaps", []) + ai_suggestions.get("recommendations", [])
-            sugg_rows = [f"<div class='ai-suggestion-item'><span class='ai-suggestion-title'>{i+1}. Note</span>: <span>{format_acronyms(txt)}</span></div>" for i, txt in enumerate(combined)]
+            for i, txt in enumerate(combined):
+                if isinstance(txt, str):
+                    sugg_rows.append(f"<div class='ai-suggestion-item'><span class='ai-suggestion-title'>{i+1}. Note</span>: <span>{format_acronyms(txt)}</span></div>")
     elif isinstance(ai_suggestions, list):
-        sugg_rows = []
         for i, it in enumerate(ai_suggestions):
             if isinstance(it, dict):
-                sugg_rows.append(f"<div class='ai-suggestion-item'><span class='ai-suggestion-title'>{i+1}. {format_acronyms(it.get('label') or it.get('title'))}</span>: <span>{format_acronyms(it.get('detail') or it.get('body'))}</span></div>")
-            else:
+                sugg_rows.append(f"<div class='ai-suggestion-item'><span class='ai-suggestion-title'>{i+1}. {format_acronyms(str(it.get('label') or it.get('title', f'Suggestion {i+1}')))}</span>: <span>{format_acronyms(str(it.get('detail') or it.get('body', '')))}</span></div>")
+            elif isinstance(it, str):
                 sugg_rows.append(f"<div class='ai-suggestion-item'><span class='ai-suggestion-title'>{i+1}. Note</span>: <span>{format_acronyms(it)}</span></div>")
-    else:
-        sugg_rows = []
 
     if sugg_rows:
         suggestions_html = f"""<div class="ai-suggestions"><div class="ai-suggestions-label">AI Suggestions</div><div class="ai-suggestions-desc">The following items were identified as unresolved discussion points or require explicit ownership:</div>{''.join(sugg_rows)}</div>"""
+    else:
+        suggestions_html = ""
 
     # Build Markmap Markdown dynamically from sections and action items
     markmap_markdown = generate_detailed_markmap_md(session_data)
@@ -1159,6 +1270,8 @@ def process_meeting_file_cloud(
         model_name=model_choice,
         template_type=template_type
     )
+    if not isinstance(intel, dict):
+        intel = safe_parse_json(intel)
 
     total_time_str = f"{time.time() - start_time:.2f}s"
 
@@ -1180,10 +1293,20 @@ def process_meeting_file_cloud(
         },
         "transcript_segments": segments,
         "full_transcript_text": full_text,
+        "title": intel.get("title", title),
+        "meeting_date": intel.get("meeting_date"),
+        "duration_minutes": intel.get("duration_minutes"),
+        "participants": intel.get("participants", []),
+        "tags": intel.get("tags", []),
+        "tldr": intel.get("tldr", ""),
+        "sections": intel.get("sections", []),
         "executive_brief": intel.get("executive_brief", []),
         "discussion_pillars": intel.get("discussion_pillars", []),
         "action_items": intel.get("action_items", []),
         "decisions": intel.get("decisions", []),
+        "open_questions": intel.get("open_questions", []),
+        "ai_suggestions": intel.get("ai_suggestions", {}),
+        "raw_suggestions_list": intel.get("raw_suggestions_list", []),
         "reversals": intel.get("reversals", []),
         "mermaid_mindmap": intel.get("mermaid_mindmap", ""),
         "raw_markdown": intel.get("raw_markdown", "")
