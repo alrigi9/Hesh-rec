@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useState, useRef, useEffect } from "react";
 import { 
   Upload, 
@@ -9,7 +11,8 @@ import {
   AlertCircle,
   CheckCircle2,
   WifiOff,
-  Globe
+  Globe,
+  Clock
 } from "lucide-react";
 import { 
   Dialog, 
@@ -42,6 +45,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [processingStage, setProcessingStage] = useState<ProcessingStage>("uploading");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +60,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       setError(null);
       setLoading(false);
       setUploadPercent(0);
+      setElapsedSeconds(0);
     }
   }, [isOpen]);
 
@@ -94,24 +99,40 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
     setLoading(true);
     setError(null);
     setProcessingStage("uploading");
-    setUploadPercent(15);
+    setUploadPercent(20);
+    setElapsedSeconds(0);
+
+    const elapsedTimer = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
 
     const uploadTimer = setInterval(() => {
       setUploadPercent((prev) => (prev < 90 ? prev + 15 : prev));
-    }, 300);
+    }, 400);
 
     const stageTimer1 = setTimeout(() => {
       setProcessingStage("extracting");
       setUploadPercent(100);
-    }, 1200);
+    }, 1500);
 
     const stageTimer2 = setTimeout(() => {
       setProcessingStage("transcribing");
-    }, 2800);
+    }, 3500);
 
     const stageTimer3 = setTimeout(() => {
       setProcessingStage("synthesizing");
-    }, 6000);
+    }, 7000);
+
+    // Hard client safety abort timeout at 55 seconds
+    const safetyTimeout = setTimeout(() => {
+      clearInterval(elapsedTimer);
+      clearInterval(uploadTimer);
+      clearTimeout(stageTimer1);
+      clearTimeout(stageTimer2);
+      clearTimeout(stageTimer3);
+      setLoading(false);
+      setError("Upload or speech analysis timed out (55s). Please check your internet connection and try with a smaller audio segment.");
+    }, 55000);
 
     try {
       const result = await processAudioFile(
@@ -122,6 +143,9 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         token || undefined,
         language
       );
+      
+      clearTimeout(safetyTimeout);
+      clearInterval(elapsedTimer);
       clearInterval(uploadTimer);
       clearTimeout(stageTimer1);
       clearTimeout(stageTimer2);
@@ -133,6 +157,8 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       setFile(null);
       setTitle("");
     } catch (err: unknown) {
+      clearTimeout(safetyTimeout);
+      clearInterval(elapsedTimer);
       clearInterval(uploadTimer);
       clearTimeout(stageTimer1);
       clearTimeout(stageTimer2);
@@ -152,7 +178,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         msg = JSON.stringify(msg);
       }
       if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("Load failed")) {
-        msg = "Server unreachable. Please check your connection or try again in a few moments.";
+        msg = "Network connection lost or server unreachable. Please check your mobile connection and try again.";
       }
       setError(msg);
     }
@@ -186,7 +212,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".mp3,.m4a,.wav,.webm,.mp4,.mov,.aac,.flac"
+              accept="audio/*,video/*,.mp3,.m4a,.wav,.webm,.mp4,.mov,.aac,.flac,.ogg,.opus,.m4v"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -212,7 +238,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
                   Drop audio or video file here, or click to browse
                 </div>
                 <div className="text-[11px] text-[#8b909a]">
-                  MP3, M4A, WAV, WebM, MP4, MOV, AAC, FLAC (Up to 50MB)
+                  M4A (iOS Voice Memos), MP3, WAV, WebM, MP4, AAC, FLAC (Up to 50MB)
                 </div>
               </div>
             )}
@@ -285,22 +311,20 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             />
           </div>
 
-          {/* Visual 4-Step Progress Tracker */}
+          {/* Visual 4-Step Progress Tracker with Elapsed Time */}
           {loading && (
             <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-[#f0f2f5] flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 text-[#ff5c47] animate-spin" />
                   {processingStage === "uploading" && `Uploading Media (${uploadPercent}%)...`}
-                  {processingStage === "extracting" && "Extracting Audio Stream..."}
+                  {processingStage === "extracting" && "Ingesting Audio Stream..."}
                   {processingStage === "transcribing" && "Transcribing Speech..."}
                   {processingStage === "synthesizing" && "Synthesizing Summary & Mind Map..."}
                 </span>
-                <span className="text-[11px] text-[#ff5c47] font-mono font-semibold">
-                  {processingStage === "uploading" && "Step 1/4"}
-                  {processingStage === "extracting" && "Step 2/4"}
-                  {processingStage === "transcribing" && "Step 3/4"}
-                  {processingStage === "synthesizing" && "Step 4/4"}
+                <span className="text-[11px] text-[#ff5c47] font-mono font-semibold flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {elapsedSeconds}s
                 </span>
               </div>
 
@@ -360,13 +384,13 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
           {/* User-friendly Error Banner */}
           {error && (
             <div className="p-3.5 bg-[#eb5757]/10 border border-[#eb5757]/20 rounded-xl text-xs text-[#eb5757] flex items-start gap-2.5">
-              {error.includes("Server unreachable") ? (
+              {error.includes("Server unreachable") || error.includes("Network connection") ? (
                 <WifiOff className="w-4 h-4 shrink-0 mt-0.5" />
               ) : (
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               )}
               <div className="space-y-0.5">
-                <div className="font-semibold">{error.includes("Server unreachable") ? "Connection Error" : "Upload Failed"}</div>
+                <div className="font-semibold">{error.includes("Server unreachable") || error.includes("Network") ? "Connection Error" : "Upload Failed"}</div>
                 <div className="text-[11px] text-[#eb5757]/90 leading-relaxed">{error}</div>
               </div>
             </div>
@@ -392,7 +416,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
               {loading ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                  Processing Media...
+                  Processing Media ({elapsedSeconds}s)...
                 </>
               ) : isQuotaExceeded ? (
                 "Quota Limit Reached"
