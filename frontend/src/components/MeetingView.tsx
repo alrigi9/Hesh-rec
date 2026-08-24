@@ -19,14 +19,16 @@ import {
   Loader2,
   HelpCircle,
   Lightbulb,
-  AlertCircle
+  AlertCircle,
+  Share2,
+  Link as LinkIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MeetingSession, ActionItem, MeetingSection, TranscriptSegment } from "@/types/meeting";
 import { MindmapView } from "@/components/MindmapView";
-import { askMeetingAssistant } from "@/lib/api";
+import { askMeetingAssistant, togglePublicSession } from "@/lib/api";
 import { formatMeetingTitle } from "@/lib/utils";
 
 interface MeetingViewProps {
@@ -40,6 +42,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
 
   const [activeTab, setActiveTab] = useState("summary");
   const [copied, setCopied] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // Robust data key fallbacks
   const summaryText = session.executive_summary || session.tldr || session.summary || "";
@@ -129,6 +132,21 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
           : item
       )
     );
+  };
+
+  const handleShareLink = async () => {
+    const sid = session.id || session.metadata?.session_id || "sample";
+    const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/share/${sid}` : `/share/${sid}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2500);
+      if (session.id) {
+        togglePublicSession(session.id, true);
+      }
+    } catch {
+      // fallback
+    }
   };
 
   const handleCopyMarkdown = () => {
@@ -225,6 +243,23 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
 
         {/* Action Toolbar */}
         <div className="flex items-center gap-2 pt-2 border-b border-[#232529] pb-6">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleShareLink}
+            className={`h-8 px-3.5 rounded-full text-xs border-[#232529] bg-[#141517] transition-all ${
+              shareCopied
+                ? "text-[#3ec98a] border-[#3ec98a]/40 bg-[#3ec98a]/10"
+                : "text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
+            }`}
+          >
+            {shareCopied ? (
+              <Check className="w-3.5 h-3.5 mr-1.5 text-[#3ec98a]" />
+            ) : (
+              <Share2 className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
+            )}
+            {shareCopied ? "Link Copied!" : "Share"}
+          </Button>
           <Button
             size="sm"
             variant="outline"

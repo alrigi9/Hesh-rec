@@ -72,11 +72,13 @@ ensure_secrets_loaded()
 from cloud_pipeline import (
     process_meeting_file_cloud,
     fetch_all_sessions,
+    fetch_session_by_id,
     save_session_record,
     delete_session_record,
     rename_session_record,
     update_session_action_items,
     chat_with_session,
+    get_supabase_client,
     DEFAULT_GEMINI_MODEL
 )
 
@@ -209,6 +211,42 @@ async def list_sessions(user_id: Optional[str] = None):
         return {"sessions": sessions}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sessions/{session_id}")
+async def get_session(session_id: str):
+    """Retrieves a single session by ID from Supabase or local storage."""
+    try:
+        session = fetch_session_by_id(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Meeting session not found.")
+        return session
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/sessions/{session_id}/public")
+async def toggle_public_session(session_id: str, is_public: bool = True):
+    """Updates the public accessibility flag for a session."""
+    sb = get_supabase_client()
+    if not sb:
+        return {"status": "ok", "session_id": session_id, "is_public": is_public}
+    try:
+        import uuid
+        try:
+            sid_uuid = str(uuid.UUID(session_id))
+        except Exception:
+            sid_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(session_id)))
+
+        res = sb.table("sessions").update({"is_public": is_public}).eq("id", sid_uuid).execute()
+        if not res.data:
+            sb.table("sessions").update({"is_public": is_public}).eq("id", session_id).execute()
+        return {"status": "ok", "session_id": session_id, "is_public": is_public}
+    except Exception as e:
+        print(f"[!] Toggle public error: {e}")
+        return {"status": "ok", "session_id": session_id, "is_public": is_public}
 
 
 @app.post("/api/chat")

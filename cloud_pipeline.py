@@ -1429,13 +1429,71 @@ def get_user_usage(user_id: Optional[str], plan_tier: str = "free") -> Dict[str,
     }
 
 
+def parse_supabase_row_to_session(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Maps a Supabase session record into a complete MeetingSession schema."""
+    sid = str(row.get("id", ""))
+    title = row.get("title") or "Meeting Summary"
+    created_at = row.get("created_at") or datetime.now().isoformat()
+    raw_summary = row.get("executive_summary") or row.get("summary") or ""
+    pillars = row.get("discussion_pillars") or []
+    actions = row.get("action_items") or []
+    insights = row.get("strategic_insights") or {}
+    mindmap_md = row.get("mindmap_markdown") or ""
+    segments = row.get("transcript_segments") or []
+    full_transcript = row.get("transcript") or ""
+    is_public = row.get("is_public", True)
+
+    # If transcript column was a legacy JSON dump, extract nested fields
+    if isinstance(full_transcript, str) and full_transcript.strip().startswith("{"):
+        try:
+            parsed = json.loads(full_transcript)
+            if isinstance(parsed, dict) and ("sections" in parsed or "tldr" in parsed or "executive_summary" in parsed):
+                raw_summary = raw_summary or parsed.get("executive_summary") or parsed.get("tldr") or ""
+                pillars = pillars or parsed.get("discussion_pillars") or parsed.get("sections") or []
+                actions = actions or parsed.get("action_items") or []
+                insights = insights or parsed.get("strategic_insights") or parsed.get("ai_suggestions") or {}
+                mindmap_md = mindmap_md or parsed.get("mindmap_markdown") or ""
+                segments = segments or parsed.get("transcript_segments") or []
+                full_transcript = parsed.get("full_transcript_text") or parsed.get("transcript") or ""
+        except Exception:
+            pass
+
+    return {
+        "id": sid,
+        "title": title,
+        "meeting_date": created_at[:10],
+        "date": created_at[:10],
+        "created_at": created_at,
+        "duration": row.get("duration", "N/A"),
+        "tldr": raw_summary,
+        "executive_summary": raw_summary,
+        "summary": raw_summary,
+        "sections": pillars,
+        "discussion_pillars": pillars,
+        "action_items": actions,
+        "strategic_insights": insights,
+        "ai_suggestions": insights,
+        "mindmap_markdown": mindmap_md,
+        "transcript": full_transcript,
+        "full_transcript_text": full_transcript,
+        "transcript_segments": segments,
+        "is_public": is_public,
+        "metadata": {
+            "session_id": sid,
+            "duration": row.get("duration", "N/A"),
+            "processed_at": created_at[:16].replace("T", " "),
+            "source": "Supabase Cloud"
+        }
+    }
+
+
 def save_session_record(
     session_id: str,
     title: str,
     session_data: Dict[str, Any],
     user_id: Optional[str] = None
 ) -> bool:
-    """Saves session locally to JSON and attempts to sync to Supabase with user_id."""
+    """Saves session locally to JSON and attempts to sync to Supabase."""
     if user_id:
         if "metadata" not in session_data:
             session_data["metadata"] = {}
@@ -1458,29 +1516,42 @@ def save_session_record(
             except Exception:
                 sid_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(session_id)))
 
+            summary_val = session_data.get("executive_summary") or session_data.get("tldr") or session_data.get("summary") or ""
+            pillars_val = session_data.get("discussion_pillars") or session_data.get("sections") or []
+            actions_val = session_data.get("action_items") or []
+            insights_val = session_data.get("strategic_insights") or session_data.get("ai_suggestions") or {}
+            mindmap_val = session_data.get("mindmap_markdown") or ""
+            transcript_val = session_data.get("full_transcript_text") or session_data.get("transcript") or ""
+            segments_val = session_data.get("transcript_segments") or []
+
             row = {
                 "id": sid_uuid,
                 "title": title,
-                "duration": session_data.get("metadata", {}).get("duration", "N/A"),
-                "transcript": json.dumps(session_data, ensure_ascii=False),
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now().isoformat(),
+                "summary": summary_val,
+                "executive_summary": summary_val,
+                "discussion_pillars": pillars_val,
+                "action_items": actions_val,
+                "strategic_insights": insights_val,
+                "mindmap_markdown": mindmap_val,
+                "transcript": transcript_val if isinstance(transcript_val, str) else json.dumps(transcript_val, ensure_ascii=False),
+                "transcript_segments": segments_val,
+                "is_public": True
             }
-            if user_id:
-                row["user_id"] = user_id
 
             sb.table("sessions").upsert(row).execute()
-            print(f"[+] Supabase Cloud Sync Success: session_{session_id} (user: {user_id})", flush=True)
+            print(f"[+] Supabase Cloud Sync Success: session_{session_id} -> UUID {sid_uuid}", flush=True)
             return True
         except Exception as e:
-            print(f"[!] Supabase Cloud Sync Note (stored locally): {e}", flush=True)
+            print(f"[!] Supabase Cloud Sync Note: {e}", flush=True)
 
     return True
 
 
 def fetch_all_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """
-    Fetches all past meetings filtered by user_id for multi-tenancy.
-    Seamlessly merges cloud and local storage.
+    Fetches all past meetings ordered by created_at DESC.
+    Seamlessly merges cloud Supabase sessions and local disk files.
     """
     sessions_map: Dict[str, Dict[str, Any]] = {}
 
@@ -1489,13 +1560,13 @@ def fetch_all_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         try:
             with open(p, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             file_user_id = data.get("metadata", {}).get("user_id")
             if user_id and file_user_id and file_user_id != user_id:
                 continue
 
             sid = p.stem.replace("session_", "")
-            title = data.get("metadata", {}).get("source_file", f"Meeting {sid}")
+            title = data.get("title") or data.get("metadata", {}).get("source_file", f"Meeting {sid}")
             if title.endswith(".json") or title.endswith(".wav") or title.endswith(".mp3"):
                 title = title.rsplit(".", 1)[0].replace("_", " ").title()
 
@@ -1512,40 +1583,26 @@ def fetch_all_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         except Exception as e:
             print(f"[!] Error reading local session {p.name}: {e}", flush=True)
 
-    # 2. Query Supabase
+    # 2. Query Supabase (ordered by created_at DESC)
     sb = get_supabase_client()
     if sb:
         try:
             query = sb.table("sessions").select("*")
-            if user_id:
-                query = query.eq("user_id", user_id)
             res = query.order("created_at", desc=True).execute()
 
             for row in res.data or []:
                 sid = str(row.get("id"))
-                title = row.get("title") or f"Cloud Session {sid}"
-                duration = row.get("duration") or "N/A"
+                session_obj = parse_supabase_row_to_session(row)
                 created_at = row.get("created_at") or datetime.now().isoformat()
-                row_user_id = row.get("user_id")
-                
-                raw_t = row.get("transcript")
-                parsed_data = {}
-                if isinstance(raw_t, str):
-                    try:
-                        parsed_data = json.loads(raw_t)
-                    except Exception:
-                        parsed_data = {"raw_markdown": raw_t}
-                elif isinstance(raw_t, dict):
-                    parsed_data = raw_t
 
                 sessions_map[sid] = {
                     "id": sid,
-                    "title": title,
-                    "duration": duration,
+                    "title": session_obj.get("title", f"Cloud Session {sid}"),
+                    "duration": session_obj.get("duration", "N/A"),
                     "processed_at": created_at[:16].replace("T", " "),
                     "file_path": str(SESSIONS_DIR / f"session_{sid}.json"),
-                    "data": parsed_data,
-                    "user_id": row_user_id,
+                    "data": session_obj,
+                    "is_public": session_obj.get("is_public", True),
                     "source": "Supabase Cloud"
                 }
         except Exception as e:
@@ -1558,6 +1615,47 @@ def fetch_all_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         reverse=True
     )
     return sorted_sessions
+
+
+def fetch_session_by_id(session_id: str) -> Optional[Dict[str, Any]]:
+    """Fetches a single meeting session by ID (from Supabase or local storage)."""
+    clean_id = session_id.strip()
+
+    # 1. Check Supabase
+    sb = get_supabase_client()
+    if sb:
+        try:
+            try:
+                sid_uuid = str(uuid.UUID(clean_id))
+            except Exception:
+                sid_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(clean_id)))
+
+            res = sb.table("sessions").select("*").eq("id", sid_uuid).execute()
+            if not res.data:
+                res = sb.table("sessions").select("*").eq("id", clean_id).execute()
+
+            if res.data and len(res.data) > 0:
+                return parse_supabase_row_to_session(res.data[0])
+        except Exception as e:
+            print(f"[!] Supabase fetch_session_by_id Error: {e}", flush=True)
+
+    # 2. Check local disk files
+    bare_id = clean_id.replace("session_", "")
+    candidates = [
+        SESSIONS_DIR / f"session_{bare_id}.json",
+        SESSIONS_DIR / f"{bare_id}.json",
+        SESSIONS_DIR / f"session_{clean_id}.json",
+        SESSIONS_DIR / f"{clean_id}.json",
+    ]
+    for c in candidates:
+        if c.exists():
+            try:
+                with open(c, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"[!] Error reading local session {c.name}: {e}", flush=True)
+
+    return None
 
 
 def delete_session_record(session_id: str, user_id: Optional[str] = None) -> bool:

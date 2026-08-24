@@ -50,6 +50,27 @@ export async function fetchSessions(userId?: string): Promise<MeetingSession[]> 
   }
 }
 
+export async function fetchSessionById(id: string): Promise<MeetingSession | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function togglePublicSession(id: string, isPublic: boolean = true): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}/public?is_public=${isPublic}`, {
+      method: "PATCH",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function askMeetingAssistant(
   sessionData: MeetingSession,
   query: string,
