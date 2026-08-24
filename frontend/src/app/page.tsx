@@ -14,12 +14,9 @@ import {
   ArrowRight, 
   ShieldCheck,
   Menu,
-  Plus,
-  User,
   LogIn
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Sidebar } from "@/components/Sidebar";
 import { UploadModal } from "@/components/UploadModal";
 import { MeetingView } from "@/components/MeetingView";
@@ -61,14 +58,14 @@ export default function Home() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#0c0d0e] text-[#f0f2f5] flex-col md:flex-row">
-      {/* Top Mobile Navigation Bar (visible < 768px) */}
-      <header className="md:hidden h-14 bg-[#111215] border-b border-[#232529] px-4 flex items-center justify-between shrink-0 z-30">
+      {/* Fixed Sticky Mobile Navigation Bar */}
+      <header className="md:hidden h-14 bg-[#0c0d0e]/90 backdrop-blur-md border-b border-white/10 px-4 flex items-center justify-between shrink-0 sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <Button
             size="icon"
             variant="ghost"
             onClick={() => setIsMobileDrawerOpen(true)}
-            className="w-9 h-9 text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#18191c] rounded-xl"
+            className="w-9 h-9 text-[#8b909a] hover:text-[#f0f2f5] hover:bg-white/5 rounded-xl"
             aria-label="Open Navigation Menu"
           >
             <Menu className="w-5 h-5" />
@@ -78,31 +75,39 @@ export default function Home() {
             <div className="w-7 h-7 rounded-lg bg-[#ff5c47]/10 border border-[#ff5c47]/20 flex items-center justify-center text-[#ff5c47]">
               <AudioWaveform className="w-4 h-4" />
             </div>
-            <span className="font-bold text-sm text-[#f0f2f5] font-heading">
+            <span className="font-bold text-sm text-[#f0f2f5] font-heading tracking-tight">
               Hesh Rec
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Quota Badge on Mobile */}
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[11px] font-mono text-[#8b909a]">
-            <Sparkles className="w-3 h-3 text-[#ff5c47]" />
-            {minutesUsed.toFixed(0)}/{minutesLimit.toFixed(0)}m
-          </span>
-
-          <Button
-            size="sm"
-            onClick={() => setIsUploadOpen(true)}
-            className="h-8 px-3 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white text-xs font-medium gap-1"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Upload</span>
-          </Button>
+          {user ? (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-[#8b909a]">
+                <Sparkles className="w-3 h-3 text-[#ff5c47]" />
+                {minutesUsed.toFixed(0)}/{minutesLimit.toFixed(0)}m
+              </span>
+              <div className="w-7 h-7 rounded-full bg-[#ff5c47]/20 border border-[#ff5c47]/30 flex items-center justify-center text-[11px] font-semibold text-[#ff5c47]">
+                {user.email ? user.email[0].toUpperCase() : "U"}
+              </div>
+            </div>
+          ) : (
+            <Link href="/login">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 px-3 rounded-full border-white/10 bg-white/5 text-[#f0f2f5] hover:border-[#ff5c47]/50 text-xs font-medium"
+              >
+                <LogIn className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
+                Sign In
+              </Button>
+            </Link>
+          )}
         </div>
       </header>
 
-      {/* Sidebar (Desktop static & Mobile Slide-Over Drawer) */}
+      {/* Sidebar (Desktop Static & Mobile Slide-Over Drawer) */}
       <Sidebar
         sessions={sessions}
         activeSessionId={activeSession?.metadata?.session_id || activeSession?.id || null}
@@ -129,46 +134,35 @@ export default function Home() {
             />
           </>
         ) : (
-          /* Empty State / Welcome Dashboard */
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-16 space-y-8 sm:space-y-12">
-            {/* Hero Banner */}
-            <div className="space-y-4 text-center max-w-xl mx-auto pt-4 sm:pt-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-xs font-medium">
+          /* Empty State / Clean Welcome Dashboard */
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12 pb-16 space-y-8 sm:space-y-12">
+            {/* Clean Hero Banner */}
+            <div className="space-y-4 text-center max-w-lg mx-auto">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-xs font-medium mx-auto">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Next-Gen Speech & Meeting Intelligence</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#f0f2f5] font-heading leading-tight break-words">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading leading-snug break-words">
                 Turn recordings into SOC 2 executive intelligence.
               </h1>
               <p className="text-xs sm:text-sm text-[#8b909a] leading-relaxed max-w-md mx-auto">
                 Groq LPUs for ultra-fast Whisper transcription, paired with Gemini 2.5 Flash
-                for granular deliverables, mind maps, and compliance governance.
+                for deliverables, mind maps, and governance.
               </p>
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="pt-2 flex justify-center">
                 <Button
                   onClick={() => setIsUploadOpen(true)}
-                  className="w-full sm:w-auto h-10 px-6 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-medium text-xs shadow-lg shadow-[#ff5c47]/20 transition-all gap-2"
+                  className="w-full sm:w-auto h-11 px-8 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-semibold text-xs shadow-lg shadow-[#ff5c47]/25 transition-all gap-2"
                 >
                   <Upload className="w-4 h-4" />
                   Transcribe & Extract Meeting
                 </Button>
-                {!user && (
-                  <Link href="/login" className="w-full sm:w-auto">
-                    <Button
-                      variant="outline"
-                      className="w-full sm:w-auto h-10 px-5 rounded-full border-[#232529] bg-[#141517] text-[#f0f2f5] text-xs"
-                    >
-                      <LogIn className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
-                      Sign In for 300 Mins
-                    </Button>
-                  </Link>
-                )}
               </div>
             </div>
 
             {/* Metric Tiles */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-2">
-              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 sm:p-6 space-y-2 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-[#ff5c47]/10 flex items-center justify-center text-[#ff5c47]">
                   <FileText className="w-4 h-4" />
                 </div>
@@ -180,7 +174,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 sm:p-6 space-y-2 shadow-sm">
+              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-[#3ec98a]/10 flex items-center justify-center text-[#3ec98a]">
                   <CheckSquare className="w-4 h-4" />
                 </div>
@@ -192,7 +186,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 sm:p-6 space-y-2 shadow-sm">
+              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-[#7cb0ff]/10 flex items-center justify-center text-[#7cb0ff]">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
