@@ -16,6 +16,7 @@ import {
   Sparkles,
   X
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MeetingSession } from "@/types/meeting";
@@ -39,6 +40,7 @@ export function Sidebar({
   isMobileOpen = false,
   onCloseMobile,
 }: SidebarProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const { user, profile, isAdmin, signOut } = useAuth();
 
@@ -60,6 +62,14 @@ export function Sidebar({
   };
 
   const handleUploadClick = () => {
+    if (!user) {
+      if (onCloseMobile) onCloseMobile();
+      router.push(
+        "/login?msg=" +
+          encodeURIComponent("Please sign in or create an account to transcribe audio (300 free mins/month)")
+      );
+      return;
+    }
     onOpenUpload();
     if (onCloseMobile) onCloseMobile();
   };

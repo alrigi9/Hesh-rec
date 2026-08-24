@@ -2,8 +2,8 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { 
@@ -15,17 +15,20 @@ import {
   Sparkles, 
   CheckCircle2, 
   AlertCircle,
-  Loader2
+  Loader2,
+  Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const infoMsg = searchParams.get("msg");
   const { signIn, signUp, user } = useAuth();
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(infoMsg ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -141,6 +144,14 @@ export default function LoginPage() {
 
         {/* Auth Card */}
         <div className="p-8 rounded-2xl bg-[#141517] border border-[#232529] space-y-5 shadow-xl">
+          {/* Info Banner when redirected from Upload */}
+          {infoMsg && (
+            <div className="p-3 rounded-xl bg-[#ff5c47]/10 border border-[#ff5c47]/30 flex items-start gap-2.5 text-xs text-[#f0f2f5] shadow-sm">
+              <Sparkles className="w-4 h-4 text-[#ff5c47] shrink-0 mt-0.5" />
+              <span>{infoMsg}</span>
+            </div>
+          )}
+
           {/* Mode Switcher Tabs */}
           <div className="grid grid-cols-2 p-1 rounded-full bg-[#18191c] border border-[#232529] text-xs">
             <button
@@ -320,5 +331,17 @@ export default function LoginPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0c0d0e] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-[#ff5c47] animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

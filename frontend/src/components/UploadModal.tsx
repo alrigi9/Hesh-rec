@@ -15,6 +15,7 @@ import {
   DialogTitle, 
   DialogDescription 
 } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { processAudioFile } from "@/lib/api";
 import { MeetingSession } from "@/types/meeting";
@@ -27,6 +28,7 @@ interface UploadModalProps {
 }
 
 export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
+  const router = useRouter();
   const { user, token, profile, isAdmin, refreshProfile } = useAuth();
 
   const [file, setFile] = useState<File | null>(null);
@@ -54,6 +56,12 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
   };
 
   const handleProcess = async () => {
+    if (!user) {
+      onClose();
+      router.push("/login?msg=" + encodeURIComponent("Please sign in or create an account to transcribe audio (300 free mins/month)"));
+      return;
+    }
+
     if (!file) {
       setError("Please select an audio file.");
       return;

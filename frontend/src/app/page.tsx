@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
   Sparkles, 
@@ -12,9 +13,9 @@ import {
   CheckSquare, 
   Clock, 
   ArrowRight, 
-  ShieldCheck,
-  Menu,
-  LogIn
+  ShieldCheck, 
+  Menu, 
+  LogIn 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/Sidebar";
@@ -26,6 +27,7 @@ import { MeetingSession } from "@/types/meeting";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
+  const router = useRouter();
   const { user, profile, token } = useAuth();
   const [sessions, setSessions] = useState<MeetingSession[]>([]);
   const [activeSession, setActiveSession] = useState<MeetingSession | null>(null);
@@ -43,6 +45,17 @@ export default function Home() {
       }
     });
   }, [user?.id, token]);
+
+  const handleOpenUpload = () => {
+    if (!user) {
+      router.push(
+        "/login?msg=" +
+          encodeURIComponent("Please sign in or create an account to transcribe audio (300 free mins/month)")
+      );
+      return;
+    }
+    setIsUploadOpen(true);
+  };
 
   const handleUploadSuccess = (newSession: MeetingSession) => {
     setSessions((prev) => [newSession, ...prev]);
@@ -116,8 +129,8 @@ export default function Home() {
           setIsMobileDrawerOpen(false);
         }}
         onOpenUpload={() => {
-          setIsUploadOpen(true);
           setIsMobileDrawerOpen(false);
+          handleOpenUpload();
         }}
         isMobileOpen={isMobileDrawerOpen}
         onCloseMobile={() => setIsMobileDrawerOpen(false)}
@@ -151,7 +164,7 @@ export default function Home() {
               </p>
               <div className="pt-2 flex justify-center">
                 <Button
-                  onClick={() => setIsUploadOpen(true)}
+                  onClick={handleOpenUpload}
                   className="w-full sm:w-auto h-11 px-8 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-semibold text-xs shadow-lg shadow-[#ff5c47]/25 transition-all gap-2"
                 >
                   <Upload className="w-4 h-4" />

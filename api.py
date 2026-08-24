@@ -2,8 +2,10 @@
 import os
 import toml
 import json
+import time
 import uuid
 from pathlib import Path
+from collections import defaultdict
 from dotenv import load_dotenv
 
 # Force load from .streamlit/secrets.toml
@@ -28,7 +30,7 @@ import tempfile
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
-from fastapi import FastAPI, File, UploadFile, Form, Header, HTTPException, status, Query
+from fastapi import FastAPI, File, UploadFile, Form, Header, HTTPException, status, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -87,24 +89,26 @@ from cloud_pipeline import (
 
 app = FastAPI(
     title="Hesh Rec API",
-    description="Speech Intelligence & SOC 2 Meeting Summary Engine with Multi-tenant Quotas",
-    version="2.4.0"
+    description="Speech Intelligence & SOC 2 Meeting Summary Engine with Strict Security & Quota Controls",
+    version="2.5.0"
 )
 
-# Enable CORS for Next.js dev & production clients
-origins = [
+# Strict CORS Hardening
+ALLOWED_ORIGINS = [
+    "https://recmap.tech",
+    "https://frontend-two-kappa-70.vercel.app",
+    "https://frontend-kohl-ten-38.vercel.app",
+    "https://frontend-520etngs5-hesham15.vercel.app",
+    "https://frontend-gtd9xhnup-hesham15.vercel.app",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:8501",
-    "https://frontend-kohl-ten-38.vercel.app",
-    "*"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -117,6 +121,46 @@ ADMIN_EMAILS = [
         "hesham@example.com,admin@heshrec.com,admin@example.com,alrigi9@gmail.com"
     ).split(",") if e.strip()
 ]
+
+# Security Limits
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
+ALLOWED_MIME_TYPES = {
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/mp4",
+    "audio/x-m4a",
+    "audio/m4a",
+    "audio/aac",
+    "audio/x-aac",
+    "audio/ogg",
+    "audio/webm",
+    "audio/flac",
+    "audio/x-flac",
+    "application/octet-stream",  # Fallback for some browsers
+}
+ALLOWED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".mp4", ".aac", ".ogg", ".flac", ".webm"}
+
+# Rate Limiter: max 5 requests per 60 seconds per user_id
+RATE_LIMIT_WINDOW = 60.0  # seconds
+RATE_LIMIT_MAX_REQUESTS = 5
+user_request_timestamps: Dict[str, List[float]] = defaultdict(list)
+
+
+def check_rate_limit(identifier: str):
+    """Enforces max 5 requests per minute sliding window."""
+    now = time.time()
+    timestamps = user_request_timestamps[identifier]
+    # Retain timestamps in current window
+    user_request_timestamps[identifier] = [ts for ts in timestamps if now - ts < RATE_LIMIT_WINDOW]
+    if len(user_request_timestamps[identifier]) >= RATE_LIMIT_MAX_REQUESTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Maximum 5 audio processing requests per minute. Please try again shortly."
+        )
+    user_request_timestamps[identifier].append(now)
+
 
 PROFILES_CACHE_FILE = BASE_DIR / "sessions" / "profiles.json"
 
@@ -174,7 +218,6 @@ def get_or_create_user_profile(user_id: str, email: str = "") -> Dict[str, Any]:
             res = sb.table("profiles").select("*").eq("id", user_id).execute()
             if res.data and len(res.data) > 0:
                 p = res.data[0]
-                # If admin email, ensure role is upgraded
                 if is_admin and p.get("role") != "admin":
                     sb.table("profiles").update({"role": "admin"}).eq("id", user_id).execute()
                     p["role"] = "admin"
@@ -241,9 +284,10 @@ async def health_check():
     return {
         "status": "ok",
         "service": "hesh-rec-api",
-        "version": "2.4.0",
+        "version": "2.5.0",
         "default_model": DEFAULT_GEMINI_MODEL,
-        "monthly_quota_limit": 300.0
+        "monthly_quota_limit": 300.0,
+        "max_upload_size_mb": 50
     }
 
 
@@ -254,7 +298,7 @@ async def get_user_profile(
 ):
     """Fetches user profile, current role, and monthly quota status."""
     auth_user = get_user_from_jwt(authorization)
-    uid = (auth_user and auth_user.get("id")) or user_id or "demo_user"
+    uid = (auth_user and auth_user.get("id")) or user_id or "guest"
     email = (auth_user and auth_user.get("email")) or ""
 
     profile = get_or_create_user_profile(uid, email)
@@ -280,48 +324,78 @@ async def process_audio(
     file: UploadFile = File(...),
     template_type: str = Form("executive"),
     custom_title: Optional[str] = Form(None),
-    user_id: Optional[str] = Form(None),
     authorization: Optional[str] = Header(None)
 ):
     """
-    Accepts audio upload, verifies the 300 min monthly user quota, runs Groq Whisper
-    + Gemini SOC 2 intelligence extraction, and updates user usage.
+    Accepts audio upload, verifies strict authentication, applies rate limiting,
+    enforces 50MB max file size, validates audio MIME type, and ensures clean temp file deletion.
     """
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file uploaded.")
-
-    # 1. Resolve User & Quota Verification
+    # 1. Strict Authentication Guard (Zero anonymous uploads allowed)
     auth_user = get_user_from_jwt(authorization)
-    uid = (auth_user and auth_user.get("id")) or user_id or "demo_user"
-    email = (auth_user and auth_user.get("email")) or ""
+    if not auth_user or not auth_user.get("id"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Please sign in or create an account to process audio."
+        )
 
+    uid = str(auth_user["id"])
+    email = str(auth_user.get("email", ""))
+
+    # 2. Rate Limiting (Max 5 requests per minute per user)
+    check_rate_limit(uid)
+
+    # 3. Monthly Quota Check
     profile = get_or_create_user_profile(uid, email)
     used = float(profile.get("minutes_used_this_month", 0.0))
     limit = float(profile.get("monthly_minutes_limit", 300.0))
 
     if used >= limit and profile.get("role") != "admin":
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Monthly quota of {limit:.0f} minutes exceeded ({used:.1f}/{limit:.0f} mins used). Upgrade plan or contact admin."
         )
 
-    # 2. Validate file extension
+    if not file.filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No file uploaded.")
+
+    # 4. Strict File Extension & MIME Validation
     suffix = Path(file.filename).suffix.lower()
-    allowed = [".mp3", ".wav", ".m4a", ".mp4", ".aac", ".ogg", ".flac"]
-    if suffix not in allowed:
+    if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file format '{suffix}'. Allowed: {', '.join(allowed)}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file format '{suffix}'. Allowed formats: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
         )
 
-    # 3. Save to local inputs dir
+    if file.content_type:
+        mime = file.content_type.lower().split(";")[0].strip()
+        if mime not in ALLOWED_MIME_TYPES and not mime.startswith("audio/"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid MIME type '{mime}'. Must be a supported audio format."
+            )
+
+    # 5. Chunked Save with 50MB Size Limit
     clean_fname = Path(file.filename).name.replace(" ", "_")
     timestamp_prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
-    save_path = INPUTS_DIR / f"upload_{timestamp_prefix}_{clean_fname}"
+    save_path = INPUTS_DIR / f"upload_{timestamp_prefix}_{uuid.uuid4().hex[:8]}_{clean_fname}"
 
     try:
+        total_bytes = 0
         with open(save_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer, length=1024 * 1024)
+            while True:
+                chunk = await file.read(1024 * 1024)  # 1MB chunk
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > MAX_UPLOAD_SIZE:
+                    buffer.close()
+                    if save_path.exists():
+                        save_path.unlink()
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail="Payload Too Large. Maximum allowed audio file size is 50MB."
+                    )
+                buffer.write(chunk)
 
         ensure_secrets_loaded()
 
@@ -343,7 +417,7 @@ async def process_audio(
             gemini_api_key=gemini_key or None
         )
 
-        # 4. Increment user's monthly usage
+        # 6. Increment authenticated user's monthly usage
         dur_sec = result.get("metadata", {}).get("duration_seconds", 0)
         dur_mins = round(dur_sec / 60.0, 2) if dur_sec > 0 else float(result.get("duration_minutes") or 1.0)
         increment_user_usage(uid, dur_mins)
@@ -353,11 +427,17 @@ async def process_audio(
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Audio processing failed: {str(e)}"
         )
     finally:
+        # 7. Strict Temp File Cleanup (Prevent disk leakage)
         file.file.close()
+        if save_path.exists():
+            try:
+                save_path.unlink()
+            except Exception as e:
+                print(f"[!] Warning cleaning temp file {save_path}: {e}")
 
 
 @app.get("/api/sessions")
@@ -365,7 +445,7 @@ async def list_sessions(
     user_id: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None)
 ):
-    """Retrieves all sessions filtered by user_id for multi-tenancy."""
+    """Retrieves all sessions filtered by authenticated user_id for multi-tenancy."""
     auth_user = get_user_from_jwt(authorization)
     uid = (auth_user and auth_user.get("id")) or user_id
     try:
@@ -410,8 +490,6 @@ async def toggle_public_session(session_id: str, is_public: bool = True):
         return {"status": "ok", "session_id": session_id, "is_public": is_public}
 
 
-# =============================================================================
-# ADMIN DASHBOARD API ENDPOINTS
 # =============================================================================
 # ADMIN DASHBOARD API ENDPOINTS (STRICT RBAC GUARDED)
 # =============================================================================
