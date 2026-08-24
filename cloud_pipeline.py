@@ -51,13 +51,13 @@ def sync_secrets_toml_to_env():
 
 sync_secrets_toml_to_env()
 
-DEFAULT_GEMINI_MODEL = get_secret("GEMINI_MODEL", "gemini-2.5-flash")
+DEFAULT_GEMINI_MODEL = get_secret("GEMINI_MODEL", "gemini-3.6-flash")
 
 MODEL_CANDIDATES = [
     DEFAULT_GEMINI_MODEL,
-    "gemini-2.5-flash",
-    "gemini-3.5-flash",
     "gemini-3.6-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
     "gemini-flash-latest"
 ]
 
