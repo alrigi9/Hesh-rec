@@ -15,6 +15,7 @@ export interface AdminUserRecord {
   role: "admin" | "user" | string;
   monthly_minutes_limit: number;
   minutes_used_this_month: number;
+  email_confirmed?: boolean;
   created_at: string;
 }
 

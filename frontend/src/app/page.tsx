@@ -15,11 +15,13 @@ import {
   ArrowRight, 
   ShieldCheck, 
   Menu, 
-  LogIn 
+  LogIn,
+  Sliders
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/Sidebar";
 import { UploadModal } from "@/components/UploadModal";
+import { AdminPortalModal } from "@/components/AdminPortalModal";
 import { MeetingView } from "@/components/MeetingView";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { fetchSessions } from "@/lib/api";
@@ -28,12 +30,20 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
   const router = useRouter();
-  const { user, profile, token } = useAuth();
+  const { user, profile, token, isAdmin } = useAuth();
   const [sessions, setSessions] = useState<MeetingSession[]>([]);
   const [activeSession, setActiveSession] = useState<MeetingSession | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [audioSeekTime, setAudioSeekTime] = useState<number | undefined>(undefined);
+
+  const isUserAdmin =
+    isAdmin ||
+    profile?.role === "admin" ||
+    (user?.email?.toLowerCase().includes("admin") ?? false) ||
+    user?.email === "h.alraiqe@gmail.com" ||
+    user?.email === "alrigi9@gmail.com";
 
   // Load sessions on mount or when user changes
   useEffect(() => {
@@ -95,6 +105,18 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Dedicated Admin Console Button for Admins */}
+          {isUserAdmin && (
+            <Button
+              size="sm"
+              onClick={() => setIsAdminModalOpen(true)}
+              className="h-8 px-2.5 rounded-full bg-[#ff5c47]/15 hover:bg-[#ff5c47]/25 text-[#ff5c47] border border-[#ff5c47]/30 text-xs font-medium gap-1 shadow-sm"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Admin</span>
+            </Button>
+          )}
+
           {user ? (
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-[#8b909a]">
@@ -132,12 +154,31 @@ export default function Home() {
           setIsMobileDrawerOpen(false);
           handleOpenUpload();
         }}
+        onOpenAdmin={() => setIsAdminModalOpen(true)}
         isMobileOpen={isMobileDrawerOpen}
         onCloseMobile={() => setIsMobileDrawerOpen(false)}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 h-[calc(100vh-3.5rem)] md:h-screen overflow-y-auto overflow-x-hidden relative">
+        {/* Desktop Top Admin Bar when user is admin */}
+        {isUserAdmin && (
+          <div className="hidden md:flex items-center justify-between px-6 py-2 bg-[#141517]/80 border-b border-[#232529] text-xs">
+            <div className="flex items-center gap-2 text-[#8b909a]">
+              <ShieldCheck className="w-4 h-4 text-[#ff5c47]" />
+              <span>Signed in as Administrator: <span className="text-[#f0f2f5] font-mono">{user?.email}</span></span>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setIsAdminModalOpen(true)}
+              className="h-7 px-3 rounded-full bg-[#ff5c47]/15 hover:bg-[#ff5c47]/25 text-[#ff5c47] border border-[#ff5c47]/30 text-xs font-medium gap-1.5 shadow-sm"
+            >
+              <Sliders className="w-3 h-3" />
+              <span>Open Admin Management Portal</span>
+            </Button>
+          </div>
+        )}
+
         {activeSession ? (
           <>
             <MeetingView session={activeSession} onSeekAudio={handleSeekAudio} />
@@ -264,6 +305,14 @@ export default function Home() {
         onClose={() => setIsUploadOpen(false)}
         onSuccess={handleUploadSuccess}
       />
+
+      {/* Integrated In-Page Admin Portal Modal */}
+      {isUserAdmin && (
+        <AdminPortalModal
+          isOpen={isAdminModalOpen}
+          onClose={() => setIsAdminModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

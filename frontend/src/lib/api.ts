@@ -76,18 +76,17 @@ export async function processAudioFile(
   });
 
   if (!response.ok) {
-    let errMessage = response.statusText;
+    let errorDetail = "Failed to process audio";
     try {
-      const errJson = await response.json();
-      errMessage = errJson.detail || errMessage;
+      const err = await response.json();
+      errorDetail = err.detail || errorDetail;
     } catch {
-      const errText = await response.text();
-      errMessage = errText || errMessage;
+      errorDetail = await response.text();
     }
-    throw new Error(errMessage);
+    throw new Error(errorDetail);
   }
 
-  return response.json();
+  return await response.json();
 }
 
 export async function fetchSessions(
@@ -106,34 +105,44 @@ export async function fetchSessions(
     if (!res.ok) return [];
     const data = await res.json();
     return data.sessions || [];
-  } catch {
+  } catch (err) {
+    console.error("Error fetching sessions:", err);
     return [];
   }
 }
 
-export async function fetchSessionById(id: string): Promise<MeetingSession | null> {
+export async function fetchSession(id: string): Promise<MeetingSession | null> {
   try {
     const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}`);
     if (!res.ok) return null;
     return await res.json();
-  } catch {
+  } catch (err) {
+    console.error("Error fetching session:", err);
     return null;
   }
 }
 
-export async function togglePublicSession(id: string, isPublic: boolean = true): Promise<boolean> {
+export const fetchSessionById = fetchSession;
+
+export async function toggleSessionPublic(
+  id: string,
+  isPublic: boolean
+): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(id)}/public?is_public=${isPublic}`, {
-      method: "PATCH",
-    });
+    const res = await fetch(
+      `${API_BASE}/api/sessions/${encodeURIComponent(id)}/public?is_public=${isPublic}`,
+      { method: "PATCH" }
+    );
     return res.ok;
   } catch {
     return false;
   }
 }
 
-export async function askMeetingAssistant(
-  sessionData: MeetingSession,
+export const togglePublicSession = toggleSessionPublic;
+
+export async function queryAssistant(
+  sessionData: any,
   query: string,
   history: Array<{ role: string; content: string }> = []
 ): Promise<string> {
@@ -158,6 +167,8 @@ export async function askMeetingAssistant(
   return data.answer || "I could not generate an answer for that query.";
 }
 
+export const askMeetingAssistant = queryAssistant;
+
 export async function fetchAdminUsers(
   token?: string,
   adminId?: string
@@ -179,14 +190,19 @@ export async function fetchAdminUsers(
 export async function updateAdminUserLimit(
   targetUserId: string,
   payload: { monthly_minutes_limit?: number; role?: string },
-  token?: string
+  token?: string,
+  adminId?: string
 ): Promise<boolean> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/limit`, {
+  const url = adminId
+    ? `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/limit?admin_id=${encodeURIComponent(adminId)}`
+    : `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/limit`;
+
+  const res = await fetch(url, {
     method: "PATCH",
     headers,
     body: JSON.stringify(payload),
@@ -197,13 +213,38 @@ export async function updateAdminUserLimit(
 
 export async function resetAdminUserQuota(
   targetUserId: string,
-  token?: string
+  token?: string,
+  adminId?: string
 ): Promise<boolean> {
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/reset-quota`, {
+  const url = adminId
+    ? `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/reset-quota?admin_id=${encodeURIComponent(adminId)}`
+    : `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/reset-quota`;
+
+  const res = await fetch(url, {
     method: "PATCH",
+    headers,
+  });
+
+  return res.ok;
+}
+
+export async function activateAdminUser(
+  targetUserId: string,
+  token?: string,
+  adminId?: string
+): Promise<boolean> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const url = adminId
+    ? `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/activate?admin_id=${encodeURIComponent(adminId)}`
+    : `${API_BASE}/api/admin/users/${encodeURIComponent(targetUserId)}/activate`;
+
+  const res = await fetch(url, {
+    method: "POST",
     headers,
   });
 

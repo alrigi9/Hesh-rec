@@ -90,7 +90,7 @@ from cloud_pipeline import (
 app = FastAPI(
     title="Hesh Rec API",
     description="Speech Intelligence & SOC 2 Meeting Summary Engine with Strict Security & Quota Controls",
-    version="2.5.0"
+    version="2.6.0"
 )
 
 # Strict CORS Hardening
@@ -100,6 +100,9 @@ ALLOWED_ORIGINS = [
     "https://frontend-kohl-ten-38.vercel.app",
     "https://frontend-520etngs5-hesham15.vercel.app",
     "https://frontend-gtd9xhnup-hesham15.vercel.app",
+    "https://frontend-8hsl6pxku-hesham15.vercel.app",
+    "https://frontend-dht58kx3u-hesham15.vercel.app",
+    "https://frontend-9sy4w1hek-hesham15.vercel.app",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
@@ -118,7 +121,7 @@ INPUTS_DIR.mkdir(parents=True, exist_ok=True)
 ADMIN_EMAILS = [
     e.strip().lower() for e in os.environ.get(
         "ADMIN_EMAILS",
-        "hesham@example.com,admin@heshrec.com,admin@example.com,alrigi9@gmail.com"
+        "hesham@example.com,admin@heshrec.com,admin@example.com,alrigi9@gmail.com,h.alraiqe@gmail.com"
     ).split(",") if e.strip()
 ]
 
@@ -284,7 +287,7 @@ async def health_check():
     return {
         "status": "ok",
         "service": "hesh-rec-api",
-        "version": "2.5.0",
+        "version": "2.6.0",
         "default_model": DEFAULT_GEMINI_MODEL,
         "monthly_quota_limit": 300.0,
         "max_upload_size_mb": 50
@@ -528,7 +531,7 @@ async def admin_list_users(
     authorization: Optional[str] = Header(None),
     admin_id: Optional[str] = Query(None)
 ):
-    """Returns all registered users, roles, minutes used, and limits for the Admin Dashboard."""
+    """Returns all registered users, roles, minutes used, limits, and confirmation status for the Admin Dashboard."""
     # Strict Admin Verification
     require_admin_user(authorization, admin_id)
 
@@ -540,17 +543,22 @@ async def admin_list_users(
         try:
             res = sb.table("profiles").select("*").execute()
             for r in res.data or []:
-                users_map[r["id"]] = r
+                users_map[r["id"]] = {
+                    **r,
+                    "email_confirmed": True  # Default true unless checked in Auth
+                }
         except Exception:
             pass
 
-        # 2. Supabase Auth Users
+        # 2. Supabase Auth Users (check confirmation status)
         try:
             auth_res = sb.auth.admin.list_users()
             user_list = auth_res.users if hasattr(auth_res, "users") else (auth_res if isinstance(auth_res, list) else [])
             for u in user_list:
                 uid_str = str(u.id)
                 u_email = str(u.email or "")
+                is_confirmed = bool(getattr(u, "email_confirmed_at", None) or getattr(u, "confirmed_at", None))
+                
                 if uid_str not in users_map:
                     users_map[uid_str] = {
                         "id": uid_str,
@@ -558,10 +566,13 @@ async def admin_list_users(
                         "role": "admin" if u_email.lower() in ADMIN_EMAILS else "user",
                         "monthly_minutes_limit": 300.0,
                         "minutes_used_this_month": 0.0,
+                        "email_confirmed": is_confirmed,
                         "created_at": getattr(u, "created_at", datetime.now().isoformat())
                     }
-                elif u_email and not users_map[uid_str].get("email"):
-                    users_map[uid_str]["email"] = u_email
+                else:
+                    if u_email and not users_map[uid_str].get("email"):
+                        users_map[uid_str]["email"] = u_email
+                    users_map[uid_str]["email_confirmed"] = is_confirmed
         except Exception:
             pass
 
@@ -569,7 +580,10 @@ async def admin_list_users(
     local_profiles = _load_local_profiles()
     for k, v in local_profiles.items():
         if k not in users_map:
-            users_map[k] = v
+            users_map[k] = {
+                **v,
+                "email_confirmed": True
+            }
 
     users_list = list(users_map.values())
     total_minutes = sum(float(u.get("minutes_used_this_month") or 0.0) for u in users_list)
@@ -585,15 +599,40 @@ async def admin_list_users(
     }
 
 
+@app.post("/api/admin/users/{target_user_id}/activate")
+async def admin_activate_user(
+    target_user_id: str,
+    authorization: Optional[str] = Header(None),
+    admin_id: Optional[str] = Query(None)
+):
+    """Instantly confirms and activates a user's email account (Admin only)."""
+    # Strict Admin Verification
+    require_admin_user(authorization, admin_id)
+
+    sb = get_supabase_client()
+    if sb:
+        try:
+            sb.auth.admin.update_user_by_id(target_user_id, {"email_confirm": True})
+        except Exception as e:
+            print(f"[!] Supabase activate user error: {e}")
+
+    return {
+        "status": "ok",
+        "user_id": target_user_id,
+        "message": "User account activated successfully"
+    }
+
+
 @app.patch("/api/admin/users/{target_user_id}/limit")
 async def admin_update_user_limit(
     target_user_id: str,
     payload: UpdateUserLimitRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    admin_id: Optional[str] = Query(None)
 ):
     """Updates a user's monthly minutes limit or role (Admin only)."""
     # Strict Admin Verification
-    require_admin_user(authorization)
+    require_admin_user(authorization, admin_id)
 
     sb = get_supabase_client()
     updates: Dict[str, Any] = {}
@@ -628,11 +667,12 @@ async def admin_update_user_limit(
 @app.patch("/api/admin/users/{target_user_id}/reset-quota")
 async def admin_reset_user_quota(
     target_user_id: str,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    admin_id: Optional[str] = Query(None)
 ):
     """Resets a user's monthly minutes used back to 0.0 (Admin only)."""
     # Strict Admin Verification
-    require_admin_user(authorization)
+    require_admin_user(authorization, admin_id)
 
     sb = get_supabase_client()
     if sb:
