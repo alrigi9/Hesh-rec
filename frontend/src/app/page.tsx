@@ -17,7 +17,9 @@ import {
   LogIn,
   Sliders,
   ArrowRight,
-  Lock
+  Lock,
+  Mic,
+  Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/Sidebar";
@@ -79,11 +81,12 @@ export default function Home() {
 
   const minutesUsed = profile?.minutes_used_this_month ?? 0.0;
   const minutesLimit = profile?.monthly_minutes_limit ?? 300.0;
+  const minutesRemaining = Math.max(0, Math.round(minutesLimit - minutesUsed));
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0c0d0e] text-[#f0f2f5] flex-col md:flex-row">
+    <div className="flex h-screen overflow-hidden bg-[#0A0B0F] text-[#f0f2f5] flex-col md:flex-row font-sans">
       {/* Fixed Sticky Mobile Navigation Bar */}
-      <header className="md:hidden h-14 bg-[#0c0d0e]/90 backdrop-blur-md border-b border-white/10 px-4 flex items-center justify-between shrink-0 sticky top-0 z-50">
+      <header className="md:hidden h-14 bg-[#0A0B0F]/90 backdrop-blur-md border-b border-white/[0.08] px-4 flex items-center justify-between shrink-0 sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <Button
             size="icon"
@@ -121,8 +124,8 @@ export default function Home() {
           {user ? (
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-[#8b909a]">
-                <Sparkles className="w-3 h-3 text-[#ff5c47]" />
-                {minutesUsed.toFixed(0)}/{minutesLimit.toFixed(0)}m
+                <Zap className="w-3 h-3 text-[#ff5c47]" />
+                {minutesRemaining}m left
               </span>
               <div className="w-7 h-7 rounded-full bg-[#ff5c47]/20 border border-[#ff5c47]/30 flex items-center justify-center text-[11px] font-semibold text-[#ff5c47]">
                 {user.email ? user.email[0].toUpperCase() : "U"}
@@ -164,7 +167,7 @@ export default function Home() {
       <main className="flex-1 h-[calc(100vh-3.5rem)] md:h-screen overflow-y-auto overflow-x-hidden relative">
         {/* Desktop Top Admin Bar when user is admin */}
         {isUserAdmin && (
-          <div className="hidden md:flex items-center justify-between px-6 py-2 bg-[#141517]/80 border-b border-[#232529] text-xs">
+          <div className="hidden md:flex items-center justify-between px-6 py-2 bg-[#13151B]/80 border-b border-white/[0.08] text-xs">
             <div className="flex items-center gap-2 text-[#8b909a]">
               <ShieldCheck className="w-4 h-4 text-[#ff5c47]" />
               <span>Admin Console • <span className="text-[#f0f2f5] font-mono">{user?.email}</span></span>
@@ -172,7 +175,7 @@ export default function Home() {
             <Button
               size="sm"
               onClick={() => setIsAdminModalOpen(true)}
-              className="h-7 px-3 rounded-full bg-[#ff5c47]/15 hover:bg-[#ff5c47]/25 text-[#ff5c47] border border-[#ff5c47]/30 text-xs font-medium gap-1.5 shadow-sm"
+              className="h-7 px-3 rounded-full bg-[#ff5c47]/15 hover:bg-[#ff5c47]/25 text-[#ff5c47] border border-[#ff5c47]/30 text-xs font-medium gap-1.5 shadow-[0_0_15px_rgba(255,92,71,0.15)]"
             >
               <Sliders className="w-3 h-3" />
               <span>Open Admin Management Portal</span>
@@ -189,13 +192,13 @@ export default function Home() {
             />
           </>
         ) : (
-          /* Empty State / Clean Welcome Dashboard */
+          /* Studio Workspace Ingestion & Landing View */
           <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12 pb-16 space-y-8 sm:space-y-12">
             {/* Clean Hero Banner */}
             <div className="space-y-4 text-center max-w-xl mx-auto">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-xs font-medium mx-auto">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Next-Gen Voice & Meeting Intelligence</span>
+                <span>Enterprise Speech & Audio Intelligence</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading leading-snug break-words">
                 Turn Voice & Meetings into Clear, Actionable Intelligence.
@@ -203,22 +206,34 @@ export default function Home() {
               <p className="text-xs sm:text-sm text-[#8b909a] leading-relaxed max-w-lg mx-auto">
                 Fast, secure audio transcription and intelligent breakdown powered by advanced AI models. Get instant executive summaries, mind maps, and structured action items.
               </p>
+              
+              {/* Direct Ingestion Action Buttons */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Button
                   onClick={handleOpenUpload}
-                  className="w-full sm:w-auto h-11 px-8 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-semibold text-xs shadow-lg shadow-[#ff5c47]/25 transition-all gap-2"
+                  className="w-full sm:w-auto h-11 px-7 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-semibold text-xs shadow-lg shadow-[#ff5c47]/25 transition-all gap-2"
                 >
                   <Upload className="w-4 h-4" />
                   Upload Audio
                 </Button>
+
+                <Button
+                  onClick={handleOpenUpload}
+                  variant="outline"
+                  className="w-full sm:w-auto h-11 px-6 rounded-full border-white/10 bg-[#13151B] hover:bg-[#18191c] text-[#f0f2f5] text-xs font-medium gap-2"
+                >
+                  <Mic className="w-4 h-4 text-[#ff5c47]" />
+                  Record Live
+                </Button>
+
                 {!user && (
                   <Link href="/login" className="w-full sm:w-auto">
                     <Button
-                      variant="outline"
-                      className="w-full sm:w-auto h-11 px-6 rounded-full border-[#232529] bg-[#141517] hover:bg-[#18191c] text-[#f0f2f5] text-xs font-medium"
+                      variant="ghost"
+                      className="w-full sm:w-auto h-11 px-5 rounded-full text-[#8b909a] hover:text-[#f0f2f5] text-xs font-medium gap-1.5"
                     >
-                      <LogIn className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
-                      Sign In to RecMap
+                      <LogIn className="w-3.5 h-3.5 text-[#ff5c47]" />
+                      Sign In
                     </Button>
                   </Link>
                 )}
@@ -227,7 +242,7 @@ export default function Home() {
 
             {/* Feature Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
+              <div className="bg-[#13151B] border border-white/[0.08] rounded-2xl p-5 space-y-2 shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-[#ff5c47]/10 flex items-center justify-center text-[#ff5c47]">
                   <FileText className="w-4 h-4" />
                 </div>
@@ -239,7 +254,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
+              <div className="bg-[#13151B] border border-white/[0.08] rounded-2xl p-5 space-y-2 shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-[#3ec98a]/10 flex items-center justify-center text-[#3ec98a]">
                   <CheckSquare className="w-4 h-4" />
                 </div>
@@ -251,7 +266,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
+              <div className="bg-[#13151B] border border-white/[0.08] rounded-2xl p-5 space-y-2 shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-[#7cb0ff]/10 flex items-center justify-center text-[#7cb0ff]">
                   <Network className="w-4 h-4" />
                 </div>
@@ -263,7 +278,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
+              <div className="bg-[#13151B] border border-white/[0.08] rounded-2xl p-5 space-y-2 shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-[#b180ff]/10 flex items-center justify-center text-[#b180ff]">
                   <Lock className="w-4 h-4" />
                 </div>
@@ -291,7 +306,7 @@ export default function Home() {
                     <div
                       key={idx}
                       onClick={() => setActiveSession(s)}
-                      className="bg-[#141517] border border-[#232529] hover:border-[#2e3238] rounded-2xl p-3.5 sm:p-4 sm:px-5 flex items-center justify-between cursor-pointer transition-all hover:bg-[#18191c]"
+                      className="bg-[#13151B] border border-white/[0.08] hover:border-white/20 rounded-2xl p-3.5 sm:p-4 sm:px-5 flex items-center justify-between cursor-pointer transition-all hover:bg-[#18191c]"
                     >
                       <div className="space-y-1 truncate pr-3">
                         <div className="text-sm font-semibold text-[#f0f2f5] truncate">
@@ -308,7 +323,7 @@ export default function Home() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="rounded-full text-xs text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#232529] shrink-0"
+                        className="rounded-full text-xs text-[#8b909a] hover:text-[#f0f2f5] hover:bg-white/5 shrink-0"
                       >
                         <span className="hidden sm:inline mr-1">Open Workspace</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -322,7 +337,7 @@ export default function Home() {
         )}
       </main>
 
-      {/* Upload & Transcribe Modal */}
+      {/* Ingestion & Transcribe Modal */}
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}

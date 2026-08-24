@@ -224,12 +224,10 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
               {displayDate}
             </span>
           )}
-          {session.metadata?.model && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px] sm:text-xs">
-              <Sparkles className="w-3 h-3 text-[#ff5c47]" />
-              {session.metadata.model}
-            </span>
-          )}
+          <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px] sm:text-xs">
+            <Sparkles className="w-3 h-3 text-[#ff5c47]" />
+            RecMap Intelligence
+          </span>
           {(session.tags || []).map((t, idx) => (
             <span
               key={idx}
