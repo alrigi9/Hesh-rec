@@ -562,8 +562,181 @@ def get_current_user_id() -> str | None:
     return None
 
 
+def build_deterministic_markmap_markdown(session_data: Dict[str, Any]) -> str:
+    """
+    Constructs a deterministic hierarchical Markmap Markdown tree directly from the session JSON.
+    - No text truncation.
+    - No boilerplate scaffolding labels like 'Core Topic and Focus'.
+    - Every action item is a leaf node.
+    """
+    title = session_data.get("title") or "Meeting Overview"
+    clean_title = re.sub(r"^#+\s*", "", str(title)).strip()
+
+    lines = [f"# {clean_title}"]
+
+    # 1. TL;DR / Executive Brief
+    tldr = session_data.get("tldr", "")
+    if tldr and isinstance(tldr, str):
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", tldr) if s.strip()]
+        if sentences:
+            lines.append("## Executive Brief")
+            for s in sentences:
+                clean_s = re.sub(r"^\*\*[^*]+:\*\*\s*", "", s).strip()
+                lines.append(f"- {clean_s}")
+    elif session_data.get("executive_brief"):
+        brief_items = session_data.get("executive_brief", [])
+        if brief_items:
+            lines.append("## Executive Brief")
+            for b in brief_items:
+                clean_b = re.sub(r"^[•\-*>\s]+", "", str(b)).strip()
+                clean_b = re.sub(r"^\*\*[^*]+:\*\*\s*", "", clean_b).strip()
+                if clean_b:
+                    lines.append(f"- {clean_b}")
+
+    # 2. Numbered Sections / Discussion Pillars
+    sections = session_data.get("sections", []) or session_data.get("numbered_topics", []) or session_data.get("discussion_pillars", [])
+    for idx, sec in enumerate(sections):
+        n = sec.get("n") or sec.get("index", idx + 1)
+        raw_sec_title = sec.get("title", f"Topic {n}")
+        clean_sec_title = re.sub(r"^\d+\.\s*", "", str(raw_sec_title)).strip()
+        
+        lines.append(f"## {n}. {clean_sec_title}")
+
+        # Narrative sentences (no boilerplate labels)
+        narrative = sec.get("narrative") or sec.get("details", "")
+        if narrative:
+            clean_narrative = re.sub(r"^\*\*(?:Core Topic & Focus|Key Arguments & Perspectives|Key Takeaways & Points|Consensus & Outcome|Context & Objective|Context|Objective|Speaker Perspective|[A-Z][a-z]+'s Perspective)[^\*:]*:\*\*\s*", "", str(narrative))
+            clean_narrative = re.sub(r"^[-*•]\s*\*\*[^*]+:\*\*\s*", "", clean_narrative).strip()
+            
+            sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", clean_narrative) if s.strip()]
+            for s in sentences:
+                if s.lower() != clean_sec_title.lower() and len(s) > 3:
+                    lines.append(f"- {s}")
+
+        # Decisions under this section
+        decisions = sec.get("decisions", [])
+        if decisions:
+            for d in decisions:
+                clean_d = re.sub(r"^\s*(?:\d+[\.\)]\s*|[-*•]\s*)", "", str(d)).strip()
+                if clean_d:
+                    lines.append(f"- **Decision:** {clean_d}")
+
+        # Action items under this section as leaf nodes
+        actions = sec.get("action_items", [])
+        if actions:
+            for a in actions:
+                task = a.get("task") or a.get("description") or "Deliverable"
+                owner = a.get("owner") or a.get("assignee") or "Team"
+                due = a.get("due_date") or a.get("due_text") or ""
+                due_part = f" [{due}]" if due and due != "—" else ""
+                lines.append(f"- **Action:** {task} — *{owner}*{due_part}")
+
+    # 3. Open Questions
+    open_questions = session_data.get("open_questions", [])
+    if open_questions:
+        lines.append("## Open Questions")
+        for q in open_questions:
+            q_txt = q.get("question") if isinstance(q, dict) else str(q)
+            q_by = q.get("raised_by") if isinstance(q, dict) else ""
+            by_txt = f" (*{q_by}*)" if q_by else ""
+            lines.append(f"- {q_txt}{by_txt}")
+
+    # 4. AI Suggestions
+    ai_suggestions = session_data.get("ai_suggestions", {}) or session_data.get("raw_suggestions_list", [])
+    sugg_items = []
+    if isinstance(ai_suggestions, dict):
+        s_items = ai_suggestions.get("items", [])
+        if s_items:
+            for s in s_items:
+                lbl = s.get("label") or s.get("title", "Suggestion")
+                det = s.get("detail") or s.get("body", "")
+                sugg_items.append((lbl, det))
+        else:
+            combined = ai_suggestions.get("unresolved", []) + ai_suggestions.get("gaps", []) + ai_suggestions.get("recommendations", [])
+            for c in combined:
+                if ":" in c:
+                    p1, p2 = c.split(":", 1)
+                    sugg_items.append((p1.strip(), p2.strip()))
+                else:
+                    sugg_items.append(("Note", c.strip()))
+    elif isinstance(ai_suggestions, list):
+        for s in ai_suggestions:
+            if isinstance(s, dict):
+                lbl = s.get("label") or s.get("title", "Suggestion")
+                det = s.get("detail") or s.get("body", "")
+                sugg_items.append((lbl, det))
+            else:
+                sugg_items.append(("Note", str(s)))
+
+    if sugg_items:
+        lines.append("## AI Suggestions")
+        for lbl, det in sugg_items:
+            if det:
+                lines.append(f"- **{lbl}:** {det}")
+            else:
+                lines.append(f"- {lbl}")
+
+    return "\n".join(lines)
+
+
+def render_markmap_component(markdown_content: str, height: int = 650):
+    """Renders interactive, collapsible Markmap tree using markmap-autoloader via streamlit.components.v1.html."""
+    import streamlit.components.v1 as components
+    
+    # Escape closing script tag
+    safe_md = markdown_content.replace("</script>", "<\\/script>")
+
+    markmap_html = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {{
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }}
+    .markmap-container {{
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }}
+    .markmap {{
+      width: 100%;
+      height: 100%;
+      display: block;
+    }}
+    svg.markmap {{
+      width: 100%;
+      height: 100%;
+    }}
+    .markmap-node text {{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13.5px;
+    }}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader"></script>
+</head>
+<body>
+  <div class="markmap-container">
+    <div class="markmap" style="width: 100%; height: 100vh;">
+      <script type="text/template">
+{safe_md}
+      </script>
+    </div>
+  </div>
+</body>
+</html>"""
+    components.html(markmap_html, height=height, scrolling=False)
+
+
 def render_mindmap_diagram(mermaid_code: str):
-    """Guaranteed SVG renderer using mermaid.ink with base64 encoding and theme awareness."""
+    """Fallback Mermaid SVG renderer."""
     if not mermaid_code:
         return
     clean_code = mermaid_code.replace("```mermaid", "").replace("```", "").strip()
@@ -571,21 +744,19 @@ def render_mindmap_diagram(mermaid_code: str):
     if not clean_code.startswith("mindmap") and not clean_code.startswith("graph"):
         clean_code = "mindmap\n  " + clean_code
 
-    # Generate direct base64 encoded URL for mermaid.ink
     try:
         encoded_bytes = base64.b64encode(clean_code.encode("utf-8"))
         encoded_str = encoded_bytes.decode("utf-8")
-        is_dark = st.session_state.get("theme", "dark") == "dark"
+        is_dark = st.session_state.get("theme", "light") == "dark"
         bg_param = "!111726" if is_dark else "!ffffff"
         container_bg = "#111726" if is_dark else "#FFFFFF"
         border_col = "#232E48" if is_dark else "#E2E8F0"
         mermaid_url = f"https://mermaid.ink/svg/{encoded_str}?bgColor={bg_param}"
 
-        # Render clean responsive SVG container
         st.markdown(
             f"""
-            <div style="background-color: {container_bg}; border-radius: 12px; border: 1px solid {border_col}; padding: 24px; text-align: center; overflow-x: auto; min-height: 400px; display: flex; align-items: center; justify-content: center; box-shadow: var(--hesh-card-shadow);">
-                <img src="{mermaid_url}" alt="Plaud Tree Mind Map" style="max-width: 100%; height: auto; filter: drop-shadow(0px 4px 16px rgba(0,0,0,0.15));" />
+            <div style="background-color: {container_bg}; border-radius: 12px; border: 1px solid {border_col}; padding: 24px; text-align: center; overflow-x: auto; min-height: 400px; display: flex; align-items: center; justify-content: center;">
+                <img src="{mermaid_url}" alt="Mind Map" style="max-width: 100%; height: auto;" />
             </div>
             """,
             unsafe_allow_html=True
@@ -1862,65 +2033,48 @@ def render_meeting_detail_view(session_id: str):
                         st.warning("Please provide a task description.")
 
     # -------------------------------------------------------------------------
-    # TAB 3: INTERACTIVE MIND MAP (SVG / MERMAID.INK RENDERER)
+    # TAB 3: DETERMINISTIC INTERACTIVE MARKMAP TREE (D3 VECTOR MIND MAP)
     # -------------------------------------------------------------------------
     with tab_mindmap:
-        raw_mindmap = data.get("mermaid_mindmap", "").strip()
-        # Clean markdown fence backticks and common character issues
-        raw_mindmap = raw_mindmap.replace("```mermaid", "").replace("```", "").strip()
-        raw_mindmap = raw_mindmap.replace("&", "and")
-
-        # Check for generic boilerplate or placeholder text
-        is_boilerplate = any(b in raw_mindmap.lower() for b in [
-            "strategic direction", "concept alpha", "academic lecture intelligence", "key milestone", "theme analysis", "opportunity", "concept one"
-        ])
-
-        if not raw_mindmap or len(raw_mindmap) < 25 or is_boilerplate:
-            raw_mindmap = build_contextual_mindmap(data, title)
-            data["mermaid_mindmap"] = raw_mindmap
+        # Build 100% deterministic hierarchical Markmap markdown from summary JSON
+        markmap_md = build_deterministic_markmap_markdown(data)
 
         st.markdown("""
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
             <div>
-                <h3 style="font-size: 18px; margin: 0;">🧠 Interactive Tree Mind Map (Plaud Document Aligned)</h3>
-                <div style="font-size: 12px; color: var(--hesh-text-muted);">Derived directly from numbered discussion sections, executive narrative highlights, inline deliverables, and AI suggestions</div>
+                <h3 style="font-size: 18px; margin: 0; color: var(--hesh-text-primary);">🧠 Interactive D3 Markmap Tree</h3>
+                <div style="font-size: 12.5px; color: var(--hesh-text-muted);">Built deterministically from the meeting summary JSON — collapsible, pan/zoom enabled, and 100% context-unified.</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        col_mm_view, col_mm_side = st.columns([3.0, 1.0])
+        col_mm_view, col_mm_side = st.columns([3.2, 1.0])
         with col_mm_view:
-            render_mindmap_diagram(raw_mindmap)
+            render_markmap_component(markmap_md, height=620)
 
         with col_mm_side:
             st.markdown("""
             <div style="background: var(--hesh-surface); border: 1px solid var(--hesh-border); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
-                <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 6px;">💡 Mind Map Controls</div>
-                <div style="font-size: 11.5px; color: var(--hesh-text-secondary); line-height: 1.5;">
-                    • 100% Context Unified with Summary<br>
-                    • Guaranteed Vector SVG Display<br>
-                    • Rendered via mermaid.ink engine
+                <div style="font-size: 13px; font-weight: 700; color: var(--hesh-accent); margin-bottom: 6px;">💡 Markmap Controls</div>
+                <div style="font-size: 11.5px; color: var(--hesh-text-secondary); line-height: 1.55;">
+                    • <strong>Click Circle Node:</strong> Collapse / Expand Branch<br>
+                    • <strong>Scroll Wheel:</strong> Zoom In / Out<br>
+                    • <strong>Drag Canvas:</strong> Pan Mindmap<br>
+                    • <strong>Leaf Nodes:</strong> Committed Action Deliverables
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            if st.button("🔄 Re-sync Mind Map with Summary", key=f"btn_resync_mm_{session_id}", type="secondary", use_container_width=True):
-                new_mm = build_contextual_mindmap(data, title)
-                data["mermaid_mindmap"] = new_mm
-                st.toast("✅ Mind Map re-synchronized with meeting summary!", icon="🧠")
-                time.sleep(0.3)
-                st.rerun()
-
             st.download_button(
-                "📥 Download Mermaid Code",
-                data=raw_mindmap,
-                file_name=f"{session_id}_mindmap.mmd",
-                mime="text/plain",
+                "📥 Download Mindmap Markdown",
+                data=markmap_md,
+                file_name=f"{session_id}_mindmap.md",
+                mime="text/markdown",
                 use_container_width=True
             )
 
-            with st.expander("🔍 View Mermaid Syntax"):
-                st.code(raw_mindmap, language="mermaid")
+            with st.expander("🔍 View Markmap Markdown"):
+                st.code(markmap_md, language="markdown")
 
     # -------------------------------------------------------------------------
     # TAB 4: DIARIZED TRANSCRIPT & SYNCED AUDIO PLAYER
