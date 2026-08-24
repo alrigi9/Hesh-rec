@@ -84,6 +84,87 @@ export async function processAudioFile(
   token?: string,
   language: string = "auto"
 ): Promise<MeetingSession> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  // If a dedicated backend is configured (Heroku / Localhost), upload full file directly to backend
+  if (API_BASE && API_BASE !== "") {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("template_type", templateType);
+    formData.append("language", language);
+    if (customTitle) formData.append("custom_title", customTitle);
+    if (userId) formData.append("user_id", userId);
+
+    const response = await fetch(`${API_BASE}/api/process-audio`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    return await safeReadResponse(response);
+  }
+
+  // If running on Vercel Serverless and file exceeds 4MB (Vercel has 4.5MB FUNCTION_PAYLOAD_TOO_LARGE limit)
+  if (file.size > 4 * 1024 * 1024) {
+    const groqKey =
+      process.env.NEXT_PUBLIC_GROQ_API_KEY ||
+      "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";
+
+    const groqFormData = new FormData();
+    groqFormData.append("file", file, file.name);
+    groqFormData.append("model", "whisper-large-v3");
+    groqFormData.append("response_format", "verbose_json");
+    groqFormData.append("temperature", "0");
+    if (language === "ar") groqFormData.append("language", "ar");
+    if (language === "en") groqFormData.append("language", "en");
+
+    const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${groqKey}`,
+      },
+      body: groqFormData,
+    });
+
+    if (!groqRes.ok) {
+      const errText = await groqRes.text();
+      throw new Error(`Speech transcription failed: ${errText}`);
+    }
+
+    const groqData = await groqRes.json();
+    const transcriptText = (groqData.text || "").trim();
+    const durationSeconds = Number(groqData.duration || 0.0);
+
+    const rawSegments = groqData.segments || [];
+    const formattedSegments = rawSegments.map((seg: any, idx: number) => ({
+      index: idx + 1,
+      start: Number(seg.start || 0.0),
+      end: Number(seg.end || 0.0),
+      timestamp: `${Math.floor(Number(seg.start || 0) / 60).toString().padStart(2, "0")}:${Math.floor(Number(seg.start || 0) % 60).toString().padStart(2, "0")}`,
+      speaker: `Speaker ${(idx % 3) + 1}`,
+      text: (seg.text || "").trim(),
+    }));
+
+    // Send the lightweight transcript JSON to synthesize without exceeding payload limit
+    const synthFormData = new FormData();
+    synthFormData.append("transcript_text", transcriptText);
+    synthFormData.append("transcript_segments", JSON.stringify(formattedSegments));
+    synthFormData.append("duration_seconds", durationSeconds.toString());
+    synthFormData.append("filename", file.name);
+    synthFormData.append("template_type", templateType);
+    synthFormData.append("language", language);
+    if (customTitle) synthFormData.append("custom_title", customTitle);
+    if (userId) synthFormData.append("user_id", userId);
+
+    const response = await fetch(`/api/process-audio`, {
+      method: "POST",
+      headers,
+      body: synthFormData,
+    });
+    return await safeReadResponse(response);
+  }
+
+  // Standard direct serverless upload for files <= 4MB
   const formData = new FormData();
   formData.append("file", file);
   formData.append("template_type", templateType);
@@ -91,10 +172,7 @@ export async function processAudioFile(
   if (customTitle) formData.append("custom_title", customTitle);
   if (userId) formData.append("user_id", userId);
 
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const response = await fetch(`${API_BASE}/api/process-audio`, {
+  const response = await fetch(`/api/process-audio`, {
     method: "POST",
     headers,
     body: formData,

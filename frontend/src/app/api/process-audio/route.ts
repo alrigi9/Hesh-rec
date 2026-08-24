@@ -27,9 +27,13 @@ export async function POST(request: NextRequest) {
     const language = (formData.get("language") as string) || "auto";
     const customTitle = formData.get("custom_title") as string | null;
     const userId = formData.get("user_id") as string | null;
+    const preTranscript = formData.get("transcript_text") as string | null;
+    const preSegmentsJson = formData.get("transcript_segments") as string | null;
+    const preDurationSeconds = Number(formData.get("duration_seconds") || 0.0);
+    const originalFilename = (formData.get("filename") as string) || (file ? file.name : "meeting_audio.mp3");
 
-    if (!file) {
-      return NextResponse.json({ detail: "No audio or video file uploaded" }, { status: 400 });
+    if (!file && !preTranscript) {
+      return NextResponse.json({ detail: "No audio file or transcript provided." }, { status: 400 });
     }
 
     // Check user quota in Supabase
@@ -68,51 +72,64 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Send file to Groq Whisper for transcription
-    const groqFormData = new FormData();
-    groqFormData.append("file", file, file.name);
-    groqFormData.append("model", "whisper-large-v3");
-    groqFormData.append("response_format", "verbose_json");
-    groqFormData.append("temperature", "0");
-    if (language === "ar") {
-      groqFormData.append("language", "ar");
-    } else if (language === "en") {
-      groqFormData.append("language", "en");
+    let fullTranscript = (preTranscript || "").trim();
+    let durationSeconds = preDurationSeconds;
+    let formattedSegments: any[] = [];
+
+    if (preSegmentsJson) {
+      try {
+        formattedSegments = JSON.parse(preSegmentsJson);
+      } catch {
+        formattedSegments = [];
+      }
     }
 
-    const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: groqFormData,
-    });
+    // 1. If not pre-transcribed, send to Groq Whisper
+    if (!fullTranscript && file) {
+      const groqFormData = new FormData();
+      groqFormData.append("file", file, file.name);
+      groqFormData.append("model", "whisper-large-v3");
+      groqFormData.append("response_format", "verbose_json");
+      groqFormData.append("temperature", "0");
+      if (language === "ar") {
+        groqFormData.append("language", "ar");
+      } else if (language === "en") {
+        groqFormData.append("language", "en");
+      }
 
-    if (!groqRes.ok) {
-      const errText = await groqRes.text();
-      return NextResponse.json(
-        { detail: `Transcription failed: ${errText}` },
-        { status: 500 }
-      );
+      const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+        },
+        body: groqFormData,
+      });
+
+      if (!groqRes.ok) {
+        const errText = await groqRes.text();
+        return NextResponse.json(
+          { detail: `Transcription failed: ${errText}` },
+          { status: 500 }
+        );
+      }
+
+      const groqData = await groqRes.json();
+      fullTranscript = (groqData.text || "").trim();
+      durationSeconds = Number(groqData.duration || 0.0);
+
+      const rawSegments = groqData.segments || [];
+      formattedSegments = rawSegments.map((seg: any, idx: number) => ({
+        index: idx + 1,
+        start: Number(seg.start || 0.0),
+        end: Number(seg.end || 0.0),
+        timestamp: formatSecondsToHhmmss(Number(seg.start || 0.0)),
+        speaker: `Speaker ${(idx % 3) + 1}`,
+        text: (seg.text || "").trim(),
+      }));
     }
 
-    const groqData = await groqRes.json();
-    const fullTranscript = (groqData.text || "").trim();
-    const durationSeconds = Number(groqData.duration || 0.0);
     const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
 
-    // Format transcript segments
-    const rawSegments = groqData.segments || [];
-    const formattedSegments = rawSegments.map((seg: any, idx: number) => ({
-      index: idx + 1,
-      start: Number(seg.start || 0.0),
-      end: Number(seg.end || 0.0),
-      timestamp: formatSecondsToHhmmss(Number(seg.start || 0.0)),
-      speaker: `Speaker ${(idx % 3) + 1}`,
-      text: (seg.text || "").trim(),
-    }));
-
-    // If segments empty, create a single segment
     if (formattedSegments.length === 0 && fullTranscript) {
       formattedSegments.push({
         index: 1,
@@ -219,7 +236,7 @@ LANGUAGE DIRECTIVE: ${langInstruction}
     }
 
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const finalTitle = customTitle || intelligenceData.title || file.name.replace(/\.[^/.]+$/, "");
+    const finalTitle = customTitle || intelligenceData.title || originalFilename.replace(/\.[^/.]+$/, "");
 
     const fullSessionPayload = {
       id: sessionId,
@@ -239,8 +256,8 @@ LANGUAGE DIRECTIVE: ${langInstruction}
       raw_markdown: `# ${finalTitle}\n\n${intelligenceData.tldr || ""}`,
       metadata: {
         session_id: sessionId,
-        audio_filename: file.name,
-        file_size_bytes: file.size,
+        audio_filename: originalFilename,
+        file_size_bytes: file ? file.size : 0,
         duration: `${durationMinutes}m`,
       },
       user_id: userId || null,
