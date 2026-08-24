@@ -49,16 +49,61 @@ export default function Home() {
   useEffect(() => {
     if (!user || !user.id || user.id === "guest") {
       setSessions([]);
+      setActiveSession(null);
       return;
     }
+
+    // 1. Instant local storage cache hydration so user never sees empty state on refresh
+    try {
+      const cached = localStorage.getItem(`recmap_sessions_${user.id}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSessions(parsed);
+          const cachedActive = localStorage.getItem(`recmap_active_session_${user.id}`);
+          if (cachedActive) {
+            const parsedActive = JSON.parse(cachedActive);
+            if (parsedActive && parsedActive.id) {
+              setActiveSession(parsedActive);
+            } else {
+              setActiveSession(parsed[0]);
+            }
+          } else {
+            setActiveSession(parsed[0]);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Local storage hydration note:", e);
+    }
+
+    // 2. Hydrate directly from Supabase Cloud Database
     fetchSessions(user.id, token || undefined).then((data) => {
       if (data && data.length > 0) {
         setSessions(data);
-      } else {
-        setSessions([]);
+        try {
+          localStorage.setItem(`recmap_sessions_${user.id}`, JSON.stringify(data));
+        } catch (e) {}
+
+        setActiveSession((currentActive) => {
+          if (currentActive) {
+            const matched = data.find((s) => s.id === currentActive.id);
+            return matched || data[0];
+          }
+          return data[0];
+        });
       }
     });
   }, [user, token]);
+
+  // Sync active session selection to local storage
+  useEffect(() => {
+    if (user && user.id && activeSession) {
+      try {
+        localStorage.setItem(`recmap_active_session_${user.id}`, JSON.stringify(activeSession));
+      } catch (e) {}
+    }
+  }, [user, activeSession]);
 
   const handleOpenUpload = () => {
     if (!user) {
@@ -72,7 +117,16 @@ export default function Home() {
   };
 
   const handleUploadSuccess = (newSession: MeetingSession) => {
-    setSessions((prev) => [newSession, ...prev]);
+    setSessions((prev) => {
+      const updated = [newSession, ...prev.filter((s) => s.id !== newSession.id)];
+      if (user && user.id) {
+        try {
+          localStorage.setItem(`recmap_sessions_${user.id}`, JSON.stringify(updated));
+          localStorage.setItem(`recmap_active_session_${user.id}`, JSON.stringify(newSession));
+        } catch (e) {}
+      }
+      return updated;
+    });
     setActiveSession(newSession);
   };
 

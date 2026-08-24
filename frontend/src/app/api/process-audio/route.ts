@@ -318,7 +318,7 @@ LANGUAGE DIRECTIVE: ${langInstruction}
       }
     }
 
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const sessionId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0")}`;
     const finalTitle = customTitle || intelligenceData.title || originalFilename.replace(/\.[^/.]+$/, "");
     const finalSummary = intelligenceData.summary || intelligenceData.tldr || intelligenceData.executive_summary || "Executive brief generated from captured transcript.";
     const finalSections = intelligenceData.sections || intelligenceData.discussion_pillars || [];
@@ -359,6 +359,19 @@ LANGUAGE DIRECTIVE: ${langInstruction}
       finalMindmap = mmLines.join("\n");
     }
 
+    const metadataObj = {
+      user_id: userId || null,
+      duration_minutes: durationMinutes,
+      meeting_date: intelligenceData.meeting_date || meetingDate,
+      tags: intelligenceData.tags || ["Intelligence", "Strategy"],
+      participants: intelligenceData.participants || ["Speaker 1"],
+      open_questions: intelligenceData.open_questions || [],
+      audio_filename: originalFilename,
+      file_size_bytes: file ? file.size : 0,
+      tldr: finalSummary,
+      insights: intelligenceData.strategic_insights || [],
+    };
+
     const fullSessionPayload = {
       id: sessionId,
       title: finalTitle,
@@ -391,10 +404,24 @@ LANGUAGE DIRECTIVE: ${langInstruction}
       created_at: new Date().toISOString(),
     };
 
-    // 3. Save to Supabase meeting_sessions table
+    // 3. Save to Supabase sessions table
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/meeting_sessions`, {
+        const dbPayload = {
+          id: sessionId,
+          title: finalTitle,
+          summary: finalSummary,
+          executive_summary: finalSummary,
+          discussion_pillars: finalSections,
+          action_items: finalActions,
+          strategic_insights: metadataObj,
+          mindmap_markdown: finalMindmap,
+          transcript: fullTranscript,
+          transcript_segments: formattedSegments,
+          is_public: false,
+        };
+
+        await fetch(`${SUPABASE_URL}/rest/v1/sessions`, {
           method: "POST",
           headers: {
             apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -402,15 +429,7 @@ LANGUAGE DIRECTIVE: ${langInstruction}
             "Content-Type": "application/json",
             Prefer: "return=representation",
           },
-          body: JSON.stringify({
-            id: sessionId,
-            user_id: userId || null,
-            title: finalTitle,
-            duration_minutes: durationMinutes,
-            meeting_date: intelligenceData.meeting_date || meetingDate,
-            tags: intelligenceData.tags || [],
-            session_data: fullSessionPayload,
-          }),
+          body: JSON.stringify(dbPayload),
         });
 
         // Update user usage quota
