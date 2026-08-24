@@ -1776,38 +1776,63 @@ def render_meeting_detail_view(session_id: str):
     # TAB 4: INTERACTIVE CHAT WITH AUDIO (ASSISTANT BOT)
     # -------------------------------------------------------------------------
     with tab_chat:
-        st.markdown("""
-        <div style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
-            <div style="font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px;">Meeting Assistant</div>
-            <div style="font-size: 12.5px; color: var(--text-2);">Ask questions, clarify points, or request specific summaries grounded directly in this recording.</div>
-        </div>
-        """, unsafe_allow_html=True)
-
         if session_id not in st.session_state.chat_messages:
-            st.session_state.chat_messages[session_id] = [
-                {"role": "assistant", "content": "I am your meeting assistant. Ask any question about this recording, discussion topics, decisions, or action items."}
-            ]
+            st.session_state.chat_messages[session_id] = []
 
-        for msg in st.session_state.chat_messages[session_id]:
+        chat_history = st.session_state.chat_messages[session_id]
+        selected_prompt = None
+
+        # Empty State with Quiet Subtitle & 3 Starter Prompts
+        if not chat_history:
+            st.markdown("""
+            <div style="font-size: 13.5px; color: var(--text-2); margin-bottom: 20px; line-height: 1.6;">
+                Ask specific questions grounded in this meeting transcript and decisions.
+            </div>
+            """, unsafe_allow_html=True)
+
+            col_p1, col_p2, col_p3 = st.columns(3)
+            with col_p1:
+                st.markdown('<div class="chat-pill-btn">', unsafe_allow_html=True)
+                if st.button("What were the key decisions?", key="pill_decisions", use_container_width=True):
+                    selected_prompt = "What were the key decisions agreed upon in this meeting?"
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col_p2:
+                st.markdown('<div class="chat-pill-btn">', unsafe_allow_html=True)
+                if st.button("List action items with owners", key="pill_actions", use_container_width=True):
+                    selected_prompt = "List all action items, deliverables, and their assigned owners."
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col_p3:
+                st.markdown('<div class="chat-pill-btn">', unsafe_allow_html=True)
+                if st.button("Summarize next steps", key="pill_steps", use_container_width=True):
+                    selected_prompt = "Summarize the next steps, milestones, and major deadlines from this discussion."
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+
+        # Message History
+        for msg in chat_history:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        user_q = st.chat_input("Ask a question about this meeting...")
-        if user_q:
-            st.session_state.chat_messages[session_id].append({"role": "user", "content": user_q})
+        user_input = st.chat_input("Ask a question about this meeting...")
+        prompt_to_send = user_input or selected_prompt
+
+        if prompt_to_send:
+            st.session_state.chat_messages[session_id].append({"role": "user", "content": prompt_to_send})
             with st.chat_message("user"):
-                st.markdown(user_q)
+                st.markdown(prompt_to_send)
 
             with st.chat_message("assistant"):
                 with st.spinner("Analyzing meeting context..."):
                     answer = chat_with_session(
                         session_data=data,
-                        user_query=user_q,
+                        user_query=prompt_to_send,
                         chat_history=st.session_state.chat_messages[session_id],
-                        model_name=st.session_state.model_choice
+                        model_name=DEFAULT_GEMINI_MODEL
                     )
                     st.markdown(answer)
                     st.session_state.chat_messages[session_id].append({"role": "assistant", "content": answer})
+            st.rerun()
 
 
 # =============================================================================

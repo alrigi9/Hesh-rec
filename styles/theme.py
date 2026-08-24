@@ -998,6 +998,72 @@ def inject_theme(theme: str = "light"):
       }}
 
 
+      /* Clean Pinned Chat Input & Bubble Styling */
+      .stChatFloatingInputContainer,
+      div[data-testid="stChatFloatingInputContainer"],
+      div[data-testid="stChatInput"] {{
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }}
+
+      div[data-testid="stChatInput"] > div {{
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+        color: var(--text) !important;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+      }}
+
+      div[data-testid="stChatInput"] > div:focus-within {{
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 2px var(--accent-soft) !important;
+      }}
+
+      div[data-testid="stChatInput"] textarea {{
+        color: var(--text) !important;
+        font-size: 14px !important;
+        background: transparent !important;
+      }}
+
+      div[data-testid="stChatInput"] textarea::placeholder {{
+        color: var(--text-3) !important;
+      }}
+
+      div[data-testid="stChatMessage"] {{
+        background: transparent !important;
+        padding: 12px 0 !important;
+        border: none !important;
+        gap: 12px !important;
+      }}
+
+      div[data-testid="stChatMessage"] [data-testid="stChatMessageAvatar"] {{
+        background: var(--surface-2) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text-2) !important;
+        border-radius: 6px !important;
+      }}
+
+      .chat-pill-btn > button {{
+        background: var(--surface-2) !important;
+        color: var(--text-2) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 999px !important;
+        font-size: 12.5px !important;
+        font-weight: 500 !important;
+        padding: 6px 14px !important;
+        height: auto !important;
+        text-align: left !important;
+        transition: all 0.15s ease !important;
+      }}
+
+      .chat-pill-btn > button:hover {{
+        background: var(--border) !important;
+        color: var(--text) !important;
+        border-color: var(--border-strong) !important;
+      }}
+
       /* Responsive Specifications */
       @media (min-width: 1200px) {{
         .main .block-container {{
