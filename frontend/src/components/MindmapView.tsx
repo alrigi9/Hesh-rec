@@ -100,7 +100,7 @@ export function MindmapView({ session }: MindmapViewProps) {
   const handleZoomOut = () => mmRef.current?.rescale(0.8);
 
   return (
-    <div className="relative w-full h-[680px] bg-[#141517] border border-[#232529] rounded-2xl overflow-hidden shadow-sm">
+    <div className="relative w-full h-[450px] sm:h-[680px] bg-[#141517] border border-[#232529] rounded-2xl overflow-hidden shadow-sm">
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 bg-[#1c1e22]/90 backdrop-blur-md border border-[#2e3238] p-1 rounded-full shadow-lg">
         <Button
           size="sm"

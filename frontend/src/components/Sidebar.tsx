@@ -14,7 +14,7 @@ import {
   LogOut,
   User,
   Sparkles,
-  AlertCircle
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,8 @@ interface SidebarProps {
   activeSessionId: string | null;
   onSelectSession: (session: MeetingSession) => void;
   onOpenUpload: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export function Sidebar({
@@ -34,6 +36,8 @@ export function Sidebar({
   activeSessionId,
   onSelectSession,
   onOpenUpload,
+  isMobileOpen = false,
+  onCloseMobile,
 }: SidebarProps) {
   const [search, setSearch] = useState("");
   const { user, profile, isAdmin, signOut } = useAuth();
@@ -50,8 +54,18 @@ export function Sidebar({
   const percentUsed = Math.min(100, Math.round((minutesUsed / minutesLimit) * 100));
   const isQuotaExceeded = minutesUsed >= minutesLimit && !isAdmin;
 
-  return (
-    <aside className="w-64 h-screen bg-[#111215] border-r border-[#232529] flex flex-col flex-shrink-0 select-none">
+  const handleSelect = (s: MeetingSession) => {
+    onSelectSession(s);
+    if (onCloseMobile) onCloseMobile();
+  };
+
+  const handleUploadClick = () => {
+    onOpenUpload();
+    if (onCloseMobile) onCloseMobile();
+  };
+
+  const sidebarContent = (
+    <div className="flex flex-col h-full select-none">
       {/* Brand Header */}
       <div className="p-4 flex items-center justify-between border-b border-[#232529]/60">
         <div className="flex items-center gap-2.5">
@@ -68,12 +82,24 @@ export function Sidebar({
             <div className="text-[11px] text-[#8b909a]">SOC 2 Speech Studio</div>
           </div>
         </div>
+
+        {/* Mobile Close Button */}
+        {onCloseMobile && (
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onCloseMobile}
+            className="md:hidden w-8 h-8 rounded-full text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        )}
       </div>
 
       {/* Primary Action Button */}
       <div className="p-3 space-y-2">
         <Button
-          onClick={onOpenUpload}
+          onClick={handleUploadClick}
           disabled={isQuotaExceeded}
           className="w-full h-9 bg-[#ff5c47] hover:bg-[#ff5c47]/90 disabled:opacity-50 text-white font-medium rounded-full text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all"
         >
@@ -83,7 +109,7 @@ export function Sidebar({
 
         {/* Admin Dashboard shortcut if admin */}
         {isAdmin && (
-          <Link href="/admin" className="block">
+          <Link href="/admin" onClick={onCloseMobile} className="block">
             <Button
               variant="outline"
               className="w-full h-8 rounded-full text-xs border-[#ff5c47]/30 bg-[#ff5c47]/5 text-[#ff5c47] hover:bg-[#ff5c47]/10 flex items-center justify-center gap-1.5 transition-all"
@@ -122,7 +148,7 @@ export function Sidebar({
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-[#8b909a] pt-0.5">
-            <span>{300 - Math.min(300, minutesUsed)}m remaining</span>
+            <span>{Math.max(0, minutesLimit - minutesUsed).toFixed(0)}m remaining</span>
             <span>{percentUsed}% used</span>
           </div>
         </div>
@@ -161,7 +187,7 @@ export function Sidebar({
             return (
               <button
                 key={sid}
-                onClick={() => onSelectSession(s)}
+                onClick={() => handleSelect(s)}
                 className={`w-full text-left px-2.5 py-2 rounded-lg text-xs transition-all flex flex-col gap-1 ${
                   isActive
                     ? "bg-[#1c1e22] text-[#f0f2f5] border border-[#2e3238]"
@@ -220,7 +246,7 @@ export function Sidebar({
               <ShieldCheck className="w-3.5 h-3.5 text-[#3ec98a]" />
               <span>SOC 2 Type II</span>
             </div>
-            <Link href="/login">
+            <Link href="/login" onClick={onCloseMobile}>
               <Button
                 size="sm"
                 variant="outline"
@@ -233,6 +259,31 @@ export function Sidebar({
           </div>
         )}
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Static Sidebar */}
+      <aside className="hidden md:flex w-64 h-screen bg-[#111215] border-r border-[#232529] flex-col flex-shrink-0">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Slide-Over Drawer */}
+      {isMobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div 
+            onClick={onCloseMobile} 
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity" 
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-72 max-w-[85vw] bg-[#111215] border-r border-[#232529] shadow-2xl flex flex-col h-full z-10 animate-in slide-in-from-left duration-200">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

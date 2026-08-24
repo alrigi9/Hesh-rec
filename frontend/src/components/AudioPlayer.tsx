@@ -67,8 +67,8 @@ export function AudioPlayer({ src, currentTime, onTimeUpdate }: AudioPlayerProps
   if (!src) return null;
 
   return (
-    <div className="sticky bottom-6 left-0 right-0 max-w-2xl mx-auto z-40 px-4">
-      <div className="bg-[#141517]/95 backdrop-blur-xl border border-[#2e3238] rounded-full p-3 px-5 shadow-2xl flex items-center gap-4 text-[#f0f2f5]">
+    <div className="sticky bottom-4 sm:bottom-6 left-0 right-0 max-w-2xl mx-auto z-40 px-3 sm:px-4">
+      <div className="bg-[#141517]/95 backdrop-blur-xl border border-[#2e3238] rounded-full p-2.5 sm:p-3 px-3.5 sm:px-5 shadow-2xl flex items-center gap-2.5 sm:gap-4 text-[#f0f2f5]">
         <audio
           ref={audioRef}
           src={src}

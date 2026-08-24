@@ -198,34 +198,34 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
   const displayDuration = session.metadata?.duration || session.duration || (session.duration_minutes ? `${session.duration_minutes}m` : null);
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-10">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-x-hidden">
       {/* Editorial Header */}
       <motion.div 
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="space-y-4 mb-8"
+        className="space-y-4 mb-6 sm:mb-8"
       >
-        <h1 className="text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading break-words leading-tight">
           {displayTitle}
         </h1>
 
         {/* Floating Metadata Pills */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs">
           {displayDuration && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono">
+            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono text-[11px] sm:text-xs">
               <Clock className="w-3 h-3 text-[#ff5c47]" />
               {displayDuration}
             </span>
           )}
           {displayDate && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono">
+            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono text-[11px] sm:text-xs">
               <Calendar className="w-3 h-3 text-[#8b909a]" />
               {displayDate}
             </span>
           )}
           {session.metadata?.model && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a]">
+            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px] sm:text-xs">
               <Sparkles className="w-3 h-3 text-[#ff5c47]" />
               {session.metadata.model}
             </span>
@@ -233,7 +233,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
           {(session.tags || []).map((t, idx) => (
             <span
               key={idx}
-              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a]"
+              className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px] sm:text-xs"
             >
               <Tag className="w-3 h-3 text-[#8b909a]" />
               {t.replace(/^#/, "")}
@@ -242,12 +242,12 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
         </div>
 
         {/* Action Toolbar */}
-        <div className="flex items-center gap-2 pt-2 border-b border-[#232529] pb-6">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-b border-[#232529] pb-4 sm:pb-6">
           <Button
             size="sm"
             variant="outline"
             onClick={handleShareLink}
-            className={`h-8 px-3.5 rounded-full text-xs border-[#232529] bg-[#141517] transition-all ${
+            className={`h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] shrink-0 transition-all ${
               shareCopied
                 ? "text-[#3ec98a] border-[#3ec98a]/40 bg-[#3ec98a]/10"
                 : "text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
@@ -264,7 +264,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
             size="sm"
             variant="outline"
             onClick={handleCopyMarkdown}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] transition-colors"
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
           >
             {copied ? <Check className="w-3.5 h-3.5 mr-1.5 text-[#3ec98a]" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
             {copied ? "Copied" : "Copy Markdown"}
@@ -273,7 +273,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
             size="sm"
             variant="outline"
             onClick={handleDownloadJSON}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] transition-colors"
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
           >
             <Download className="w-3.5 h-3.5 mr-1.5" />
             JSON
@@ -282,7 +282,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
             size="sm"
             variant="outline"
             onClick={() => window.print()}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] transition-colors"
+            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
           >
             <Printer className="w-3.5 h-3.5 mr-1.5" />
             Print / PDF
@@ -292,17 +292,17 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
 
       {/* Tabs Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-[#141517] border border-[#232529] p-1 rounded-full inline-flex gap-1">
+        <TabsList className="bg-[#141517] border border-[#232529] p-1 rounded-2xl sm:rounded-full flex flex-wrap sm:inline-flex gap-1 max-w-full overflow-x-auto">
           <TabsTrigger
             value="summary"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
+            className="rounded-full text-xs px-3.5 sm:px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
           >
             <FileText className="w-3.5 h-3.5 mr-1.5" />
             Summary
           </TabsTrigger>
           <TabsTrigger
             value="actions"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
+            className="rounded-full text-xs px-3.5 sm:px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] transition-all"
           >
             <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
             Action Items ({totalActions})
