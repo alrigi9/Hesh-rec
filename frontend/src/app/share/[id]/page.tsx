@@ -67,7 +67,7 @@ export default function SharePage({ params }: SharePageProps) {
               <AudioWaveform className="w-3.5 h-3.5" />
             </div>
             <span className="font-semibold text-xs text-[#f0f2f5] font-heading">
-              Hesh Rec
+              RecMap
             </span>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function SharePage({ params }: SharePageProps) {
             className="flex items-center gap-1 text-[11px] py-1 px-3 border-[#232529] bg-[#18191c] text-[#8b909a]"
           >
             <ShieldCheck className="w-3 h-3 text-[#3ec98a]" />
-            <span>SOC 2 Verified</span>
+            <span>Enterprise Privacy</span>
           </Badge>
         </div>
       </header>
@@ -112,7 +112,7 @@ export default function SharePage({ params }: SharePageProps) {
             </p>
             <Link href="/">
               <Button className="h-9 px-4 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white text-xs mt-2">
-                Open Hesh Rec Studio
+                Open RecMap Studio
               </Button>
             </Link>
           </div>

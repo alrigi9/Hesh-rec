@@ -163,7 +163,7 @@ export default function AdminDashboardPage() {
             className="flex items-center gap-2 text-xs text-[#8b909a] hover:text-[#f0f2f5] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Studio</span>
+            <span>Back to RecMap Studio</span>
           </Link>
           <span className="text-[#232529]">/</span>
           <div className="flex items-center gap-2">
@@ -171,7 +171,7 @@ export default function AdminDashboardPage() {
               <Sliders className="w-3.5 h-3.5" />
             </div>
             <span className="font-semibold text-xs text-[#f0f2f5] font-heading">
-              Admin Governance Dashboard
+              RecMap Admin Console
             </span>
           </div>
         </div>
@@ -179,10 +179,10 @@ export default function AdminDashboardPage() {
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
-            className="flex items-center gap-1 text-[11px] py-1 px-3 border-[#ff5c47]/30 bg-[#ff5c47]/10 text-[#ff5c47]"
+            className="flex items-center gap-1 text-[11px] py-1 px-3 border-[#232529] bg-[#18191c] text-[#3ec98a]"
           >
-            <ShieldAlert className="w-3 h-3 text-[#ff5c47]" />
-            <span>Admin Active</span>
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Enterprise Security</span>
           </Badge>
           <Badge
             variant="outline"

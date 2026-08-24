@@ -11,12 +11,13 @@ import {
   AudioWaveform, 
   FileText, 
   CheckSquare, 
-  Clock, 
-  ArrowRight, 
+  Network, 
   ShieldCheck, 
   Menu, 
   LogIn,
-  Sliders
+  Sliders,
+  ArrowRight,
+  Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/Sidebar";
@@ -99,7 +100,7 @@ export default function Home() {
               <AudioWaveform className="w-4 h-4" />
             </div>
             <span className="font-bold text-sm text-[#f0f2f5] font-heading tracking-tight">
-              Hesh Rec
+              RecMap
             </span>
           </div>
         </div>
@@ -166,7 +167,7 @@ export default function Home() {
           <div className="hidden md:flex items-center justify-between px-6 py-2 bg-[#141517]/80 border-b border-[#232529] text-xs">
             <div className="flex items-center gap-2 text-[#8b909a]">
               <ShieldCheck className="w-4 h-4 text-[#ff5c47]" />
-              <span>Signed in as Administrator: <span className="text-[#f0f2f5] font-mono">{user?.email}</span></span>
+              <span>Admin Console • <span className="text-[#f0f2f5] font-mono">{user?.email}</span></span>
             </div>
             <Button
               size="sm"
@@ -191,31 +192,41 @@ export default function Home() {
           /* Empty State / Clean Welcome Dashboard */
           <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12 pb-16 space-y-8 sm:space-y-12">
             {/* Clean Hero Banner */}
-            <div className="space-y-4 text-center max-w-lg mx-auto">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-xs font-medium mx-auto">
+            <div className="space-y-4 text-center max-w-xl mx-auto">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-xs font-medium mx-auto">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Next-Gen Speech & Meeting Intelligence</span>
+                <span>Next-Gen Voice & Meeting Intelligence</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading leading-snug break-words">
-                Turn recordings into SOC 2 executive intelligence.
+                Turn Voice & Meetings into Clear, Actionable Intelligence.
               </h1>
-              <p className="text-xs sm:text-sm text-[#8b909a] leading-relaxed max-w-md mx-auto">
-                Groq LPUs for ultra-fast Whisper transcription, paired with Gemini 2.5 Flash
-                for deliverables, mind maps, and governance.
+              <p className="text-xs sm:text-sm text-[#8b909a] leading-relaxed max-w-lg mx-auto">
+                Fast, secure audio transcription and intelligent breakdown powered by advanced AI models. Get instant executive summaries, mind maps, and structured action items.
               </p>
-              <div className="pt-2 flex justify-center">
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Button
                   onClick={handleOpenUpload}
                   className="w-full sm:w-auto h-11 px-8 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-semibold text-xs shadow-lg shadow-[#ff5c47]/25 transition-all gap-2"
                 >
                   <Upload className="w-4 h-4" />
-                  Transcribe & Extract Meeting
+                  Upload Audio
                 </Button>
+                {!user && (
+                  <Link href="/login" className="w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto h-11 px-6 rounded-full border-[#232529] bg-[#141517] hover:bg-[#18191c] text-[#f0f2f5] text-xs font-medium"
+                    >
+                      <LogIn className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
+                      Sign In to RecMap
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
 
-            {/* Metric Tiles */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            {/* Feature Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-[#ff5c47]/10 flex items-center justify-center text-[#ff5c47]">
                   <FileText className="w-4 h-4" />
@@ -224,7 +235,7 @@ export default function Home() {
                   Executive Summaries
                 </div>
                 <div className="text-xs text-[#8b909a] leading-relaxed">
-                  Structured past-tense narratives with zero bullet-point fluff.
+                  Clear, structured meeting overviews highlighting core decisions.
                 </div>
               </div>
 
@@ -233,22 +244,34 @@ export default function Home() {
                   <CheckSquare className="w-4 h-4" />
                 </div>
                 <div className="text-sm font-semibold text-[#f0f2f5] font-heading">
-                  Action Deliverables
+                  Action Items & Tasks
                 </div>
                 <div className="text-xs text-[#8b909a] leading-relaxed">
-                  Strictly assigned tasks, deliverables, deadlines, and owners.
+                  Auto-extracted deliverables with accountable owners and deadlines.
                 </div>
               </div>
 
               <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-[#7cb0ff]/10 flex items-center justify-center text-[#7cb0ff]">
-                  <ShieldCheck className="w-4 h-4" />
+                  <Network className="w-4 h-4" />
                 </div>
                 <div className="text-sm font-semibold text-[#f0f2f5] font-heading">
-                  SOC 2 Compliance
+                  Interactive Mind Maps
                 </div>
                 <div className="text-xs text-[#8b909a] leading-relaxed">
-                  Automated governance audit tagging and risk identification.
+                  Visual concept and decision mapping for instant thematic clarity.
+                </div>
+              </div>
+
+              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-5 space-y-2 shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-[#b180ff]/10 flex items-center justify-center text-[#b180ff]">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div className="text-sm font-semibold text-[#f0f2f5] font-heading">
+                  Enterprise-Grade Privacy
+                </div>
+                <div className="text-xs text-[#8b909a] leading-relaxed">
+                  Encrypted, private audio processing and dedicated user isolation.
                 </div>
               </div>
             </div>

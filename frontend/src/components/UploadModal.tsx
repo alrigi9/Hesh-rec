@@ -104,10 +104,10 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-lg font-semibold tracking-tight text-[#f0f2f5] font-heading flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#ff5c47]" />
-            Transcribe & Extract Intelligence
+            Upload & Extract Intelligence
           </DialogTitle>
           <DialogDescription className="text-xs text-[#8b909a]">
-            Powered by Groq Whisper & Gemini 2.5 Flash with SOC 2 compliance.
+            Fast, secure transcription with instant executive summaries and interactive mind maps.
           </DialogDescription>
         </DialogHeader>
 
@@ -152,7 +152,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
                   Drop audio file or click to browse
                 </div>
                 <div className="text-[11px] text-[#8b909a]">
-                  Supports MP3, WAV, M4A, MP4, AAC (up to 200MB)
+                  Supports MP3, WAV, M4A, MP4, AAC, FLAC (up to 50MB)
                 </div>
               </div>
             )}

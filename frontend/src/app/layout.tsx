@@ -13,8 +13,8 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Hesh Rec — AI Speech & Meeting Intelligence Platform",
-  description: "SOC 2 & Executive Meeting Intelligence powered by Groq Whisper & Gemini",
+  title: "RecMap — Intelligent Voice & Meeting Intelligence",
+  description: "Turn voice & meetings into clear, actionable intelligence with instant executive summaries, interactive mind maps, and structured task assignments.",
 };
 
 import { AuthProvider } from "@/context/AuthContext";

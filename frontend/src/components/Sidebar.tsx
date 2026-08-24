@@ -94,9 +94,9 @@ export function Sidebar({
           </div>
           <div>
             <div className="font-semibold text-sm tracking-tight text-[#f0f2f5] flex items-center gap-1.5 font-heading">
-              Hesh Rec
-              <span className="text-[10px] text-[#8b909a] font-normal px-1.5 py-0.5 rounded-full bg-[#1c1e22] border border-[#232529]">
-                v2.6
+              RecMap
+              <span className="text-[10px] text-[#ff5c47] font-medium px-1.5 py-0.5 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20">
+                AI
               </span>
             </div>
           </div>
@@ -256,9 +256,9 @@ export function Sidebar({
           </div>
         ) : (
           <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-1.5 text-[11px]">
+            <div className="flex items-center gap-1.5 text-[11px] text-[#8b909a]">
               <ShieldCheck className="w-3.5 h-3.5 text-[#3ec98a]" />
-              <span>SOC 2 Type II</span>
+              <span>Enterprise Privacy</span>
             </div>
             <Link href="/login" onClick={onCloseMobile}>
               <Button

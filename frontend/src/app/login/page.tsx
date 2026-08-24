@@ -14,9 +14,8 @@ import {
   ArrowRight, 
   Sparkles, 
   CheckCircle2, 
-  AlertCircle,
-  Loader2,
-  Info
+  AlertCircle, 
+  Loader2 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -54,7 +53,7 @@ function LoginForm() {
             onClick={() => router.push("/")}
             className="w-full h-10 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white text-xs font-medium"
           >
-            Go to Studio Dashboard
+            Go to RecMap Dashboard
           </Button>
         </div>
       </div>
@@ -134,11 +133,11 @@ function LoginForm() {
               <AudioWaveform className="w-5 h-5" />
             </div>
             <span className="text-xl font-bold tracking-tight text-[#f0f2f5] font-heading">
-              Hesh Rec
+              RecMap
             </span>
           </Link>
           <p className="text-xs text-[#8b909a]">
-            SOC 2 Compliant Speech & Meeting Intelligence Platform
+            Intelligent Speech & Meeting Intelligence Platform
           </p>
         </div>
 
@@ -301,7 +300,7 @@ function LoginForm() {
                 className="w-full h-10 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-medium text-xs shadow-lg shadow-[#ff5c47]/20 flex items-center justify-center gap-2 transition-all"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>{mode === "signin" ? "Sign In to Studio" : "Start 300 Mins Free"}</span>
+                <span>{mode === "signin" ? "Sign In to RecMap" : "Start 300 Mins Free"}</span>
                 {!loading && <ArrowRight className="w-3.5 h-3.5" />}
               </Button>
             </div>
@@ -311,11 +310,11 @@ function LoginForm() {
           <div className="p-3.5 rounded-xl bg-[#18191c] border border-[#232529] flex items-center justify-between text-xs text-[#8b909a]">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#ff5c47]" />
-              <span>Includes 300 free audio minutes/month</span>
+              <span>300 free monthly audio minutes included</span>
             </div>
             <div className="flex items-center gap-1 text-[11px] text-[#3ec98a]">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>SOC 2</span>
+              <span>Encrypted</span>
             </div>
           </div>
         </div>
@@ -326,7 +325,7 @@ function LoginForm() {
             href="/"
             className="text-xs text-[#8b909a] hover:text-[#f0f2f5] transition-colors"
           >
-            ← Back to Public Dashboard
+            ← Back to RecMap Studio
           </Link>
         </div>
       </motion.div>
