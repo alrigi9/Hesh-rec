@@ -1206,7 +1206,10 @@ def generate_printable_html(session_data: Any, active_theme: str = "light") -> s
           spacingHorizontal: 80,
           duration: 250,
         }}, root);
-        setTimeout(() => window.mm && window.mm.fit(), 300);
+        window.addEventListener('resize', () => {{
+          if (window.mm) window.mm.fit();
+        }});
+        setTimeout(() => {{ if (window.mm) window.mm.fit(); }}, 400);
       </script>
     </div>"""
 

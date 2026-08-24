@@ -467,7 +467,10 @@ def generate_unified_document_html(session_data: Any, meta: Optional[Dict[str, A
           spacingHorizontal: 80,
           duration: 250,
         }}, root);
-        setTimeout(() => window.mm && window.mm.fit(), 300);
+        window.addEventListener('resize', () => {{
+          if (window.mm) window.mm.fit();
+        }});
+        setTimeout(() => {{ if (window.mm) window.mm.fit(); }}, 400);
       </script>
     </div>"""
 
@@ -1681,14 +1684,7 @@ def render_meeting_detail_view(session_id: str):
         else:
             transcript_turns = parse_transcript_turns(data.get("raw_markdown", ""))
 
-        theme_mode = st.session_state.theme
-        bg_bubble = "#1c2027" if theme_mode == "dark" else "#f6f7f9"
-        bg_bubble_hover = "#262b33" if theme_mode == "dark" else "#ebeef2"
-        border_col = "#262b33" if theme_mode == "dark" else "#e7e8ec"
-        text_pri = "#e9ecf1" if theme_mode == "dark" else "#16181d"
-        text_sec = "#a2a9b6" if theme_mode == "dark" else "#5b616e"
-        accent_col = "#ff6f5e" if theme_mode == "dark" else "#c0392b"
-
+        theme_mode = st.session_state.get("theme", "light")
         transcript_cards_html = []
         for idx, turn in enumerate(transcript_turns):
             t_sec_val = turn.get("seconds", 0.0)
@@ -1696,73 +1692,84 @@ def render_meeting_detail_view(session_id: str):
             t_time_val = turn.get("time", "00:00")
             t_txt_val = turn.get("text", "")
             transcript_cards_html.append(f"""
-            <div class="turn-card" data-seek="{t_sec_val}" id="turn_{idx}" style="background: {bg_bubble}; border: 1px solid {border_col}; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; transition: all 0.15s ease;">
+            <div class="turn-card transcript-card" data-seek="{t_sec_val}" id="turn_{idx}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 12px; font-weight: 600; color: {text_pri}; background: var(--surface, #ffffff); border: 1px solid {border_col}; padding: 2px 8px; border-radius: 999px;">{t_spk_val}</span>
-                        <span class="mono" style="font-size: 11.5px; color: {text_sec};">{t_time_val}</span>
+                        <span class="speaker-badge transcript-badge">{t_spk_val}</span>
+                        <span class="mono" style="font-size: 11.5px; color: var(--text-2);">{t_time_val}</span>
                     </div>
                     <div style="display: flex; gap: 6px;">
-                        <button onclick="seekToAudio({t_sec_val}, this)" style="background: var(--surface, #ffffff); border: 1px solid {border_col}; color: {text_pri}; border-radius: 6px; font-size: 11.5px; font-weight: 500; padding: 4px 10px; cursor: pointer;">Play</button>
-                        <button onclick="copyTurnText('txt_{idx}', this)" style="background: var(--surface, #ffffff); border: 1px solid {border_col}; color: {text_sec}; border-radius: 6px; font-size: 11.5px; font-weight: 500; padding: 4px 10px; cursor: pointer;">Copy</button>
+                        <button class="transcript-btn" onclick="seekToAudio({t_sec_val}, this)">Play</button>
+                        <button class="transcript-btn" onclick="copyTurnText('txt_{idx}', this)">Copy</button>
                     </div>
                 </div>
-                <div id="txt_{idx}" style="font-size: 13.5px; color: {text_pri}; line-height: 1.65;">{t_txt_val}</div>
+                <div id="txt_{idx}" style="font-size: 13.5px; color: var(--text); line-height: 1.65;">{t_txt_val}</div>
             </div>
             """)
 
-        turns_content = ''.join(transcript_cards_html) if transcript_cards_html else f'<div style="padding:32px; text-align:center; color:{text_sec}; font-size: 13.5px;">Transcript turns will appear here once audio is diarized.</div>'
+        turns_content = ''.join(transcript_cards_html) if transcript_cards_html else '<div style="padding:32px; text-align:center; color:var(--text-2); font-size: 13.5px;">Transcript turns will appear here once audio is diarized.</div>'
 
-        interactive_player_html = """<!DOCTYPE html>
-<html>
+        interactive_player_html = f"""<!DOCTYPE html>
+<html data-theme="{theme_mode}">
 <head>
+    <meta charset="utf-8">
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: transparent; color: __TEXT_PRI__; font-family: 'Inter', -apple-system, sans-serif; }
-        .turn-card.active {
-            border-left: 3px solid __ACCENT__ !important;
-            background: __BG_HOVER__ !important;
-        }
-        .transcript-stream {
-            max-height: 560px; overflow-y: auto; padding-right: 6px;
-        }
-        .transcript-stream::-webkit-scrollbar { width: 4px; }
-        .transcript-stream::-webkit-scrollbar-thumb { background: __BORDER__; border-radius: 4px; }
-        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+{get_iframe_theme_css(theme_mode)}
+
+        * {{ box-sizing: border-box; }}
+        body {{
+            margin: 0;
+            padding: 0;
+            background: transparent !important;
+            color: var(--text) !important;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        }}
+        .turn-card.active, .transcript-card.active {{
+            border-left: 3px solid var(--accent) !important;
+            background: var(--surface) !important;
+        }}
+        .transcript-stream {{
+            max-height: 560px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }}
+        .transcript-stream::-webkit-scrollbar {{ width: 4px; }}
+        .transcript-stream::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 4px; }}
+        .mono {{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }}
     </style>
 </head>
 <body>
     <div class="transcript-stream" id="transcriptStream">
-        __TURNS_CONTENT__
+        {turns_content}
     </div>
 
     <script>
-        function seekToAudio(seconds, btn) {
+        function seekToAudio(seconds, btn) {{
             var audio = window.parent.document.querySelector('audio');
-            if (audio) {
+            if (audio) {{
                 audio.currentTime = seconds;
                 audio.play();
-            }
+            }}
             var card = btn ? btn.closest('.turn-card') : null;
-            document.querySelectorAll('.turn-card').forEach(function(c) { c.classList.remove('active'); });
-            if (card) {
+            document.querySelectorAll('.turn-card').forEach(function(c) {{ c.classList.remove('active'); }});
+            if (card) {{
                 card.classList.add('active');
-            }
-        }
+            }}
+        }}
 
-        function copyTurnText(elementId, btn) {
+        function copyTurnText(elementId, btn) {{
             var el = document.getElementById(elementId);
-            if (el) {
-                navigator.clipboard.writeText(el.innerText).then(function() {
+            if (el) {{
+                navigator.clipboard.writeText(el.innerText).then(function() {{
                     var orig = btn.innerText;
                     btn.innerText = 'Copied';
-                    setTimeout(function() { btn.innerText = orig; }, 1500);
-                });
-            }
-        }
+                    setTimeout(function() {{ btn.innerText = orig; }}, 1500);
+                }});
+            }}
+        }}
     </script>
 </body>
-</html>""".replace("__TEXT_PRI__", text_pri).replace("__ACCENT__", accent_col).replace("__BG_HOVER__", bg_bubble_hover).replace("__BORDER__", border_col).replace("__TURNS_CONTENT__", turns_content)
+</html>"""
         components.html(interactive_player_html, height=580, scrolling=False)
 
     # -------------------------------------------------------------------------

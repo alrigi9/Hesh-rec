@@ -349,8 +349,9 @@ def get_iframe_theme_css(theme: str = "light") -> str:
     /* Mindmap SVG Theme Specificity Overrides */
     #mindmap {{
       background: var(--bg) !important;
-      width: 100%;
-      height: 900px;
+      width: 100% !important;
+      min-height: 700px !important;
+      display: block !important;
     }}
 
     #mindmap text,
@@ -378,6 +379,50 @@ def get_iframe_theme_css(theme: str = "light") -> str:
     #mindmap circle {{
       stroke: var(--border-strong) !important;
       fill: var(--surface) !important;
+    }}
+
+    /* Transcript Badges & Buttons */
+    .speaker-badge, .transcript-badge {{
+      background: var(--surface-2) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 999px !important;
+      padding: 2px 10px !important;
+      font-size: 12px !important;
+      font-weight: 600 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+    }}
+
+    .transcript-btn, .transcript-card button {{
+      background: var(--surface-2) !important;
+      color: var(--text-2) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 4px !important;
+      font-size: 11.5px !important;
+      font-weight: 500 !important;
+      padding: 4px 10px !important;
+      cursor: pointer !important;
+      transition: all 0.15s ease !important;
+    }}
+
+    .transcript-btn:hover, .transcript-card button:hover {{
+      background: var(--border) !important;
+      color: var(--text) !important;
+    }}
+
+    .turn-card, .transcript-card {{
+      background: var(--surface-2) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 8px !important;
+      padding: 12px 16px !important;
+      margin-bottom: 10px !important;
+      transition: all 0.15s ease !important;
+    }}
+
+    .turn-card.active, .transcript-card.active {{
+      border-left: 3px solid var(--accent) !important;
+      background: var(--surface) !important;
     }}
 
     /* Buttons */
