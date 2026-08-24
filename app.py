@@ -509,6 +509,43 @@ def apply_saas_theme(theme: str = "light"):
         .plaud-suggestion-entry:last-child {{
             margin-bottom: 0 !important;
         }}
+
+        /* Force Clean White Background on Print / PDF Export */
+        @media print {{
+          :root, [data-theme="dark"], .stApp {{
+            --bg: #ffffff !important;
+            --surface: #f7f7f8 !important;
+            --text: #1a1a1a !important;
+            --text-mute: #555555 !important;
+            --accent: #c0392b !important;
+            --border: #e2e2e5 !important;
+            color-scheme: light !important;
+          }}
+          html, body, .stApp, .main, [class*="block-container"] {{
+            background: #ffffff !important;
+            color: #1a1a1a !important;
+          }}
+          h1, h2, h3, h4, h5, p, li, td, th, span, div, strong, em {{
+            color: #1a1a1a !important;
+          }}
+          * {{
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }}
+          .ai-suggestions, .ai-suggestion-box, .plaud-sugg-box, .plaud-suggestions-box {{
+            background: #f7f7f8 !important;
+            border-left: 4px solid #c0392b !important;
+            color: #1a1a1a !important;
+          }}
+          section[data-testid="stSidebar"],
+          header[data-testid="stHeader"],
+          .no-print,
+          button {{
+            display: none !important;
+          }}
+          h1, h2, h3 {{ page-break-after: avoid; }}
+          .section, .plaud-topic-block {{ page-break-inside: avoid; }}
+        }}
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)

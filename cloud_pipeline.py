@@ -989,7 +989,12 @@ def generate_printable_html(session_data: Dict[str, Any]) -> str:
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 40px auto; max-width: 850px; color: #111827; line-height: 1.65; background: #FFF; padding: 0 20px; }}
         h1 {{ font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 24px 0; letter-spacing: -0.5px; }}
-        @media print {{ body {{ margin: 15px; max-width: 100%; }} }}
+        @media print {{
+          body {{ background: #ffffff !important; color: #1a1a1a !important; margin: 15px; max-width: 100%; }}
+          h1, h2, h3, h4, h5, p, li, td, th, span, div, strong, em {{ color: #1a1a1a !important; }}
+          * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
+          h1, h2, h3 {{ page-break-after: avoid; }}
+        }}
     </style>
 </head>
 <body>
