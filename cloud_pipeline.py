@@ -28,18 +28,8 @@ SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 INPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Dynamic Secrets & Configuration
-def get_secret(key: str, default: str = "") -> str:
-    """Safely retrieves a secret from st.secrets first, then os.getenv."""
-    try:
-        import streamlit as st
-        if hasattr(st, "secrets") and key in st.secrets:
-            val = str(st.secrets[key])
-            if val.strip():
-                return val.strip()
-    except Exception:
-        pass
-    return os.getenv(key, default)
+import toml
+from core.config import get_secret
 
 DEFAULT_GEMINI_MODEL = get_secret("GEMINI_MODEL", "gemini-2.5-flash")
 

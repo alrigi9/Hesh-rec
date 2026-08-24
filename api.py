@@ -10,11 +10,65 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
+import toml
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Fallback: Load from .streamlit/secrets.toml if env vars are missing
+secrets_path = os.path.join(os.path.dirname(__file__), ".streamlit", "secrets.toml")
+if os.path.exists(secrets_path):
+    try:
+        secrets = toml.load(secrets_path)
+        for k, v in secrets.items():
+            if isinstance(v, str) and k not in os.environ:
+                os.environ[k] = v
+    except Exception as e:
+        print(f"Warning loading secrets.toml: {e}")
+
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from core.config import INPUTS_DIR, BASE_DIR
+from core.config import INPUTS_DIR, BASE_DIR, get_secret
+
+
+def ensure_secrets_loaded():
+    """Ensure all required secrets are loaded into os.environ."""
+    candidates = [
+        BASE_DIR / ".streamlit" / "secrets.toml",
+        Path.cwd() / ".streamlit" / "secrets.toml",
+        Path.home() / ".streamlit" / "secrets.toml",
+        BASE_DIR / ".env",
+        Path.cwd() / ".env",
+        Path.home() / ".env",
+    ]
+    for p in candidates:
+        if p.exists():
+            try:
+                if p.suffix == ".toml":
+                    sec = toml.load(str(p))
+                    for k, v in sec.items():
+                        if isinstance(v, str) and v.strip() and k not in os.environ:
+                            os.environ[k] = v.strip()
+                elif p.name == ".env" or p.suffix == ".env":
+                    from dotenv import dotenv_values
+                    env_vals = dotenv_values(str(p))
+                    for k, v in env_vals.items():
+                        if v and k not in os.environ:
+                            os.environ[k] = str(v).strip()
+            except Exception as e:
+                print(f"[!] Warning reading secrets from {p}: {e}")
+
+    for k in ["GROQ_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "SUPABASE_URL", "SUPABASE_KEY"]:
+        if not os.environ.get(k):
+            val = get_secret(k)
+            if val:
+                os.environ[k] = val
+
+
+ensure_secrets_loaded()
+
 from cloud_pipeline import (
     process_meeting_file_cloud,
     fetch_all_sessions,
@@ -90,6 +144,14 @@ async def process_audio(
     try:
         with open(save_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+
+        ensure_secrets_loaded()
+        groq_k = get_secret("GROQ_API_KEY")
+        if groq_k:
+            os.environ["GROQ_API_KEY"] = groq_k
+        gemini_k = get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
+        if gemini_k:
+            os.environ["GEMINI_API_KEY"] = gemini_k
 
         result = process_meeting_file_cloud(
             audio_path=save_path,
