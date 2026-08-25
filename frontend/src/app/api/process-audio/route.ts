@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     if (contentType.includes("application/json")) {
       const jsonBody = await request.json();
-      fileUrl = jsonBody.file_url || jsonBody.url || null;
+      fileUrl = jsonBody.audioUrl || jsonBody.audio_url || jsonBody.file_url || jsonBody.url || null;
       preTranscript = jsonBody.transcript || jsonBody.transcript_text || jsonBody.text || "";
       templateType = jsonBody.template || jsonBody.template_type || "executive";
       language = jsonBody.language || "auto";
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     } else {
       const formData = await request.formData();
       file = formData.get("file") as File | null;
-      fileUrl = (formData.get("file_url") as string) || null;
+      fileUrl = (formData.get("audioUrl") as string) || (formData.get("audio_url") as string) || (formData.get("file_url") as string) || null;
       templateType = (formData.get("template_type") as string) || (formData.get("template") as string) || "executive";
       language = (formData.get("language") as string) || "auto";
       customTitle = (formData.get("custom_title") as string) || (formData.get("title") as string) || null;

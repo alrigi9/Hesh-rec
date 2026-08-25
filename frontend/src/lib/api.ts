@@ -145,7 +145,7 @@ export async function processAudioFile(
       method: "POST",
       headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify({ filename: safeFilename, user_id: userId }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(30000),
     });
 
     if (signRes.ok) {
@@ -159,7 +159,7 @@ export async function processAudioFile(
           method: "PUT",
           headers: { "Content-Type": file.type || "audio/mp4" },
           body: file,
-          signal: AbortSignal.timeout(75000),
+          signal: AbortSignal.timeout(180000),
         });
 
         if (putRes.ok) {
@@ -168,6 +168,7 @@ export async function processAudioFile(
             method: "POST",
             headers: { "Content-Type": "application/json", ...headers },
             body: JSON.stringify({
+              audioUrl: publicAudioUrl,
               file_url: publicAudioUrl,
               filename: safeFilename,
               template: templateType,
@@ -176,7 +177,7 @@ export async function processAudioFile(
               custom_title: customTitle,
               user_id: userId,
             }),
-            signal: AbortSignal.timeout(90000),
+            signal: AbortSignal.timeout(180000),
           });
 
           if (synthRes.ok) {

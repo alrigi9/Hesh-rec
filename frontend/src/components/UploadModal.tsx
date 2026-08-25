@@ -99,7 +99,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
     setLoading(true);
     setError(null);
     setProcessingStage("uploading");
-    setUploadPercent(20);
+    setUploadPercent(25);
     setElapsedSeconds(0);
 
     const elapsedTimer = setInterval(() => {
@@ -107,23 +107,23 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
     }, 1000);
 
     const uploadTimer = setInterval(() => {
-      setUploadPercent((prev) => (prev < 90 ? prev + 15 : prev));
-    }, 400);
+      setUploadPercent((prev) => (prev < 90 ? prev + 10 : prev));
+    }, 500);
 
     const stageTimer1 = setTimeout(() => {
       setProcessingStage("extracting");
       setUploadPercent(100);
-    }, 1500);
+    }, 3000);
 
     const stageTimer2 = setTimeout(() => {
       setProcessingStage("transcribing");
-    }, 3500);
+    }, 7000);
 
     const stageTimer3 = setTimeout(() => {
       setProcessingStage("synthesizing");
-    }, 7000);
+    }, 16000);
 
-    // Hard client safety abort timeout at 55 seconds
+    // Generous client safety timeout at 300 seconds (5 minutes) for massive files
     const safetyTimeout = setTimeout(() => {
       clearInterval(elapsedTimer);
       clearInterval(uploadTimer);
@@ -131,8 +131,8 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       clearTimeout(stageTimer2);
       clearTimeout(stageTimer3);
       setLoading(false);
-      setError("Upload or speech analysis timed out (55s). Please check your internet connection and try with a smaller audio segment.");
-    }, 55000);
+      setError("Processing took longer than 5 minutes. Please check your internet connection or try with a smaller audio segment.");
+    }, 300000);
 
     try {
       const result = await processAudioFile(
