@@ -136,7 +136,62 @@ export async function processAudioFile(
     }
   }
 
-  // 1. Step 1: Direct Client-Side Speech Transcription via Groq Whisper LPU (Fastest, 0 Serverless Hops)
+  // --------------------------------------------------------------------------
+  // Tier 1 (Primary & Robust): Direct-to-Storage Upload Pipeline
+  // Bypasses Vercel 4.5MB Serverless Payload Limits Completely
+  // --------------------------------------------------------------------------
+  try {
+    const signRes = await fetch("/api/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify({ filename: safeFilename, user_id: userId }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (signRes.ok) {
+      const signData = await signRes.json();
+      const uploadUrl = signData.upload_url;
+      const publicAudioUrl = signData.file_url;
+
+      if (uploadUrl) {
+        // Direct binary stream from client browser to Supabase Storage
+        const putRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "audio/mp4" },
+          body: file,
+          signal: AbortSignal.timeout(75000),
+        });
+
+        if (putRes.ok) {
+          // Send ONLY lightweight JSON payload to /api/process-audio
+          const synthRes = await fetch("/api/process-audio", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...headers },
+            body: JSON.stringify({
+              file_url: publicAudioUrl,
+              filename: safeFilename,
+              template: templateType,
+              template_type: templateType,
+              language,
+              custom_title: customTitle,
+              user_id: userId,
+            }),
+            signal: AbortSignal.timeout(90000),
+          });
+
+          if (synthRes.ok) {
+            return await safeReadResponse(synthRes);
+          }
+        }
+      }
+    }
+  } catch (storageErr) {
+    console.warn("Direct-to-storage upload pipeline fallback note:", storageErr);
+  }
+
+  // --------------------------------------------------------------------------
+  // Tier 2 (Fallback): Direct Client-Side Groq Whisper Transcription
+  // --------------------------------------------------------------------------
   const groqKey =
     process.env.NEXT_PUBLIC_GROQ_API_KEY ||
     "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";
@@ -154,18 +209,12 @@ export async function processAudioFile(
     if (language === "ar") groqFormData.append("language", "ar");
     if (language === "en") groqFormData.append("language", "en");
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s client timeout
-
     const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${groqKey}`,
-      },
+      headers: { Authorization: `Bearer ${groqKey}` },
       body: groqFormData,
-      signal: controller.signal,
+      signal: AbortSignal.timeout(45000),
     });
-    clearTimeout(timeoutId);
 
     if (groqRes.ok) {
       const groqData = await groqRes.json();
@@ -182,97 +231,14 @@ export async function processAudioFile(
         text: (seg.text || "").trim(),
       }));
     }
-  } catch (groqErr: any) {
-    console.warn("Direct Groq client transcription failed or timed out, trying serverless fallback:", groqErr?.message || groqErr);
-  }
-
-  // 2. Fallback: Serverless direct transcription or Supabase storage upload for larger files
-  if (!transcriptText) {
-    try {
-      const isUnderVercelLimit = file.size <= 4.2 * 1024 * 1024;
-
-      if (isUnderVercelLimit) {
-        // Post directly to /api/transcribe-direct
-        const transcribeFormData = new FormData();
-        transcribeFormData.append("file", file, safeFilename);
-        transcribeFormData.append("language", language);
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-        const transcribeRes = await fetch("/api/transcribe-direct", {
-          method: "POST",
-          body: transcribeFormData,
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        if (transcribeRes.ok) {
-          const groqData = await transcribeRes.json();
-          transcriptText = (groqData.text || "").trim();
-          durationSeconds = Number(groqData.duration || 0.0);
-
-          const rawSegments = groqData.segments || [];
-          formattedSegments = rawSegments.map((seg: any, idx: number) => ({
-            index: idx + 1,
-            start: Number(seg.start || 0.0),
-            end: Number(seg.end || 0.0),
-            timestamp: `${Math.floor(Number(seg.start || 0) / 60).toString().padStart(2, "0")}:${Math.floor(Number(seg.start || 0) % 60).toString().padStart(2, "0")}`,
-            speaker: `Speaker ${(idx % 3) + 1}`,
-            text: (seg.text || "").trim(),
-          }));
-        }
-      } else {
-        // Upload to Supabase Storage first, then send URL to /api/transcribe-direct
-        const storagePath = `${userId || "guest"}/${Date.now()}_${safeFilename}`;
-        const { data: uploadData, error: uploadErr } = await supabase.storage
-          .from("recordings")
-          .upload(storagePath, file, { contentType: file.type || "audio/mp4", upsert: true });
-
-        if (!uploadErr && uploadData) {
-          const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(storagePath);
-          const publicUrl = urlData?.publicUrl;
-
-          if (publicUrl) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-            const transcribeRes = await fetch("/api/transcribe-direct", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ file_url: publicUrl, filename: safeFilename, language }),
-              signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
-
-            if (transcribeRes.ok) {
-              const groqData = await transcribeRes.json();
-              transcriptText = (groqData.text || "").trim();
-              durationSeconds = Number(groqData.duration || 0.0);
-
-              const rawSegments = groqData.segments || [];
-              formattedSegments = rawSegments.map((seg: any, idx: number) => ({
-                index: idx + 1,
-                start: Number(seg.start || 0.0),
-                end: Number(seg.end || 0.0),
-                timestamp: `${Math.floor(Number(seg.start || 0) / 60).toString().padStart(2, "0")}:${Math.floor(Number(seg.start || 0) % 60).toString().padStart(2, "0")}`,
-                speaker: `Speaker ${(idx % 3) + 1}`,
-                text: (seg.text || "").trim(),
-              }));
-            }
-          }
-        }
-      }
-    } catch (fallbackErr: any) {
-      console.warn("Serverless fallback transcription error:", fallbackErr?.message || fallbackErr);
-    }
+  } catch (groqErr) {
+    console.warn("Direct Groq client transcription fallback note:", groqErr);
   }
 
   if (!transcriptText) {
     throw new Error("No audible speech could be extracted. The file may be in an unsupported format, silent, or upload timed out.");
   }
 
-  // 3. Step 3: Send lightweight JSON payload to /api/process-audio for intelligence synthesis
   const synthesisPayload = {
     transcript: transcriptText,
     transcript_text: transcriptText,
@@ -286,29 +252,14 @@ export async function processAudioFile(
     user_id: userId,
   };
 
-  const synthController = new AbortController();
-  const synthTimeout = setTimeout(() => synthController.abort(), 45000);
+  const response = await fetch("/api/process-audio", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(synthesisPayload),
+    signal: AbortSignal.timeout(60000),
+  });
 
-  try {
-    const response = await fetch("/api/process-audio", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...headers,
-      },
-      body: JSON.stringify(synthesisPayload),
-      signal: synthController.signal,
-    });
-    clearTimeout(synthTimeout);
-
-    return await safeReadResponse(response);
-  } catch (err: any) {
-    clearTimeout(synthTimeout);
-    if (err.name === "AbortError") {
-      throw new Error("Analysis timed out after 45 seconds. Please try again with a shorter recording.");
-    }
-    throw err;
-  }
+  return await safeReadResponse(response);
 }
 
 export async function fetchSessions(

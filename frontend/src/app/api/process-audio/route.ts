@@ -43,6 +43,7 @@ function cleanAndParseJson(text: string): Record<string, any> {
 export async function POST(request: NextRequest) {
   try {
     let file: File | null = null;
+    let fileUrl: string | null = null;
     let templateType = "executive";
     let language = "auto";
     let customTitle: string | null = null;
@@ -50,12 +51,13 @@ export async function POST(request: NextRequest) {
     let preTranscript: string | null = null;
     let preSegmentsJson: string | null = null;
     let preDurationSeconds = 0.0;
-    let originalFilename = "meeting_audio.mp3";
+    let originalFilename = "meeting_audio.m4a";
 
     const contentType = request.headers.get("content-type") || "";
 
     if (contentType.includes("application/json")) {
       const jsonBody = await request.json();
+      fileUrl = jsonBody.file_url || jsonBody.url || null;
       preTranscript = jsonBody.transcript || jsonBody.transcript_text || jsonBody.text || "";
       templateType = jsonBody.template || jsonBody.template_type || "executive";
       language = jsonBody.language || "auto";
@@ -69,10 +71,11 @@ export async function POST(request: NextRequest) {
         }
       }
       preDurationSeconds = Number(jsonBody.duration_seconds || jsonBody.duration || 0.0);
-      originalFilename = jsonBody.filename || "meeting_transcript.txt";
+      originalFilename = jsonBody.filename || "meeting_audio.m4a";
     } else {
       const formData = await request.formData();
       file = formData.get("file") as File | null;
+      fileUrl = (formData.get("file_url") as string) || null;
       templateType = (formData.get("template_type") as string) || (formData.get("template") as string) || "executive";
       language = (formData.get("language") as string) || "auto";
       customTitle = (formData.get("custom_title") as string) || (formData.get("title") as string) || null;
@@ -80,11 +83,11 @@ export async function POST(request: NextRequest) {
       preTranscript = (formData.get("transcript_text") as string) || (formData.get("transcript") as string) || null;
       preSegmentsJson = (formData.get("transcript_segments") as string) || null;
       preDurationSeconds = Number(formData.get("duration_seconds") || 0.0);
-      originalFilename = (formData.get("filename") as string) || (file ? file.name : "meeting_audio.mp3");
+      originalFilename = (formData.get("filename") as string) || (file ? file.name : "meeting_audio.m4a");
     }
 
-    if (!file && !preTranscript) {
-      return NextResponse.json({ detail: "No audio file or transcript provided." }, { status: 400 });
+    if (!file && !preTranscript && !fileUrl) {
+      return NextResponse.json({ detail: "No audio file, storage URL, or transcript provided." }, { status: 400 });
     }
 
     // Check user quota in Supabase
@@ -135,48 +138,65 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 1. If not pre-transcribed and a file is attached, transcribe via Groq
-    if (!fullTranscript && file) {
-      const groqFormData = new FormData();
-      groqFormData.append("file", file, file.name);
-      groqFormData.append("model", "whisper-large-v3");
-      groqFormData.append("response_format", "verbose_json");
-      groqFormData.append("temperature", "0");
-      if (language === "ar") {
-        groqFormData.append("language", "ar");
-      } else if (language === "en") {
-        groqFormData.append("language", "en");
+    // 1. If not pre-transcribed, transcribe audio from File or Storage URL via Groq Whisper LPU
+    if (!fullTranscript && (file || fileUrl)) {
+      let audioBlob: Blob | File | null = file;
+      if (!audioBlob && fileUrl) {
+        const audioRes = await fetch(fileUrl);
+        if (!audioRes.ok) {
+          return NextResponse.json(
+            { detail: `Failed to download audio from storage URL: ${fileUrl}` },
+            { status: 400 }
+          );
+        }
+        audioBlob = await audioRes.blob();
       }
 
-      const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-        },
-        body: groqFormData,
-      });
+      if (audioBlob) {
+        let safeName = originalFilename || "recording.m4a";
+        if (!safeName.includes(".")) safeName += ".m4a";
 
-      if (!groqRes.ok) {
-        const errText = await groqRes.text();
-        return NextResponse.json(
-          { detail: `Transcription failed: ${errText}` },
-          { status: 500 }
-        );
+        const groqFormData = new FormData();
+        groqFormData.append("file", audioBlob, safeName);
+        groqFormData.append("model", "whisper-large-v3");
+        groqFormData.append("response_format", "verbose_json");
+        groqFormData.append("temperature", "0");
+        if (language === "ar") {
+          groqFormData.append("language", "ar");
+        } else if (language === "en") {
+          groqFormData.append("language", "en");
+        }
+
+        const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GROQ_API_KEY}`,
+          },
+          body: groqFormData,
+        });
+
+        if (!groqRes.ok) {
+          const errText = await groqRes.text();
+          return NextResponse.json(
+            { detail: `Transcription failed: ${errText}` },
+            { status: 500 }
+          );
+        }
+
+        const groqData = await groqRes.json();
+        fullTranscript = (groqData.text || "").trim();
+        durationSeconds = Number(groqData.duration || 0.0);
+
+        const rawSegments = groqData.segments || [];
+        formattedSegments = rawSegments.map((seg: any, idx: number) => ({
+          index: idx + 1,
+          start: Number(seg.start || 0.0),
+          end: Number(seg.end || 0.0),
+          timestamp: formatSecondsToHhmmss(Number(seg.start || 0.0)),
+          speaker: `Speaker ${(idx % 3) + 1}`,
+          text: (seg.text || "").trim(),
+        }));
       }
-
-      const groqData = await groqRes.json();
-      fullTranscript = (groqData.text || "").trim();
-      durationSeconds = Number(groqData.duration || 0.0);
-
-      const rawSegments = groqData.segments || [];
-      formattedSegments = rawSegments.map((seg: any, idx: number) => ({
-        index: idx + 1,
-        start: Number(seg.start || 0.0),
-        end: Number(seg.end || 0.0),
-        timestamp: formatSecondsToHhmmss(Number(seg.start || 0.0)),
-        speaker: `Speaker ${(idx % 3) + 1}`,
-        text: (seg.text || "").trim(),
-      }));
     }
 
     const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
