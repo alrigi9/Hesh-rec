@@ -1,0 +1,17 @@
+﻿export const DESKTOP_APP_CONFIG = {
+  NAME: "RecMap Desktop Recorder",
+  VERSION: "1.0.0",
+  RELEASE_TAG: "desktop-v1.0.0",
+  FILENAME: "RecMap.Desktop.Recorder.Setup.1.0.0.exe",
+  DOWNLOAD_URL: "https://github.com/alrigi9/Hesh-rec/releases/download/desktop-v1.0.0/RecMap.Desktop.Recorder.Setup.1.0.0.exe",
+  LATEST_DOWNLOAD_URL: "https://github.com/alrigi9/Hesh-rec/releases/latest/download/RecMap.Desktop.Recorder.Setup.1.0.0.exe",
+  PORTABLE_FILENAME: "RecMap.Desktop.Recorder.1.0.0.exe",
+  PORTABLE_DOWNLOAD_URL: "https://github.com/alrigi9/Hesh-rec/releases/download/desktop-v1.0.0/RecMap.Desktop.Recorder.1.0.0.exe",
+  SIZE_MB: 105.7,
+  SIZE_BYTES: 110824440,
+  SHA256: "D2BB3761DBA5A7A89919DF6ED555136B0CBEE3C8F33AA62F92E5CEE2C0A00126",
+  PORTABLE_SHA256: "32403F77BE2A12EB0291BA876AAA348F39812C7442E6E10070D8C76BCD4CDCCD",
+  RELEASE_DATE: "2026-08-27",
+  MIN_OS: "Windows 10 / 11 (64-bit)",
+  GITHUB_RELEASE_URL: "https://github.com/alrigi9/Hesh-rec/releases/tag/desktop-v1.0.0",
+};

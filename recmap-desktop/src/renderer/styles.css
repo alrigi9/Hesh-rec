@@ -1,0 +1,336 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+body {
+  background: transparent;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.drag-header {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px 4px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.app-card {
+  width: 100%;
+  height: 100%;
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  color: #f3f4f6;
+  overflow: hidden;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.logo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+}
+
+.brand-text {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #93c5fd;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.icon-btn.close-btn:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 10px 12px;
+}
+
+.timer-display {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: #f9fafb;
+  letter-spacing: 1px;
+}
+
+#audioVisualizer {
+  width: 180px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.button-wrapper {
+  margin: 2px 0;
+}
+
+.record-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  border: none;
+  border-radius: 20px;
+  padding: 7px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+  transition: all 0.2s ease;
+}
+
+.record-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.45);
+}
+
+.record-btn:active {
+  transform: scale(0.98);
+}
+
+.btn-icon {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.record-btn.recording {
+  background: linear-gradient(135deg, #4b5563, #374151);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.record-btn.recording .btn-icon {
+  border-radius: 2px;
+  background: #ef4444;
+  animation: pulse-red 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse-red {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+.record-btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.status-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.status-badge {
+  font-size: 10px;
+  color: #9ca3af;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.status-badge.recording {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.status-badge.uploading {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.status-badge.success {
+  color: #34d399;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.status-badge.error {
+  color: #fb7185;
+  cursor: pointer;
+}
+
+/* Settings Overlay Panel */
+.settings-panel {
+  position: absolute;
+  top: 31px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(13, 17, 23, 0.98);
+  backdrop-filter: blur(16px);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 20;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.settings-panel.hidden {
+  display: none;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: #93c5fd;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 5px;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  flex: 1;
+}
+
+.settings-label {
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.path-box {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 10px;
+  font-family: Consolas, Monaco, monospace;
+  color: #e5e7eb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: ltr;
+  text-align: left;
+  user-select: text;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-bottom: 4px;
+}
+
+.action-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.primary-btn {
+  background: #2563eb;
+  color: #ffffff;
+  flex: 2;
+}
+
+.primary-btn:hover {
+  background: #1d4ed8;
+}
+
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f3f4f6;
+  flex: 1;
+}
+
+.secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.reset-btn {
+  background: rgba(255, 255, 255, 0.05);
+  color: #9ca3af;
+  width: 28px;
+}
+
+.reset-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+

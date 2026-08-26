@@ -23,32 +23,34 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-pill: 999px;
 }
 
 :root, .dark {
-  --background: #0c0d0e;
-  --foreground: #f0f2f5;
-  --card: #141517;
-  --card-foreground: #f0f2f5;
-  --popover: #141517;
-  --popover-foreground: #f0f2f5;
+  --background: #0d0e11;
+  --foreground: #f3f4f6;
+  --card: #131418;
+  --card-foreground: #f3f4f6;
+  --popover: #131418;
+  --popover-foreground: #f3f4f6;
   --primary: #ff5c47;
   --primary-foreground: #ffffff;
-  --secondary: #1c1e22;
-  --secondary-foreground: #f0f2f5;
-  --muted: #1c1e22;
-  --muted-foreground: #8b909a;
-  --accent: #232529;
-  --accent-foreground: #f0f2f5;
-  --destructive: #eb5757;
-  --border: #232529;
-  --input: #232529;
+  --secondary: #18191f;
+  --secondary-foreground: #f3f4f6;
+  --muted: #18191f;
+  --muted-foreground: #9ca3af;
+  --accent: #22242a;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --border: #22242a;
+  --input: #22242a;
   --ring: #ff5c47;
-  --radius: 0.875rem;
+  --radius: 0.5rem;
 }
 
 @layer base {
@@ -57,25 +59,26 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-color: #0c0d0e;
-    color: #f0f2f5;
+    background-color: #0d0e11;
+    color: #f3f4f6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
-/* Custom Linear scrollbars */
+/* Refined Minimalist Scrollbars (Linear style) */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #232529;
-  border-radius: 999px;
+  background: #262830;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #343840;
+  background: #3b3e4a;
 }

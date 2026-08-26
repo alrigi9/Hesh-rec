@@ -20,8 +20,8 @@ import {
   X, 
   Loader2, 
   Sparkles,
-  Sliders,
   AlertCircle,
+  Copy,
   UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ export default function AdminDashboardPage() {
   const [editRoleValue, setEditRoleValue] = useState<string>("user");
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Strict Client-Side Route Guard
   useEffect(() => {
@@ -160,13 +161,25 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleCopyId = async (userId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(userId);
+      setCopiedId(userId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy ID:", err);
+    }
+  };
+
   const filteredUsers = users.filter((u) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      (u.email || "").toLowerCase().includes(term) ||
-      (u.id || "").toLowerCase().includes(term) ||
-      (u.role || "").toLowerCase().includes(term)
-    );
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return true;
+    const name = (u.full_name || u.display_name || u.name || "").toLowerCase();
+    const email = (u.email || "").toLowerCase();
+    const id = (u.id || "").toLowerCase();
+    const role = (u.role || "").toLowerCase();
+    return name.includes(term) || email.includes(term) || id.includes(term) || role.includes(term);
   });
 
   return (
@@ -184,7 +197,7 @@ export default function AdminDashboardPage() {
           <span className="text-[#232529]">/</span>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-md bg-[#ff5c47]/10 border border-[#ff5c47]/20 flex items-center justify-center text-[#ff5c47]">
-              <Sliders className="w-3.5 h-3.5" />
+              <ShieldCheck className="w-3.5 h-3.5" />
             </div>
             <span className="font-semibold text-xs text-[#f0f2f5] font-heading">
               RecMap Admin Console
@@ -285,7 +298,7 @@ export default function AdminDashboardPage() {
             <Search className="w-4 h-4 text-[#8b909a] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search users by email or ID..."
+              placeholder="Search users by name, email, ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full h-9 pl-10 pr-4 bg-[#141517] border border-[#232529] rounded-full text-xs text-[#f0f2f5] placeholder-[#8b909a] focus:outline-none focus:border-[#ff5c47]/50 transition-colors shadow-inner"
@@ -324,12 +337,60 @@ export default function AdminDashboardPage() {
                   const limit = floatNumber(u.monthly_minutes_limit) || 300;
                   const percent = Math.min(100, Math.round((used / limit) * 100));
 
+                  const rawName = (u.full_name || u.display_name || u.name || "").trim();
+                  const hasName = rawName.length > 0;
+                  const primaryIdentity = hasName ? rawName : (u.email || "Unnamed user");
+                  const secondaryIdentity = hasName && u.email ? u.email : null;
+                  const compactId = u.id && u.id.length > 12 
+                    ? `${u.id.slice(0, 8)}…${u.id.slice(-4)}` 
+                    : (u.id || "N/A");
+                  const avatarLetter = (hasName ? rawName[0] : (u.email ? u.email[0] : "U")).toUpperCase();
+
                   return (
                     <tr key={u.id} className="hover:bg-[#18191c]/50 transition-colors">
                       {/* User Info */}
                       <td className="px-6 py-4">
-                        <div className="font-medium text-[#f0f2f5]">{u.email || "Registered User"}</div>
-                        <div className="text-[11px] font-mono text-[#8b909a]">{u.id}</div>
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center text-xs font-bold text-[#f0f2f5] shrink-0 uppercase font-heading mt-0.5">
+                            {avatarLetter}
+                          </div>
+                          <div className="space-y-0.5 min-w-0 flex-1">
+                            <div 
+                              className="font-semibold text-xs sm:text-sm text-[#f0f2f5] break-all [overflow-wrap:anywhere]"
+                              title={primaryIdentity}
+                            >
+                              {primaryIdentity}
+                            </div>
+                            {secondaryIdentity && (
+                              <div 
+                                className="text-xs text-[#b5b9c2] break-all [overflow-wrap:anywhere]"
+                                title={secondaryIdentity}
+                              >
+                                {secondaryIdentity}
+                              </div>
+                            )}
+                            <div className="text-[11px] font-mono text-[#8b909a] flex items-center gap-2 flex-wrap pt-0.5">
+                              <div className="inline-flex items-center gap-1 bg-[#1c1e24] px-1.5 py-0.5 rounded border border-white/5">
+                                <span title={`Full User ID: ${u.id}`}>ID: {compactId}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleCopyId(u.id, e)}
+                                  className="text-[#8b909a] hover:text-[#f0f2f5] p-0.5 rounded hover:bg-white/10 transition-colors focus:outline-none focus:ring-1 focus:ring-[#ff5c47]"
+                                  title="Copy full User ID"
+                                  aria-label="Copy User ID"
+                                >
+                                  {copiedId === u.id ? (
+                                    <Check className="w-3 h-3 text-[#3ec98a]" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                              <span>•</span>
+                              <span>Joined {new Date(u.created_at || Date.now()).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
                       </td>
 
                       {/* Role Badge */}

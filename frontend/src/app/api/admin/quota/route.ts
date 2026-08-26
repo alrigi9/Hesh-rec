@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "@/lib/server-config";
+import { requireAdmin } from "@/lib/serverAuth";
 
 export async function POST(request: NextRequest) {
   return handleQuotaUpdate(request);
@@ -11,8 +12,14 @@ export async function PATCH(request: NextRequest) {
 
 async function handleQuotaUpdate(request: NextRequest) {
   try {
-    const body = await request.json();
+    const { errorResponse } = await requireAdmin(request);
+    if (errorResponse) {
+      return errorResponse;
+    }
+
+    const body = await request.json().catch(() => ({}));
     const targetUserId = body.target_user_id || body.user_id;
+
     const limitValue =
       body.monthly_minutes_limit !== undefined
         ? Number(body.monthly_minutes_limit)

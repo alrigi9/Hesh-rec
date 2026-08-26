@@ -113,20 +113,25 @@ export async function fetchUserProfile(
 
 export async function processAudioFile(
   file: File,
-  templateType: string = "executive",
+  templateType: string = "auto",
   customTitle?: string,
   userId?: string,
   token?: string,
   language: string = "auto"
 ): Promise<MeetingSession> {
+
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   // Normalize mobile filenames (especially iOS voice memos / blobs)
   let safeFilename = file.name || "recording.m4a";
   if (!safeFilename.includes(".")) {
-    if (file.type.includes("m4a") || file.type.includes("mp4") || file.type.includes("aac")) {
+    if (file.type.includes("m4a") || file.type.includes("aac")) {
       safeFilename += ".m4a";
+    } else if (file.type.includes("mp4")) {
+      safeFilename += ".mp4";
+    } else if (file.type.includes("quicktime") || file.type.includes("mov")) {
+      safeFilename += ".mov";
     } else if (file.type.includes("wav")) {
       safeFilename += ".wav";
     } else if (file.type.includes("webm")) {
@@ -134,6 +139,7 @@ export async function processAudioFile(
     } else {
       safeFilename += ".mp3";
     }
+
   }
 
   // --------------------------------------------------------------------------
@@ -151,9 +157,9 @@ export async function processAudioFile(
     if (signRes.ok) {
       const signData = await signRes.json();
       const uploadUrl = signData.upload_url;
-      const publicAudioUrl = signData.file_url;
+      const storagePath = signData.storage_path;
 
-      if (uploadUrl) {
+      if (uploadUrl && storagePath) {
         // Direct binary stream from client browser to Supabase Storage
         const putRes = await fetch(uploadUrl, {
           method: "PUT",
@@ -163,13 +169,12 @@ export async function processAudioFile(
         });
 
         if (putRes.ok) {
-          // Send ONLY lightweight JSON payload to /api/process-audio
+          // Send ONLY lightweight JSON payload with storage_path to /api/process-audio
           const synthRes = await fetch("/api/process-audio", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...headers },
             body: JSON.stringify({
-              audioUrl: publicAudioUrl,
-              file_url: publicAudioUrl,
+              storage_path: storagePath,
               filename: safeFilename,
               template: templateType,
               template_type: templateType,
@@ -181,11 +186,13 @@ export async function processAudioFile(
           });
 
           if (synthRes.ok) {
-            return await safeReadResponse(synthRes);
+            const initialData = await safeReadResponse(synthRes);
+            return initialData;
           }
         }
       }
     }
+
   } catch (storageErr) {
     console.warn("Direct-to-storage upload pipeline fallback note:", storageErr);
   }
@@ -193,9 +200,8 @@ export async function processAudioFile(
   // --------------------------------------------------------------------------
   // Tier 2 (Fallback): Direct Client-Side Groq Whisper Transcription
   // --------------------------------------------------------------------------
-  const groqKey =
-    process.env.NEXT_PUBLIC_GROQ_API_KEY ||
-    "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";
+  const groqKey = process.env.NEXT_PUBLIC_GROQ_API_KEY || "";
+
 
   let transcriptText = "";
   let durationSeconds = 0;
@@ -332,6 +338,10 @@ export async function fetchSessions(
             },
             user_id: meta.user_id || userId,
             created_at: row.created_at,
+            status: row.status || (row.summary ? "completed" : "processing"),
+            error_message: row.error_message || null,
+            processing_started_at: row.processing_started_at || row.created_at,
+            processing_completed_at: row.processing_completed_at || null,
           };
         });
       }
@@ -400,14 +410,44 @@ export async function fetchSessionById(
           session_id: row.id,
           duration: `${durationMinutes}m`,
           audio_filename: meta.audio_filename || "meeting_audio.mp3",
+          audio_url: meta.audio_url || null,
         },
-        user_id: meta.user_id,
+        user_id: meta.user_id || row.user_id,
         created_at: row.created_at,
+        status: row.status || (row.summary ? "completed" : "processing"),
+        error_message: row.error_message || null,
+        processing_started_at: row.processing_started_at || row.created_at,
+        processing_completed_at: row.processing_completed_at || null,
       };
     }
   } catch (e) {}
 
   return null;
+}
+
+export async function retryProcessingSession(
+  sessionId: string,
+  token?: string
+): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch("/api/process-audio/retry", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+
+    if (res.ok) {
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error("retryProcessingSession error:", err);
+    return false;
+  }
 }
 
 export async function deleteSession(id: string, token?: string): Promise<boolean> {

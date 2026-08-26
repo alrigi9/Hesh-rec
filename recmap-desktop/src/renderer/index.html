@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RecMap Desktop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-card">
+    <!-- Header / Drag Bar -->
+    <header class="drag-header">
+      <div class="brand">
+        <span class="logo-dot"></span>
+        <span class="brand-text">RecMap</span>
+      </div>
+      <div class="window-controls no-drag">
+        <button id="settingsBtn" title="إعدادات مجلد الحفظ" class="icon-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+        <button id="folderBtn" title="فتح مجلد التسجيلات" class="icon-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>
+          </svg>
+        </button>
+        <button id="logoutBtn" title="تسجيل الخروج" class="icon-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+        <button id="minBtn" title="تصغير" class="icon-btn">&minus;</button>
+        <button id="closeBtn" title="إغلاق" class="icon-btn close-btn">&times;</button>
+      </div>
+    </header>
+
+    <!-- Settings Overlay Panel -->
+    <div id="settingsPanel" class="settings-panel hidden no-drag">
+      <div class="settings-header">
+        <span>⚙️ إعدادات حفظ التسجيلات</span>
+        <button id="closeSettingsBtn" class="icon-btn close-panel-btn" title="رجوع">&times;</button>
+      </div>
+      <div class="settings-body">
+        <label class="settings-label">مجلد الحفظ الحالي:</label>
+        <div class="path-box" id="folderPathText" title="">جاري التحميل...</div>
+        <div class="settings-actions">
+          <button id="changeFolderBtn" class="action-btn primary-btn">📁 تغيير المجلد</button>
+          <button id="openCurrentFolderBtn" class="action-btn secondary-btn">📂 فتح</button>
+          <button id="resetFolderBtn" class="action-btn reset-btn" title="استعادة المجلد الافتراضي">↺</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="timer-display" id="timerEl">00:00</div>
+
+      <!-- Real-time audio waveform / visualizer canvas -->
+      <canvas id="audioVisualizer" width="180" height="20"></canvas>
+
+      <!-- Record Toggle Button -->
+      <div class="button-wrapper">
+        <button id="toggleBtn" class="record-btn no-drag">
+          <span class="btn-icon" id="btnIcon"></span>
+          <span id="btnLabel">ابدأ التسجيل</span>
+        </button>
+      </div>
+
+      <!-- Status Indicator -->
+      <div class="status-box">
+        <span class="status-badge" id="statusBadge">جاهز للتسجيل</span>
+      </div>
+    </main>
+  </div>
+
+  <script src="recorder.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, 
   CheckSquare, 
@@ -14,35 +14,132 @@ import {
   Download, 
   Printer, 
   Check, 
-  Sparkles, 
   Send,
-  Loader2,
+  Loader2, 
   HelpCircle,
   Lightbulb,
   AlertCircle,
   Share2,
-  Link as LinkIcon
+  RotateCw,
+  Cpu,
+  CheckCircle2,
+  Radio,
+  FileAudio
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MeetingSession, ActionItem, MeetingSection, TranscriptSegment } from "@/types/meeting";
 import { MindmapView } from "@/components/MindmapView";
-import { askMeetingAssistant, togglePublicSession } from "@/lib/api";
+import { ChatAssistant } from "@/components/ChatAssistant";
+import { normalizeTemplate, TEMPLATES_CONFIG } from "@/lib/templates";
+import { togglePublicSession, fetchSessionById, retryProcessingSession } from "@/lib/api";
 import { formatMeetingTitle } from "@/lib/utils";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 interface MeetingViewProps {
   session: MeetingSession;
   onSeekAudio?: (seconds: number) => void;
+  onSessionUpdated?: (updatedSession: MeetingSession) => void;
+  readOnly?: boolean;
 }
 
-export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
-  // Console debugging for inspecting exact API payloads in DevTools
-  console.log("Current Active Session Data:", session);
-
+export function MeetingView({ session: initialSession, onSeekAudio, onSessionUpdated, readOnly = false }: MeetingViewProps) {
+  const { user, token } = useAuth();
+  const [session, setSession] = useState<MeetingSession>(initialSession);
   const [activeTab, setActiveTab] = useState("summary");
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [elapsedProcessingSeconds, setElapsedProcessingSeconds] = useState(0);
+
+  const isOwner = Boolean(user?.id && session.user_id && user.id === session.user_id);
+  const canAccessChat = !readOnly && (isOwner || user?.role === "admin");
+
+  // Sync initialSession changes to local state
+  useEffect(() => {
+    setSession(initialSession);
+  }, [initialSession]);
+
+  const sessionId = session.id || session.metadata?.session_id;
+  const status = session.status || (session.summary || session.executive_summary ? "completed" : "processing");
+  const isProcessing = status === "processing";
+  const isFailed = status === "failed";
+
+  // --------------------------------------------------------------------------
+  // Realtime Subscription & Polling when session is processing
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    if (!isProcessing || !sessionId) return;
+
+    let timer: NodeJS.Timeout | null = null;
+    let pollInterval: NodeJS.Timeout | null = null;
+
+    setElapsedProcessingSeconds(0);
+    timer = setInterval(() => {
+      setElapsedProcessingSeconds((prev) => prev + 1);
+    }, 1000);
+
+    const channel = supabase
+      .channel(`session-realtime-${sessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "sessions",
+          filter: `id=eq.${sessionId}`,
+        },
+        async (payload) => {
+          console.log("[Realtime] Session record updated in Supabase:", payload.new);
+          const fullData = await fetchSessionById(sessionId, token || undefined);
+          if (fullData) {
+            setSession(fullData);
+            onSessionUpdated?.(fullData);
+          }
+        }
+      )
+      .subscribe();
+
+    pollInterval = setInterval(async () => {
+      try {
+        const fullData = await fetchSessionById(sessionId, token || undefined);
+        if (fullData) {
+          if (fullData.status === "completed" || fullData.status === "failed" || fullData.summary) {
+            setSession(fullData);
+            onSessionUpdated?.(fullData);
+          }
+        }
+      } catch (err) {
+        console.warn("[Polling] Status check note:", err);
+      }
+    }, 3500);
+
+    return () => {
+      if (timer) clearInterval(timer);
+      if (pollInterval) clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
+  }, [isProcessing, sessionId, token, onSessionUpdated]);
+
+  const handleRetry = async () => {
+    if (!sessionId || retrying) return;
+    setRetrying(true);
+    try {
+      const ok = await retryProcessingSession(sessionId, token || undefined);
+      if (ok) {
+        setSession((prev) => ({
+          ...prev,
+          status: "processing",
+          error_message: null,
+        }));
+      }
+    } catch (err) {
+      console.error("Retry failed:", err);
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   // Robust data key fallbacks
   const summaryText = session.executive_summary || session.tldr || session.summary || "";
@@ -57,7 +154,6 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
     ? session.transcript
     : (session.full_transcript_text || "");
 
-  // Strategic Insights / AI Suggestions extraction
   const rawSuggestions: any = session.strategic_insights || session.ai_suggestions;
   const strategicItems: Array<{ label?: string; title?: string; detail?: string; body?: string; text?: string }> = Array.isArray(rawSuggestions)
     ? rawSuggestions
@@ -81,7 +177,6 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
     }));
   });
 
-  // Sync action items when session changes
   useEffect(() => {
     const items = [...(session.action_items || [])];
     const currentPillars = (session.discussion_pillars && session.discussion_pillars.length > 0)
@@ -103,17 +198,9 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
         priority: it.priority || "MED",
       }))
     );
-    // Reset to summary tab when switching sessions
     setActiveTab("summary");
-    setMessages([]);
-  }, [session.metadata?.session_id, session.title, session.id]);
+  }, [session.metadata?.session_id, session.title, session.id, session.status]);
 
-  // Chat State
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-
-  // Title cleaner
   const rawTitle = session.title || "Meeting Summary";
   const cleanTitle = rawTitle
     .replace(/^Upload \d+ \d+\s*/i, "")
@@ -142,7 +229,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2500);
       if (session.id) {
-        togglePublicSession(session.id, true);
+        togglePublicSession(session.id, true, token || undefined);
       }
     } catch {
       // fallback
@@ -211,223 +298,339 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
     a.click();
   };
 
-  const handleSendChat = async (promptText?: string) => {
-    const query = promptText || chatInput.trim();
-    if (!query || chatLoading) return;
-
-    const newMessages = [...messages, { role: "user", content: query }];
-    setMessages(newMessages);
-    setChatInput("");
-    setChatLoading(true);
-
-    try {
-      const answer = await askMeetingAssistant(session, query, newMessages);
-      setMessages([...newMessages, { role: "assistant", content: answer }]);
-    } catch {
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content: "Sorry, I encountered an issue analyzing this meeting context.",
-        },
-      ]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
   const totalActions = actionItems.length;
   const completedActions = actionItems.filter((a) => a.status === "completed").length;
   const completionPercent = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
-  const displayDate = session.meeting_date || session.date;
-  const displayDuration = session.metadata?.duration || session.duration || (session.duration_minutes ? `${session.duration_minutes}m` : null);
+  const displayDate = session.meeting_date || session.date || (session.created_at ? new Date(session.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
+  const displayDuration = session.duration || (session.duration_minutes ? `${session.duration_minutes}m` : "");
 
+  const rawTemplate = (session as any).template || session.metadata?.template || session.metadata?.template_type;
+  const templateId = normalizeTemplate(rawTemplate);
+  const templateConfig = templateId !== "auto" ? TEMPLATES_CONFIG[templateId] : null;
+
+  // ==========================================================================
+  // VIEW 1: PROCESSING STATE
+  // ==========================================================================
+  if (isProcessing) {
+    const isTranscribing = elapsedProcessingSeconds < 10;
+    const isSynthesizing = elapsedProcessingSeconds >= 10 && elapsedProcessingSeconds < 25;
+    const isSaving = elapsedProcessingSeconds >= 25;
+
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-[#131418] border border-[#22242a] rounded-xl p-6 sm:p-8 space-y-6 text-center shadow-lg"
+        >
+          <div className="w-12 h-12 rounded-lg bg-[#ff5c47]/10 border border-[#ff5c47]/20 flex items-center justify-center text-[#ff5c47] mx-auto">
+            <Loader2 className="w-6 h-6 animate-spin" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-xs font-medium">
+              <span>
+                {isTranscribing && "1. Transcribing audio stream (Whisper)..."}
+                {isSynthesizing && "2. Extracting intelligence & mind map (GPT-120B)..."}
+                {isSaving && "3. Finalizing executive synthesis..."}
+              </span>
+            </div>
+            <h2 className="text-xl font-bold text-[#f3f4f6] tracking-tight">
+              {displayTitle}
+            </h2>
+            <p className="text-xs text-[#9ca3af] max-w-md mx-auto leading-relaxed">
+              Processing in background cloud worker. You can safely navigate away; your meeting intelligence will appear automatically.
+            </p>
+          </div>
+
+          {/* 3 Step Pipeline */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-left">
+            <div className="p-3 rounded-lg bg-[#18191f] border border-[#10b981]/30 space-y-1">
+              <div className="flex items-center justify-between text-xs text-[#10b981] font-medium">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  1. Storage
+                </span>
+                <span className="text-[10px] font-mono">100%</span>
+              </div>
+              <p className="text-[11px] text-[#9ca3af]">Secure Audio Stored</p>
+            </div>
+
+            <div className={`p-3 rounded-lg bg-[#18191f] border space-y-1 ${
+              isTranscribing ? "border-[#ff5c47]/50" : "border-[#10b981]/30"
+            }`}>
+              <div className={`flex items-center justify-between text-xs font-medium ${
+                isTranscribing ? "text-[#ff5c47]" : "text-[#10b981]"
+              }`}>
+                <span className="flex items-center gap-1.5">
+                  {isTranscribing ? <Radio className="w-3.5 h-3.5 animate-pulse text-[#ff5c47]" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  2. Speech
+                </span>
+                <span className="text-[10px] font-mono">{isTranscribing ? `${elapsedProcessingSeconds}s` : "✓ Done"}</span>
+              </div>
+              <p className="text-[11px] text-[#9ca3af]">Whisper Large V3</p>
+            </div>
+
+            <div className={`p-3 rounded-lg bg-[#18191f] border space-y-1 ${
+              isSynthesizing || isSaving ? "border-[#ff5c47]/50 text-[#ff5c47]" : "border-[#22242a] opacity-60"
+            }`}>
+              <div className={`flex items-center justify-between text-xs font-medium ${
+                isSynthesizing || isSaving ? "text-[#ff5c47]" : "text-[#9ca3af]"
+              }`}>
+                <span className="flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5" />
+                  3. Intelligence
+                </span>
+                <span className="text-[10px] font-mono">
+                  {isSynthesizing || isSaving ? `${Math.max(0, elapsedProcessingSeconds - 10)}s` : "Pending"}
+                </span>
+              </div>
+              <p className="text-[11px] text-[#9ca3af]">GPT-120B Model</p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 pt-2 border-t border-[#22242a]">
+            <div className="flex items-center justify-between text-xs text-[#9ca3af]">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-[#ff5c47]" />
+                Elapsed: <span className="font-mono text-[#f3f4f6] font-medium">{elapsedProcessingSeconds}s</span>
+              </span>
+              <span className="font-mono text-[11px] text-[#10b981]">Realtime Sync</span>
+            </div>
+            <div className="w-full bg-[#18191f] h-1.5 rounded overflow-hidden">
+              <motion.div
+                className="h-full bg-[#ff5c47] rounded"
+                animate={{ width: ["20%", "70%", "95%"] }}
+                transition={{ duration: 25, ease: "easeInOut" }}
+              />
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ==========================================================================
+  // VIEW 2: FAILED STATE
+  // ==========================================================================
+  if (isFailed) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-[#131418] border border-[#ef4444]/30 rounded-xl p-8 space-y-5 text-center shadow-lg"
+        >
+          <div className="w-12 h-12 rounded-lg bg-[#ef4444]/10 border border-[#ef4444]/20 flex items-center justify-center text-[#ef4444] mx-auto">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-[#ef4444]/10 text-[#ef4444] text-xs font-semibold">
+              Processing Failed
+            </div>
+            <h2 className="text-xl font-bold text-[#f3f4f6]">{displayTitle}</h2>
+            <p className="text-xs text-[#ef4444] bg-[#ef4444]/10 p-3 rounded-lg max-w-lg mx-auto leading-relaxed border border-[#ef4444]/20">
+              {session.error_message || "An unexpected error occurred during audio transcription or synthesis."}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center pt-2">
+            <Button
+              onClick={handleRetry}
+              disabled={retrying}
+              className="h-9 px-5 rounded-md bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-medium text-xs gap-1.5 shadow-sm"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${retrying ? "animate-spin" : ""}`} />
+              <span>{retrying ? "Retrying..." : "Retry Processing"}</span>
+            </Button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ==========================================================================
+  // VIEW 3: COMPLETED MEETING SESSION VIEW
+  // ==========================================================================
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8 pb-28 md:pb-12 overflow-x-hidden print:p-0 print:m-0">
-      {/* Editorial Header */}
+    <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-8 pb-32 md:pb-20 overflow-x-hidden print:p-0 print:m-0 text-[#f3f4f6]">
+      {/* Workspace Header */}
       <motion.div 
-        initial={{ opacity: 0, y: -6 }}
+        initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-4 mb-6 sm:mb-8"
+        transition={{ duration: 0.25 }}
+        className="space-y-4 mb-6 pb-4 border-b border-[#22242a]"
       >
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading break-words leading-tight print:text-black">
-          {displayTitle}
-        </h1>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="space-y-2">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#f3f4f6] leading-tight print:text-black">
+              {displayTitle}
+            </h1>
 
-        {/* Floating Metadata Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs">
-          {displayDuration && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] font-mono text-[11px] sm:text-xs">
-              <Clock className="w-3 h-3 text-[#ff5c47]" />
-              {displayDuration}
-            </span>
-          )}
-          {displayDate && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px] sm:text-xs">
-              <Calendar className="w-3 h-3 text-[#ff5c47]" />
-              {displayDate}
-            </span>
-          )}
-          {session.tags && session.tags.slice(0, 3).map((tag, idx) => (
-            <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#18191c] border border-[#232529] text-[#8b909a] text-[11px]">
-              <Tag className="w-2.5 h-2.5 text-[#ff5c47]" />
-              {tag}
-            </span>
-          ))}
-          {/* Strict RecMap Intelligence Engine Pill */}
-          <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-[11px] sm:text-xs font-medium">
-            <Sparkles className="w-3 h-3" />
-            RecMap Intelligence
-          </span>
-        </div>
+            {/* Metadata Badges */}
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[#9ca3af]">
+              {displayDate && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#18191f] border border-[#22242a] text-[11px]">
+                  <Calendar className="w-3 h-3 text-[#9ca3af]" />
+                  {displayDate}
+                </span>
+              )}
+              {displayDuration && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#18191f] border border-[#22242a] text-[11px] font-mono">
+                  <Clock className="w-3 h-3 text-[#9ca3af]" />
+                  {displayDuration}
+                </span>
+              )}
+              {templateConfig && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-[11px] font-medium font-mono uppercase">
+                  {templateConfig.badge}
+                </span>
+              )}
+              {session.tags && session.tags.slice(0, 2).map((tag, idx) => (
+                <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#18191f] border border-[#22242a] text-[11px]">
+                  <Tag className="w-2.5 h-2.5 text-[#9ca3af]" />
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
 
-        {/* Action Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-b border-[#232529] pb-4 sm:pb-6 print:hidden">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleShareLink}
-            className={`h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] shrink-0 transition-all ${
-              shareCopied
-                ? "text-[#3ec98a] border-[#3ec98a]/40 bg-[#3ec98a]/10"
-                : "text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22]"
-            }`}
-          >
-            {shareCopied ? (
-              <Check className="w-3.5 h-3.5 mr-1.5 text-[#3ec98a]" />
-            ) : (
-              <Share2 className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
-            )}
-            {shareCopied ? "Link Copied!" : "Share"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleCopyMarkdown}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 mr-1.5 text-[#3ec98a]" /> : <Copy className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />}
-            {copied ? "Copied!" : "Copy Summary"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleDownloadMarkdown}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
-            Export Markdown
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => window.print()}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
-          >
-            <Printer className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
-            Print / PDF
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleDownloadJSON}
-            className="h-8 px-3 rounded-full text-xs border-[#232529] bg-[#141517] text-[#8b909a] hover:text-[#f0f2f5] hover:bg-[#1c1e22] shrink-0 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            JSON
-          </Button>
+          {/* Action Toolbar */}
+          <div className="flex items-center gap-1.5 shrink-0 print:hidden">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleShareLink}
+              className={`h-8 px-2.5 rounded-md text-xs border-[#22242a] bg-[#131418] transition-colors ${
+                shareCopied
+                  ? "text-[#10b981] border-[#10b981]/40 bg-[#10b981]/10"
+                  : "text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#18191f]"
+              }`}
+            >
+              {shareCopied ? <Check className="w-3.5 h-3.5 mr-1 text-[#10b981]" /> : <Share2 className="w-3.5 h-3.5 mr-1" />}
+              <span>{shareCopied ? "Copied" : "Share"}</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCopyMarkdown}
+              className="h-8 px-2.5 rounded-md text-xs border-[#22242a] bg-[#131418] text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#18191f] transition-colors"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 mr-1 text-[#10b981]" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+              <span>{copied ? "Copied" : "Copy"}</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDownloadMarkdown}
+              className="h-8 px-2.5 rounded-md text-xs border-[#22242a] bg-[#131418] text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#18191f] transition-colors"
+            >
+              <Download className="w-3.5 h-3.5 mr-1" />
+              <span>Export</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.print()}
+              className="h-8 px-2.5 rounded-md text-xs border-[#22242a] bg-[#131418] text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#18191f] transition-colors"
+            >
+              <Printer className="w-3.5 h-3.5" />
+            </Button>
+          </div>
         </div>
       </motion.div>
 
       {/* Tabs Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-[#141517] border border-[#232529] p-1 rounded-2xl sm:rounded-full flex flex-nowrap sm:inline-flex gap-1 max-w-full overflow-x-auto no-scrollbar shrink-0 select-none">
+        <TabsList className="bg-[#131418] border border-[#22242a] p-1 rounded-lg flex flex-nowrap sm:inline-flex gap-1 max-w-full overflow-x-auto no-scrollbar shrink-0 select-none">
           <TabsTrigger
             value="summary"
-            className="rounded-full text-xs px-3.5 sm:px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
+            className="rounded-md text-xs px-3 py-1.5 data-[state=active]:bg-[#1e2027] data-[state=active]:text-[#f3f4f6] data-[state=active]:shadow-sm text-[#9ca3af] shrink-0 transition-all font-medium"
           >
             <FileText className="w-3.5 h-3.5 mr-1.5" />
             Summary
           </TabsTrigger>
           <TabsTrigger
             value="actions"
-            className="rounded-full text-xs px-3.5 sm:px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
+            className="rounded-md text-xs px-3 py-1.5 data-[state=active]:bg-[#1e2027] data-[state=active]:text-[#f3f4f6] data-[state=active]:shadow-sm text-[#9ca3af] shrink-0 transition-all font-medium"
           >
             <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
             Action Items ({totalActions})
           </TabsTrigger>
           <TabsTrigger
             value="mindmap"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
+            className="rounded-md text-xs px-3 py-1.5 data-[state=active]:bg-[#1e2027] data-[state=active]:text-[#f3f4f6] data-[state=active]:shadow-sm text-[#9ca3af] shrink-0 transition-all font-medium"
           >
             <Network className="w-3.5 h-3.5 mr-1.5" />
             Mind Map
           </TabsTrigger>
           <TabsTrigger
             value="transcript"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
+            className="rounded-md text-xs px-3 py-1.5 data-[state=active]:bg-[#1e2027] data-[state=active]:text-[#f3f4f6] data-[state=active]:shadow-sm text-[#9ca3af] shrink-0 transition-all font-medium"
           >
             <Clock className="w-3.5 h-3.5 mr-1.5" />
             Transcript
           </TabsTrigger>
-          <TabsTrigger
-            value="chat"
-            className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-[#1c1e22] data-[state=active]:text-[#f0f2f5] text-[#8b909a] shrink-0 transition-all"
-          >
-            <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
-            Chat
-          </TabsTrigger>
+          {canAccessChat && (
+            <TabsTrigger
+              value="chat"
+              className="rounded-md text-xs px-3 py-1.5 data-[state=active]:bg-[#1e2027] data-[state=active]:text-[#f3f4f6] data-[state=active]:shadow-sm text-[#9ca3af] shrink-0 transition-all font-medium"
+            >
+              <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+              Chat
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        {/* TAB 1: SUMMARY (Default Visible directly under tab bar) */}
-        <TabsContent value="summary" className="space-y-8 focus-visible:outline-none">
+        {/* TAB 1: SUMMARY */}
+        <TabsContent value="summary" className="space-y-6 focus-visible:outline-none">
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-8"
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
           >
             {/* Executive Summary Card */}
             {summaryText && (
-              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 shadow-sm">
-                <div className="text-xs font-bold text-[#ff5c47] uppercase tracking-wider mb-2 font-heading">
+              <div className="bg-[#131418] border border-[#22242a] rounded-lg p-5 sm:p-6 space-y-2">
+                <div className="text-[11px] font-semibold text-[#ff5c47] uppercase tracking-wider font-mono">
                   Executive Brief
                 </div>
-                <p className="text-sm leading-relaxed text-[#f0f2f5] whitespace-pre-line">{summaryText}</p>
+                <p className="text-sm leading-relaxed text-[#e5e7eb] whitespace-pre-line">{summaryText}</p>
               </div>
             )}
 
             {/* Key Discussion Pillars / Sections */}
             {pillars.length > 0 && (
-              <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="text-xs font-semibold text-[#9ca3af] uppercase tracking-wider px-1">
+                  Discussion Pillars
+                </div>
                 {pillars.map((sec, idx) => {
                   const n = sec.n || idx + 1;
                   const cleanSecTitle = (sec.title || `Topic ${n}`).replace(/^\d+\.\s*/, "");
 
                   return (
-                    <motion.div
+                    <div
                       key={idx}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, delay: idx * 0.05 }}
-                      className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-4 shadow-sm hover:border-[#2e3238] transition-colors"
+                      className="bg-[#131418] border border-[#22242a] rounded-lg p-5 space-y-3"
                     >
-                      <h2 className="text-lg font-bold text-[#f0f2f5] font-heading">
+                      <h2 className="text-sm font-semibold text-[#f3f4f6]">
                         {n}. {cleanSecTitle}
                       </h2>
                       {sec.narrative && (
-                        <p className="text-sm leading-relaxed text-[#f0f2f5] whitespace-pre-line">{sec.narrative}</p>
+                        <p className="text-xs sm:text-sm leading-relaxed text-[#d1d5db] whitespace-pre-line">{sec.narrative}</p>
                       )}
 
                       {/* Decisions */}
                       {sec.decisions && sec.decisions.length > 0 && (
-                        <div className="p-4 bg-[#18191c] border border-[#232529] rounded-xl space-y-2">
-                          <div className="text-xs font-semibold text-[#f0f2f5]">Decisions Agreed:</div>
-                          <ul className="space-y-1 text-xs text-[#8b909a]">
+                        <div className="p-3 bg-[#18191f] border border-[#22242a] rounded-md space-y-1.5">
+                          <div className="text-xs font-medium text-[#f3f4f6]">Decisions Agreed:</div>
+                          <ul className="space-y-1 text-xs text-[#9ca3af]">
                             {sec.decisions.map((d, dIdx) => (
                               <li key={dIdx} className="flex items-start gap-2">
-                                <span className="text-[#3ec98a] font-bold">•</span>
+                                <span className="text-[#10b981] font-bold">•</span>
                                 <span>{d}</span>
                               </li>
                             ))}
@@ -437,25 +640,25 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
 
                       {/* Inline Action Items */}
                       {sec.action_items && sec.action_items.length > 0 && (
-                        <div className="space-y-2 pt-2">
-                          <div className="text-xs font-semibold text-[#8b909a] uppercase tracking-wider">
+                        <div className="space-y-1.5 pt-1">
+                          <div className="text-[11px] font-medium text-[#9ca3af]">
                             Deliverables
                           </div>
-                          <div className="space-y-1.5">
+                          <div className="space-y-1">
                             {sec.action_items.map((act, aIdx) => (
                               <div
                                 key={aIdx}
-                                className="flex items-center justify-between p-2.5 rounded-xl bg-[#18191c] border border-[#232529] text-xs text-[#f0f2f5]"
+                                className="flex items-center justify-between p-2 rounded bg-[#18191f] border border-[#22242a] text-xs text-[#f3f4f6]"
                               >
-                                <span className="truncate">
+                                <span className="truncate pr-2">
                                   {act.task || act.description}
                                 </span>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#232529] text-[#8b909a]">
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[10.5px] px-1.5 py-0.5 rounded bg-[#22242a] text-[#9ca3af]">
                                     {act.owner || act.assignee || "Team"}
                                   </span>
                                   {act.due_date && (
-                                    <span className="text-[11px] font-mono text-[#8b909a]">
+                                    <span className="text-[10.5px] font-mono text-[#9ca3af]">
                                       {act.due_date}
                                     </span>
                                   )}
@@ -465,73 +668,63 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
                           </div>
                         </div>
                       )}
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>
             )}
 
-            {/* Strategic Insights / AI Suggestions */}
+            {/* Strategic Insights */}
             {strategicItems.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-4 shadow-sm"
-              >
-                <div className="text-xs font-bold text-[#ff5c47] uppercase tracking-wider flex items-center gap-1.5">
-                  <Lightbulb className="w-4 h-4 text-[#ff5c47]" />
+              <div className="bg-[#131418] border border-[#22242a] rounded-lg p-5 space-y-3">
+                <div className="text-xs font-semibold text-[#ff5c47] uppercase tracking-wider flex items-center gap-1.5">
+                  <Lightbulb className="w-3.5 h-3.5" />
                   Strategic Insights & Recommendations
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                   {strategicItems.map((item, idx) => {
                     const itemTitle = item.label || item.title || "Insight";
                     const itemDetail = item.detail || item.body || item.text || "";
                     return (
-                      <div key={idx} className="p-3.5 rounded-xl bg-[#18191c] border border-[#232529] space-y-1">
-                        <div className="text-xs font-semibold text-[#f0f2f5]">{itemTitle}</div>
-                        {itemDetail && <p className="text-xs text-[#8b909a] leading-relaxed">{itemDetail}</p>}
+                      <div key={idx} className="p-3 rounded-md bg-[#18191f] border border-[#22242a] space-y-1">
+                        <div className="text-xs font-medium text-[#f3f4f6]">{itemTitle}</div>
+                        {itemDetail && <p className="text-xs text-[#9ca3af] leading-relaxed">{itemDetail}</p>}
                       </div>
                     );
                   })}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Open Questions */}
             {session.open_questions && session.open_questions.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="bg-[#141517] border border-[#232529] border-l-4 border-l-[#f9ab00] rounded-2xl p-6 space-y-3"
-              >
-                <div className="text-xs font-bold text-[#f9ab00] uppercase tracking-wider flex items-center gap-1.5">
-                  <HelpCircle className="w-4 h-4" />
-                  Open Questions & Unresolved Items
+              <div className="bg-[#131418] border border-[#22242a] border-l-2 border-l-amber-500 rounded-lg p-5 space-y-2">
+                <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  Open Questions & Dependencies
                 </div>
-                <ul className="space-y-2 text-xs text-[#f0f2f5]">
+                <ul className="space-y-1.5 text-xs text-[#d1d5db]">
                   {session.open_questions.map((q, idx) => {
                     const qText = typeof q === "string" ? q : q.question;
                     const raisedBy = typeof q === "object" ? q.raised_by : "";
                     return (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-[#f9ab00] font-bold">•</span>
+                        <span className="text-amber-400 font-bold">•</span>
                         <span>
                           {qText}
-                          {raisedBy && <em className="text-[#8b909a] ml-1">({raisedBy})</em>}
+                          {raisedBy && <span className="text-[#9ca3af] ml-1">({raisedBy})</span>}
                         </span>
                       </li>
                     );
                   })}
                 </ul>
-              </motion.div>
+              </div>
             )}
 
-            {/* Fallback if no structured sections exist yet */}
+            {/* Fallback if raw text */}
             {!summaryText && pillars.length === 0 && session.raw_markdown && (
-              <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-4">
-                <pre className="text-xs text-[#f0f2f5] whitespace-pre-wrap font-sans leading-relaxed">
+              <div className="bg-[#131418] border border-[#22242a] rounded-lg p-5 space-y-3">
+                <pre className="text-xs text-[#f3f4f6] whitespace-pre-wrap font-sans leading-relaxed">
                   {session.raw_markdown}
                 </pre>
               </div>
@@ -539,34 +732,34 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
           </motion.div>
         </TabsContent>
 
-        {/* TAB 2: ACTION ITEMS MANAGER */}
-        <TabsContent value="actions" className="space-y-6 focus-visible:outline-none">
+        {/* TAB 2: ACTION ITEMS */}
+        <TabsContent value="actions" className="space-y-4 focus-visible:outline-none">
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
+            transition={{ duration: 0.2 }}
+            className="space-y-4"
           >
             {/* Progress Header */}
-            <div className="bg-[#141517] border border-[#232529] rounded-2xl p-6 flex items-center justify-between shadow-sm">
+            <div className="bg-[#131418] border border-[#22242a] rounded-lg p-4 flex items-center justify-between">
               <div>
-                <div className="text-base font-semibold text-[#f0f2f5] font-heading">
-                  Action Items Tracker
+                <div className="text-sm font-semibold text-[#f3f4f6]">
+                  Deliverables Checklist
                 </div>
-                <div className="text-xs text-[#8b909a]">
+                <div className="text-xs text-[#9ca3af]">
                   {completedActions} of {totalActions} tasks completed ({completionPercent}%)
                 </div>
               </div>
-              <div className="w-36 h-2 bg-[#232529] rounded-full overflow-hidden">
+              <div className="w-32 h-1.5 bg-[#18191f] rounded overflow-hidden">
                 <div
-                  className="h-full bg-[#ff5c47] rounded-full transition-all duration-300"
+                  className="h-full bg-[#ff5c47] rounded transition-all duration-300"
                   style={{ width: `${completionPercent}%` }}
                 />
               </div>
             </div>
 
             {/* Checklist */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {actionItems.map((item, idx) => {
                 const isDone = item.status === "completed";
                 const taskText = item.task || item.description || "Deliverable";
@@ -575,38 +768,38 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
                   <div
                     key={idx}
                     onClick={() => toggleActionStatus(idx)}
-                    className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
                       isDone
-                        ? "bg-[#141517]/50 border-[#232529]/60 text-[#8b909a]"
-                        : "bg-[#141517] border-[#232529] text-[#f0f2f5] hover:border-[#2e3238]"
+                        ? "bg-[#131418]/60 border-[#22242a] text-[#9ca3af]"
+                        : "bg-[#131418] border-[#22242a] text-[#f3f4f6] hover:border-[#2e3238]"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 truncate pr-2">
                       <div
-                        className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                        className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
                           isDone
                             ? "bg-[#ff5c47] border-[#ff5c47] text-white"
-                            : "border-[#3e434c] bg-[#18191c]"
+                            : "border-[#3b3e4a] bg-[#18191f]"
                         }`}
                       >
-                        {isDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        {isDone && <Check className="w-3 h-3 stroke-[3]" />}
                       </div>
-                      <span className={`text-xs ${isDone ? "line-through text-[#8b909a]" : "font-medium"}`}>
+                      <span className={`text-xs truncate ${isDone ? "line-through text-[#9ca3af]" : "font-medium"}`}>
                         {taskText}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#1c1e22] border border-[#232529] text-[#8b909a]">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10.5px] px-2 py-0.5 rounded bg-[#18191f] border border-[#22242a] text-[#9ca3af]">
                         {item.owner || item.assignee || "Team"}
                       </span>
                       {item.priority === "HIGH" && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#ff5c47]/10 text-[#ff5c47] border border-[#ff5c47]/20">
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#ff5c47]/10 text-[#ff5c47] border border-[#ff5c47]/20">
                           HIGH
                         </span>
                       )}
                       {item.due_date && (
-                        <span className="text-[11px] font-mono text-[#8b909a]">
+                        <span className="text-[10.5px] font-mono text-[#9ca3af]">
                           {item.due_date}
                         </span>
                       )}
@@ -615,7 +808,7 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
                 );
               })}
               {actionItems.length === 0 && (
-                <div className="p-8 text-center text-xs text-[#8b909a] bg-[#141517] border border-[#232529] rounded-2xl">
+                <div className="p-8 text-center text-xs text-[#9ca3af] bg-[#131418] border border-[#22242a] rounded-lg">
                   No action items identified for this session.
                 </div>
               )}
@@ -626,9 +819,9 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
         {/* TAB 3: MIND MAP */}
         <TabsContent value="mindmap" className="focus-visible:outline-none">
           <motion.div
-            initial={{ opacity: 0, scale: 0.99 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
           >
             <MindmapView session={session} />
           </motion.div>
@@ -637,27 +830,27 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
         {/* TAB 4: TRANSCRIPT */}
         <TabsContent value="transcript" className="space-y-4 focus-visible:outline-none">
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-[#141517] border border-[#232529] rounded-2xl p-6 space-y-3 shadow-sm"
+            transition={{ duration: 0.2 }}
+            className="bg-[#131418] border border-[#22242a] rounded-lg p-5 space-y-3"
           >
-            <div className="text-xs font-semibold text-[#8b909a] uppercase tracking-wider mb-2">
+            <div className="text-xs font-semibold text-[#9ca3af] uppercase tracking-wider mb-2">
               Diarized Transcript
             </div>
 
-            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
               {transcriptSegments.map((seg, idx) => (
                 <div
                   key={idx}
-                  className="p-3 rounded-xl bg-[#18191c] border border-[#232529] space-y-1.5 hover:border-[#2e3238] transition-colors"
+                  className="p-3 rounded-md bg-[#18191f] border border-[#22242a] space-y-1 hover:border-[#2e3238] transition-colors"
                 >
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold px-2 py-0.5 rounded-full bg-[#232529] text-[#f0f2f5] text-[11px]">
+                      <span className="font-semibold px-1.5 py-0.5 rounded bg-[#22242a] text-[#f3f4f6] text-[10.5px]">
                         {seg.speaker || "Speaker 1"}
                       </span>
-                      <span className="font-mono text-[11px] text-[#8b909a]">
+                      <span className="font-mono text-[11px] text-[#9ca3af]">
                         {seg.timestamp || "00:00"}
                       </span>
                     </div>
@@ -667,18 +860,18 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
                         size="sm"
                         variant="ghost"
                         onClick={() => onSeekAudio(seg.seconds || 0)}
-                        className="h-6 px-2 text-[11px] text-[#ff5c47] hover:bg-[#ff5c47]/10 rounded-full"
+                        className="h-6 px-2 text-[11px] text-[#ff5c47] hover:bg-[#ff5c47]/10 rounded-md"
                       >
                         Play from here
                       </Button>
                     )}
                   </div>
-                  <div className="text-xs leading-relaxed text-[#f0f2f5]">{seg.text}</div>
+                  <div className="text-xs leading-relaxed text-[#e5e7eb]">{seg.text}</div>
                 </div>
               ))}
 
               {transcriptSegments.length === 0 && (
-                <div className="p-8 text-center text-xs text-[#8b909a]">
+                <div className="p-8 text-center text-xs text-[#9ca3af]">
                   {fullTranscriptText || "No transcript turns available."}
                 </div>
               )}
@@ -687,112 +880,27 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
         </TabsContent>
 
         {/* TAB 5: CHAT ASSISTANT */}
-        <TabsContent value="chat" className="space-y-6 focus-visible:outline-none">
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-[#141517] border border-[#232529] rounded-2xl p-6 min-h-[500px] flex flex-col justify-between shadow-sm"
-          >
-            {/* Messages Stream */}
-            <div className="space-y-4 overflow-y-auto max-h-[420px] pr-2">
-              {messages.length === 0 ? (
-                <div className="space-y-4 py-8">
-                  <div className="text-center space-y-1">
-                    <div className="w-10 h-10 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 flex items-center justify-center text-[#ff5c47] mx-auto">
-                      <Sparkles className="w-5 h-5" />
-                    </div>
-                    <div className="text-sm font-semibold text-[#f0f2f5] font-heading">
-                      Meeting Assistant
-                    </div>
-                    <div className="text-xs text-[#8b909a]">
-                      Ask specific questions grounded in this meeting transcript and decisions.
-                    </div>
-                  </div>
-
-                  {/* Clickable Starter Pills */}
-                  <div className="flex flex-wrap justify-center gap-2 pt-2">
-                    {[
-                      "What were the key decisions?",
-                      "List all action items with owners",
-                      "Summarize next steps and deadlines",
-                    ].map((prompt, pIdx) => (
-                      <button
-                        key={pIdx}
-                        onClick={() => handleSendChat(prompt)}
-                        className="px-3.5 py-1.5 rounded-full bg-[#18191c] border border-[#232529] text-xs text-[#8b909a] hover:text-[#f0f2f5] hover:border-[#ff5c47]/50 hover:bg-[#ff5c47]/5 transition-all"
-                      >
-                        {prompt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                messages.map((m, mIdx) => (
-                  <div
-                    key={mIdx}
-                    className={`flex gap-3 ${
-                      m.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    <div
-                      className={`p-3.5 rounded-2xl text-xs leading-relaxed max-w-[80%] ${
-                        m.role === "user"
-                          ? "bg-[#ff5c47] text-white rounded-br-none"
-                          : "bg-[#18191c] border border-[#232529] text-[#f0f2f5] rounded-bl-none"
-                      }`}
-                    >
-                      {m.content}
-                    </div>
-                  </div>
-                ))
-              )}
-
-              {chatLoading && (
-                <div className="flex items-center gap-2 text-xs text-[#8b909a] p-2">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#ff5c47]" />
-                  <span>Analyzing meeting context...</span>
-                </div>
-              )}
-            </div>
-
-            {/* Pinned Pill Input */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendChat();
-              }}
-              className="relative mt-4"
+        {canAccessChat && (
+          <TabsContent value="chat" className="space-y-4 focus-visible:outline-none">
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
             >
-              <input
-                type="text"
-                placeholder="Ask a question about this meeting..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                disabled={chatLoading}
-                className="w-full h-11 pl-4 pr-12 bg-[#18191c] border border-[#232529] rounded-full text-xs text-[#f0f2f5] placeholder-[#8b909a] focus:outline-none focus:border-[#ff5c47]/60 transition-colors shadow-inner"
-              />
-              <Button
-                type="submit"
-                size="icon"
-                disabled={chatLoading || !chatInput.trim()}
-                className="w-8 h-8 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white absolute right-1.5 top-1/2 -translate-y-1/2 shadow-sm"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </Button>
-            </form>
-          </motion.div>
-        </TabsContent>
+              <ChatAssistant sessionId={sessionId} meetingTitle={displayTitle} />
+            </motion.div>
+          </TabsContent>
+        )}
       </Tabs>
 
-      {/* Mobile Floating Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0A0B0F]/95 backdrop-blur-lg border-t border-white/[0.08] px-2 py-1.5 flex items-center justify-around shadow-2xl safe-area-bottom">
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#121316]/95 backdrop-blur-md border-t border-[#22242a] px-2 py-1 flex items-center justify-around">
         {[
           { id: "summary", label: "Summary", icon: FileText },
           { id: "actions", label: "Actions", icon: CheckSquare, count: totalActions },
           { id: "mindmap", label: "Mind Map", icon: Network },
           { id: "transcript", label: "Transcript", icon: Clock },
-          { id: "chat", label: "Chat", icon: MessageSquare },
+          ...(canAccessChat ? [{ id: "chat", label: "Chat", icon: MessageSquare }] : []),
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -804,24 +912,21 @@ export function MeetingView({ session, onSeekAudio }: MeetingViewProps) {
                 setActiveTab(tab.id);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all relative ${
+              className={`flex flex-col items-center justify-center py-1 px-2 rounded-md transition-colors relative ${
                 isActive
                   ? "text-[#ff5c47] font-semibold"
-                  : "text-[#8b909a] hover:text-[#f0f2f5]"
+                  : "text-[#9ca3af] hover:text-[#f3f4f6]"
               }`}
             >
               <div className="relative">
-                <Icon className={`w-4 h-4 mb-0.5 ${isActive ? "text-[#ff5c47]" : "text-[#8b909a]"}`} />
+                <Icon className={`w-4 h-4 mb-0.5 ${isActive ? "text-[#ff5c47]" : "text-[#9ca3af]"}`} />
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-[#ff5c47] text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-2 w-3.5 h-3.5 bg-[#ff5c47] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                     {tab.count}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] tracking-tight">{tab.label}</span>
-              {isActive && (
-                <div className="w-1 h-1 rounded-full bg-[#ff5c47] absolute -bottom-0.5" />
-              )}
+              <span className="text-[10px]">{tab.label}</span>
             </button>
           );
         })}

@@ -1,25 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "@/lib/server-config";
+import { getAuthenticatedUser } from "@/lib/serverAuth";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("user_id");
+    const authUser = await getAuthenticatedUser(request);
+    if (!authUser || !authUser.id) {
+      return NextResponse.json(
+        { error: "Unauthorized: Authentication required" },
+        { status: 401 }
+      );
+    }
+    const userId = authUser.id;
 
     const defaultProfile = {
-      id: userId || "guest",
-      email: "guest@recmap.tech",
-      role: "user",
+      id: authUser.id,
+      email: authUser.email || "user@recmap.tech",
+      role: authUser.role || "user",
       monthly_minutes_limit: 300.0,
       minutes_used_this_month: 0.0,
       minutes_remaining: 300.0,
       percent_used: 0.0,
       can_upload: true,
     };
-
-    if (!userId || userId === "guest") {
-      return NextResponse.json(defaultProfile);
-    }
 
     // Query Supabase profiles table
     const res = await fetch(
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           id: p.id,
           email: p.email || defaultProfile.email,
-          role: p.role || "user",
+          role: p.role || defaultProfile.role,
           monthly_minutes_limit: limit,
           minutes_used_this_month: used,
           minutes_remaining: remaining,

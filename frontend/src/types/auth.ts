@@ -12,6 +12,9 @@ export interface UserProfile {
 export interface AdminUserRecord {
   id: string;
   email: string;
+  full_name?: string | null;
+  display_name?: string | null;
+  name?: string | null;
   role: "admin" | "user" | string;
   monthly_minutes_limit: number;
   minutes_used_this_month: number;

@@ -17,6 +17,7 @@ import {
   Activity,
   BarChart3,
   Check,
+  Copy,
   UserCheck
 } from "lucide-react";
 import {
@@ -49,6 +50,7 @@ export function AdminPortalModal({ isOpen, onClose }: AdminPortalModalProps) {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
   const [savedLimits, setSavedLimits] = useState<Record<string, number>>({});
   const [saveStatus, setSaveStatus] = useState<Record<string, "saving" | "saved" | "idle">>({});
@@ -149,12 +151,25 @@ export function AdminPortalModal({ isOpen, onClose }: AdminPortalModalProps) {
     }
   };
 
+  const handleCopyId = async (userId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(userId);
+      setCopiedId(userId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy ID:", err);
+    }
+  };
+
   const filteredUsers = users.filter((u) => {
-    const q = search.toLowerCase();
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
+    const name = (u.full_name || u.display_name || u.name || "").toLowerCase();
     const email = (u.email || "").toLowerCase();
     const role = (u.role || "").toLowerCase();
     const id = (u.id || "").toLowerCase();
-    return email.includes(q) || role.includes(q) || id.includes(q);
+    return name.includes(q) || email.includes(q) || role.includes(q) || id.includes(q);
   });
 
   return (
@@ -259,7 +274,7 @@ export function AdminPortalModal({ isOpen, onClose }: AdminPortalModalProps) {
             <Search className="w-3.5 h-3.5 text-[#8b909a] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search users by email, ID, or role..."
+              placeholder="Search users by name, email, ID, or role..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-8 pl-8 pr-3 bg-[#181a1f] border border-white/10 rounded-xl text-xs text-[#f0f2f5] placeholder-[#8b909a] focus:outline-none focus:border-[#ff5c47]/60 transition-colors"
@@ -293,72 +308,114 @@ export function AdminPortalModal({ isOpen, onClose }: AdminPortalModalProps) {
               const percent = Math.min(100, Math.round((used / Math.max(1, currentSlider)) * 100));
               const status = saveStatus[u.id] || "idle";
 
+              // Identity Priority Display Calculation
+              const rawName = (u.full_name || u.display_name || u.name || "").trim();
+              const hasName = rawName.length > 0;
+              const primaryIdentity = hasName ? rawName : (u.email || "Unnamed user");
+              const secondaryIdentity = hasName && u.email ? u.email : null;
+              const compactId = u.id && u.id.length > 12 
+                ? `${u.id.slice(0, 8)}…${u.id.slice(-4)}` 
+                : (u.id || "N/A");
+              const avatarLetter = (hasName ? rawName[0] : (u.email ? u.email[0] : "U")).toUpperCase();
+
               return (
                 <div
                   key={u.id}
                   className="p-4 sm:p-5 rounded-2xl bg-[#14161b] border border-white/[0.07] hover:border-white/[0.14] transition-all space-y-3.5 shadow-sm"
                 >
                   {/* User Profile Row */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-xs font-bold text-[#f0f2f5] shrink-0 uppercase font-heading">
-                        {u.email ? u.email[0] : "U"}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      {/* Avatar */}
+                      <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-sm font-bold text-[#f0f2f5] shrink-0 uppercase font-heading mt-0.5">
+                        {avatarLetter}
                       </div>
                       
-                      <div className="space-y-0.5 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs sm:text-sm font-semibold text-[#f0f2f5] truncate max-w-[200px] sm:max-w-xs">
-                            {u.email || `User ${u.id.slice(0, 8)}`}
+                      {/* Identity Details Block */}
+                      <div className="space-y-1 min-w-0 flex-1">
+                        {/* Primary Line: Full Name or Email */}
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <span 
+                            className="text-xs sm:text-sm font-semibold text-[#f0f2f5] break-all [overflow-wrap:anywhere]"
+                            title={primaryIdentity}
+                          >
+                            {primaryIdentity}
                           </span>
                           
                           {u.role === "admin" ? (
-                            <Badge className="bg-[#ff5c47]/15 text-[#ff5c47] border border-[#ff5c47]/30 text-[10px] px-1.5 py-0 h-4 font-mono">
+                            <Badge className="bg-[#ff5c47]/15 text-[#ff5c47] border border-[#ff5c47]/30 text-[10px] px-1.5 py-0 h-4 font-mono shrink-0">
                               Admin
                             </Badge>
                           ) : (
-                            <Badge className="bg-white/5 text-[#8b909a] border border-white/10 text-[10px] px-1.5 py-0 h-4 font-mono">
+                            <Badge className="bg-white/5 text-[#8b909a] border border-white/10 text-[10px] px-1.5 py-0 h-4 font-mono shrink-0">
                               User
                             </Badge>
                           )}
+
+                          {isConfirmed ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#3ec98a]/10 border border-[#3ec98a]/20 text-[#3ec98a] text-[10px] font-medium shrink-0">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Confirmed
+                            </span>
+                          ) : (
+                            <Button
+                              size="sm"
+                              disabled={actionLoadingId === `activate-${u.id}`}
+                              onClick={() => handleActivateUser(u)}
+                              className="h-5 px-2 rounded-full bg-[#ff5c47]/15 hover:bg-[#ff5c47]/25 text-[#ff5c47] border border-[#ff5c47]/30 text-[10px] font-medium gap-1 transition-all shrink-0"
+                            >
+                              {actionLoadingId === `activate-${u.id}` ? (
+                                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              ) : (
+                                <UserCheck className="w-2.5 h-2.5" />
+                              )}
+                              Verify Account
+                            </Button>
+                          )}
                         </div>
 
-                        <div className="text-[11px] text-[#8b909a] font-mono flex items-center gap-2 flex-wrap">
-                          <span className="truncate max-w-[160px] sm:max-w-xs">ID: {u.id}</span>
+                        {/* Secondary Line: Email (when name exists as primary line) */}
+                        {secondaryIdentity && (
+                          <div 
+                            className="text-xs text-[#b5b9c2] break-all [overflow-wrap:anywhere]"
+                            title={secondaryIdentity}
+                          >
+                            {secondaryIdentity}
+                          </div>
+                        )}
+
+                        {/* Compact User ID with Copy Button & Joined Date */}
+                        <div className="text-[11px] text-[#8b909a] font-mono flex items-center gap-2 flex-wrap pt-0.5">
+                          <div className="inline-flex items-center gap-1 bg-[#1c1e24] px-1.5 py-0.5 rounded border border-white/5 shrink-0">
+                            <span title={`Full User ID: ${u.id}`}>ID: {compactId}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyId(u.id, e)}
+                              className="text-[#8b909a] hover:text-[#f0f2f5] p-0.5 rounded hover:bg-white/10 transition-colors focus:outline-none focus:ring-1 focus:ring-[#ff5c47]"
+                              title="Copy full User ID"
+                              aria-label="Copy User ID"
+                            >
+                              {copiedId === u.id ? (
+                                <Check className="w-3 h-3 text-[#3ec98a]" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
                           <span>•</span>
-                          <span>Joined {new Date(u.created_at || Date.now()).toLocaleDateString()}</span>
+                          <span className="shrink-0">Joined {new Date(u.created_at || Date.now()).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Status & Quick Actions */}
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
-                      {isConfirmed ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#3ec98a]/10 border border-[#3ec98a]/20 text-[#3ec98a] text-[11px] font-medium">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Confirmed
-                        </span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          disabled={actionLoadingId === `activate-${u.id}`}
-                          onClick={() => handleActivateUser(u)}
-                          className="h-7 sm:h-8 px-3 rounded-full bg-[#ff5c47]/15 hover:bg-[#ff5c47]/25 text-[#ff5c47] border border-[#ff5c47]/30 text-xs font-medium gap-1.5 transition-all shadow-sm"
-                        >
-                          {actionLoadingId === `activate-${u.id}` ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <UserCheck className="w-3.5 h-3.5" />
-                          )}
-                          Verify User
-                        </Button>
-                      )}
-
+                    <div className="flex items-center gap-2 shrink-0 self-start sm:self-center pt-1 sm:pt-0">
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={actionLoadingId === `reset-${u.id}`}
                         onClick={() => handleResetQuota(u)}
-                        className="h-7 sm:h-8 px-2.5 rounded-full border-white/10 bg-[#191b20] hover:bg-[#20232a] text-[#8b909a] hover:text-[#f0f2f5] text-xs font-medium gap-1.5 transition-all"
+                        className="h-7 sm:h-8 px-3 rounded-full border-white/10 bg-[#191b20] hover:bg-[#20232a] text-[#8b909a] hover:text-[#f0f2f5] text-xs font-medium gap-1.5 transition-all shrink-0 whitespace-nowrap"
                       >
                         {actionLoadingId === `reset-${u.id}` ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />

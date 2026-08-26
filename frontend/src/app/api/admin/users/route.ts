@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "@/lib/server-config";
+import { requireAdmin } from "@/lib/serverAuth";
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
+    const { errorResponse } = await requireAdmin(request);
+    if (errorResponse) {
+      return errorResponse;
+    }
+
     const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.desc`, {
+
       headers: {
         apikey: SUPABASE_SERVICE_ROLE_KEY,
         Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -23,6 +30,8 @@ export async function GET(_request: NextRequest) {
       return {
         id: p.id,
         email: p.email || "user@recmap.tech",
+        full_name: p.full_name || p.display_name || p.name || null,
+        display_name: p.display_name || p.full_name || p.name || null,
         role: p.role || "user",
         created_at: p.created_at || new Date().toISOString(),
         email_confirmed: p.email_confirmed ?? true,

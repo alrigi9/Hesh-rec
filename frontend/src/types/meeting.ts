@@ -58,7 +58,9 @@ export interface MeetingSession {
   meeting_date?: string;
   date?: string;
   duration_minutes?: number;
+  duration_seconds?: number;
   duration?: string;
+
   template?: string;
   participants?: string[];
   tags?: string[];
@@ -86,6 +88,10 @@ export interface MeetingSession {
   raw_markdown?: string;
   user_id?: string;
   created_at?: string;
+  status?: "processing" | "completed" | "failed" | string;
+  error_message?: string | null;
+  processing_started_at?: string | null;
+  processing_completed_at?: string | null;
   [key: string]: any;
 }
 

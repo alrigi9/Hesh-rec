@@ -1,0 +1,33 @@
+{
+  "name": "recmap-desktop",
+  "version": "1.0.0",
+  "description": "RecMap Desktop Recorder — Lightweight AI Meeting Companion",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch",
+    "start": "node build.js && electron .",
+    "dev": "node build.js && electron .",
+    "pack": "node build.js && electron-builder --dir",
+    "dist": "node build.js && electron-builder --win"
+  },
+  "keywords": [
+    "recmap",
+    "recorder",
+    "audio",
+    "ai",
+    "electron"
+  ],
+  "author": "RecMap Team",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
+    "electron-store": "^11.0.2",
+    "esbuild": "^0.28.2"
+  },
+  "dependencies": {
+    "fix-webm-duration": "^1.0.6"
+  }
+}

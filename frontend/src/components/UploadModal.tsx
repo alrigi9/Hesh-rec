@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   WifiOff,
   Globe,
-  Clock
+  Clock,
+  X
 } from "lucide-react";
 import { 
   Dialog, 
@@ -26,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { processAudioFile } from "@/lib/api";
 import { MeetingSession } from "@/types/meeting";
 import { useAuth } from "@/context/AuthContext";
+import { TemplateId, TEMPLATES_CONFIG, VALID_TEMPLATES } from "@/lib/templates";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -40,8 +42,9 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
   const { user, token, profile, isAdmin, refreshProfile } = useAuth();
 
   const [file, setFile] = useState<File | null>(null);
-  const [template, setTemplate] = useState("executive");
+  const [template, setTemplate] = useState<TemplateId>("auto");
   const [language, setLanguage] = useState<"auto" | "en" | "ar">("auto");
+
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
@@ -64,18 +67,46 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
     }
   }, [isOpen]);
 
+  const SUPPORTED_EXTENSIONS = [
+    ".mp3", ".m4a", ".wav", ".webm", ".mp4", ".mov", ".aac", ".flac", ".ogg", ".opus", ".m4v"
+  ];
+
+  const validateSelectedFile = (selectedFile: File): boolean => {
+    const ext = "." + (selectedFile.name.split(".").pop() || "").toLowerCase();
+    const isAudioOrVideo = selectedFile.type.startsWith("audio/") || selectedFile.type.startsWith("video/");
+    const isSupportedExt = SUPPORTED_EXTENSIONS.includes(ext);
+
+    if (!isAudioOrVideo && !isSupportedExt) {
+      setError("This format is not supported for transcription. Please upload MP4, MOV, WebM, M4A, MP3, or WAV.");
+      return false;
+    }
+
+    if (selectedFile.size > 25 * 1024 * 1024) {
+      setError(`File size (${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB) exceeds the 25 MB transcription limit. Please upload a file under 25 MB.`);
+      return false;
+    }
+
+    return true;
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-      setError(null);
+      const droppedFile = e.dataTransfer.files[0];
+      if (validateSelectedFile(droppedFile)) {
+        setFile(droppedFile);
+        setError(null);
+      }
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setError(null);
+      const chosenFile = e.target.files[0];
+      if (validateSelectedFile(chosenFile)) {
+        setFile(chosenFile);
+        setError(null);
+      }
     }
   };
 
@@ -91,6 +122,10 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       return;
     }
 
+    if (!validateSelectedFile(file)) {
+      return;
+    }
+
     if (isQuotaExceeded) {
       setError(`Monthly quota limit of ${profile?.monthly_minutes_limit ?? 300} minutes has been reached.`);
       return;
@@ -98,6 +133,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
 
     setLoading(true);
     setError(null);
+
     setProcessingStage("uploading");
     setUploadPercent(25);
     setElapsedSeconds(0);
@@ -123,7 +159,6 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       setProcessingStage("synthesizing");
     }, 16000);
 
-    // Generous client safety timeout at 300 seconds (5 minutes) for massive files
     const safetyTimeout = setTimeout(() => {
       clearInterval(elapsedTimer);
       clearInterval(uploadTimer);
@@ -131,7 +166,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       clearTimeout(stageTimer2);
       clearTimeout(stageTimer3);
       setLoading(false);
-      setError("Processing took longer than 5 minutes. Please check your internet connection or try with a smaller audio segment.");
+      setError("Processing took longer than expected. Please check your network connection.");
     }, 300000);
 
     try {
@@ -178,7 +213,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         msg = JSON.stringify(msg);
       }
       if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("Load failed")) {
-        msg = "Network connection lost or server unreachable. Please check your mobile connection and try again.";
+        msg = "Network connection lost or server unreachable. Please try again.";
       }
       setError(msg);
     }
@@ -186,14 +221,13 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !loading && onClose()}>
-      <DialogContent className="sm:max-w-[500px] bg-[#13151B] border border-white/[0.08] text-[#f0f2f5] p-6 rounded-2xl shadow-2xl">
-        <DialogHeader className="space-y-1">
-          <DialogTitle className="text-lg font-semibold tracking-tight text-[#f0f2f5] font-heading flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#ff5c47]" />
-            Upload File
+      <DialogContent className="sm:max-w-[480px] bg-[#131418] border border-[#22242a] text-[#f3f4f6] p-5 sm:p-6 rounded-xl shadow-xl">
+        <DialogHeader className="space-y-1 text-left">
+          <DialogTitle className="text-base font-semibold tracking-tight text-[#f3f4f6]">
+            Upload Meeting Recording
           </DialogTitle>
-          <DialogDescription className="text-xs text-[#8b909a]">
-            Enterprise audio transcription with bilingual intelligence, mind maps, and task breakdown.
+          <DialogDescription className="text-xs text-[#9ca3af]">
+            Upload an audio or video file to extract transcript, structured summary, and action items.
           </DialogDescription>
         </DialogHeader>
 
@@ -203,10 +237,10 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+            className={`border border-dashed rounded-lg p-5 text-center cursor-pointer transition-colors ${
               file
-                ? "border-[#ff5c47]/50 bg-[#ff5c47]/5"
-                : "border-white/10 hover:border-white/20 bg-[#18191c]"
+                ? "border-[#ff5c47]/60 bg-[#ff5c47]/5"
+                : "border-[#2a2c36] hover:border-[#ff5c47]/40 bg-[#18191f]"
             }`}
           >
             <input
@@ -218,54 +252,67 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             />
 
             {file ? (
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-11 h-11 rounded-full bg-[#ff5c47]/10 flex items-center justify-center text-[#ff5c47]">
-                  <FileAudio className="w-5 h-5" />
+              <div className="flex items-center justify-between gap-3 text-left">
+                <div className="flex items-center gap-2.5 truncate">
+                  <div className="w-8 h-8 rounded bg-[#ff5c47]/10 flex items-center justify-center text-[#ff5c47] shrink-0">
+                    <FileAudio className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <div className="font-medium text-xs text-[#f3f4f6] truncate">
+                      {file.name}
+                    </div>
+                    <div className="text-[10.5px] text-[#9ca3af] font-mono">
+                      {(file.size / (1024 * 1024)).toFixed(2)} MB
+                    </div>
+                  </div>
                 </div>
-                <div className="font-medium text-xs text-[#f0f2f5] max-w-[280px] truncate">
-                  {file.name}
-                </div>
-                <div className="text-[11px] text-[#8b909a]">
-                  {(file.size / (1024 * 1024)).toFixed(2)} MB • Click to replace
-                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFile(null);
+                  }}
+                  className="p-1 rounded hover:bg-[#22242a] text-[#9ca3af] hover:text-[#f3f4f6]"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2.5">
-                <div className="w-11 h-11 rounded-full bg-white/5 flex items-center justify-center text-[#8b909a]">
-                  <Upload className="w-5 h-5 text-[#ff5c47]" />
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-9 h-9 rounded-md bg-[#22242a] flex items-center justify-center text-[#9ca3af]">
+                  <Upload className="w-4 h-4 text-[#f3f4f6]" />
                 </div>
-                <div className="font-medium text-xs text-[#f0f2f5]">
-                  Drop audio or video file here, or click to browse
-                </div>
-                <div className="text-[11px] text-[#8b909a]">
-                  M4A (iOS Voice Memos), MP3, WAV, WebM, MP4, AAC, FLAC (Up to 50MB)
+                <div>
+                  <div className="font-medium text-xs text-[#f3f4f6]">
+                    Click to browse or drop file here
+                  </div>
+                  <div className="text-[10.5px] text-[#9ca3af] mt-0.5">
+                    MP4, MOV, WebM, M4A, MP3, WAV (Up to 25 MB)
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Bilingual Language Selection */}
+          {/* Language Selection */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-[#8b909a] flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-[#ff5c47]" />
-                Output Language
-              </label>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
+            <label className="text-[11px] font-medium text-[#9ca3af]">
+              Output Language
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
               {[
                 { id: "auto", label: "Auto-Detect" },
-                { id: "en", label: "English (EN)" },
-                { id: "ar", label: "العربية (AR)" },
+                { id: "en", label: "English" },
+                { id: "ar", label: "العربية" },
               ].map((l) => (
                 <button
                   key={l.id}
                   type="button"
                   onClick={() => setLanguage(l.id as any)}
-                  className={`py-2 px-2.5 rounded-xl text-xs font-medium border transition-all text-center ${
+                  className={`py-1.5 px-2 rounded-md text-xs font-medium border transition-colors text-center ${
                     language === l.id
-                      ? "bg-[#ff5c47]/15 border-[#ff5c47] text-[#ff5c47] font-semibold"
-                      : "bg-[#18191c] border-white/[0.08] text-[#8b909a] hover:text-[#f0f2f5]"
+                      ? "bg-[#1e2027] border-[#ff5c47] text-[#ff5c47]"
+                      : "bg-[#18191f] border-[#22242a] text-[#9ca3af] hover:text-[#f3f4f6]"
                   }`}
                 >
                   {l.label}
@@ -274,136 +321,111 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             </div>
           </div>
 
-          {/* Template Selection */}
+          {/* Meeting Template Selection */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[#8b909a]">Intelligence Template</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: "executive", label: "Executive Summary" },
-                { id: "academic", label: "Structured Deep-Dive" },
-                { id: "brainstorm", label: "Ideation & Strategy" },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTemplate(t.id)}
-                  className={`py-2 px-2.5 rounded-xl text-xs font-medium border transition-all text-center ${
-                    template === t.id
-                      ? "bg-[#ff5c47]/10 border-[#ff5c47] text-[#ff5c47]"
-                      : "bg-[#18191c] border-white/[0.08] text-[#8b909a] hover:text-[#f0f2f5]"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-medium text-[#9ca3af]">
+                Analysis Template
+              </label>
+              <span className="text-[10px] text-[#ff5c47] font-mono uppercase">
+                {TEMPLATES_CONFIG[template]?.badge}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-1">
+              {VALID_TEMPLATES.map((tId) => {
+                const tConfig = TEMPLATES_CONFIG[tId];
+                const isSelected = template === tId;
+                return (
+                  <button
+                    key={tId}
+                    type="button"
+                    onClick={() => setTemplate(tId)}
+                    className={`py-1.5 px-1 rounded-md text-[11px] font-medium border transition-colors text-center truncate ${
+                      isSelected
+                        ? "bg-[#1e2027] border-[#ff5c47] text-[#ff5c47]"
+                        : "bg-[#18191f] border-[#22242a] text-[#9ca3af] hover:text-[#f3f4f6]"
+                    }`}
+                  >
+                    {tConfig.label.split(" ")[0]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Template dynamic description */}
+            <div className="p-2.5 rounded-md bg-[#18191f] border border-[#22242a] text-[11px] text-[#9ca3af] leading-relaxed">
+              <span className="text-[#f3f4f6] font-medium block">
+                {language === "ar" ? TEMPLATES_CONFIG[template]?.labelAr : TEMPLATES_CONFIG[template]?.label}
+              </span>
+              {language === "ar" ? TEMPLATES_CONFIG[template]?.descriptionAr : TEMPLATES_CONFIG[template]?.description}
             </div>
           </div>
 
           {/* Optional Title */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[#8b909a]">Meeting Title (Optional)</label>
+            <label className="text-[11px] font-medium text-[#9ca3af]">Meeting Title (Optional)</label>
             <input
               type="text"
-              placeholder="e.g., Executive Strategy & Roadmap Review"
+              placeholder="e.g. Q3 Strategic Planning & Roadmap"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full h-10 px-3.5 bg-[#18191c] text-xs text-[#f0f2f5] placeholder-[#8b909a] rounded-xl border border-white/[0.08] focus:outline-none focus:border-[#ff5c47]/50 transition-colors"
+              className="w-full h-8 px-3 bg-[#18191f] text-xs text-[#f3f4f6] placeholder-[#9ca3af] rounded-md border border-[#22242a] focus:outline-none focus:border-[#ff5c47]/50 transition-colors"
             />
           </div>
 
-          {/* Visual 4-Step Progress Tracker with Elapsed Time */}
+          {/* 4-Step Progress Tracker */}
           {loading && (
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+            <div className="p-3.5 rounded-lg bg-[#18191f] border border-[#22242a] space-y-2.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-[#f0f2f5] flex items-center gap-2">
+                <span className="font-medium text-[#f3f4f6] flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 text-[#ff5c47] animate-spin" />
-                  {processingStage === "uploading" && `Uploading Media (${uploadPercent}%)...`}
-                  {processingStage === "extracting" && "Ingesting Audio Stream..."}
-                  {processingStage === "transcribing" && "Transcribing Speech..."}
-                  {processingStage === "synthesizing" && "Synthesizing Summary & Mind Map..."}
+                  {processingStage === "uploading" && `Uploading (${uploadPercent}%)...`}
+                  {processingStage === "extracting" && "Ingesting stream..."}
+                  {processingStage === "transcribing" && "Transcribing speech..."}
+                  {processingStage === "synthesizing" && "Synthesizing summary..."}
                 </span>
-                <span className="text-[11px] text-[#ff5c47] font-mono font-semibold flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
+                <span className="text-[11px] text-[#9ca3af] font-mono">
                   {elapsedSeconds}s
                 </span>
               </div>
 
-              {/* 4 Step Badges */}
-              <div className="grid grid-cols-4 gap-1 text-[10px] font-medium text-center">
-                <div className={`py-1 px-1 rounded-lg transition-all ${
-                  processingStage === "uploading" 
-                    ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
-                    : "bg-white/5 text-[#3ec98a]"
-                }`}>
+              <div className="grid grid-cols-4 gap-1 text-[10px] text-center font-medium">
+                <div className={`py-1 rounded ${processingStage === "uploading" ? "bg-[#ff5c47]/20 text-[#ff5c47]" : "bg-[#22242a] text-[#10b981]"}`}>
                   1. Upload
                 </div>
-                <div className={`py-1 px-1 rounded-lg transition-all ${
-                  processingStage === "extracting" 
-                    ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
-                    : ["transcribing", "synthesizing"].includes(processingStage)
-                    ? "bg-white/5 text-[#3ec98a]"
-                    : "bg-white/5 text-[#8b909a]"
-                }`}>
+                <div className={`py-1 rounded ${processingStage === "extracting" ? "bg-[#ff5c47]/20 text-[#ff5c47]" : ["transcribing", "synthesizing"].includes(processingStage) ? "bg-[#22242a] text-[#10b981]" : "bg-[#22242a] text-[#9ca3af]"}`}>
                   2. Extract
                 </div>
-                <div className={`py-1 px-1 rounded-lg transition-all ${
-                  processingStage === "transcribing" 
-                    ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
-                    : processingStage === "synthesizing"
-                    ? "bg-white/5 text-[#3ec98a]"
-                    : "bg-white/5 text-[#8b909a]"
-                }`}>
+                <div className={`py-1 rounded ${processingStage === "transcribing" ? "bg-[#ff5c47]/20 text-[#ff5c47]" : processingStage === "synthesizing" ? "bg-[#22242a] text-[#10b981]" : "bg-[#22242a] text-[#9ca3af]"}`}>
                   3. Transcribe
                 </div>
-                <div className={`py-1 px-1 rounded-lg transition-all ${
-                  processingStage === "synthesizing" 
-                    ? "bg-[#ff5c47]/20 border border-[#ff5c47]/40 text-[#ff5c47]" 
-                    : "bg-white/5 text-[#8b909a]"
-                }`}>
+                <div className={`py-1 rounded ${processingStage === "synthesizing" ? "bg-[#ff5c47]/20 text-[#ff5c47]" : "bg-[#22242a] text-[#9ca3af]"}`}>
                   4. Synthesize
                 </div>
               </div>
-
-              <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-                <div 
-                  className="bg-[#ff5c47] h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: processingStage === "uploading" 
-                      ? `${Math.max(25, uploadPercent * 0.25)}%` 
-                      : processingStage === "extracting" 
-                      ? "50%" 
-                      : processingStage === "transcribing" 
-                      ? "75%" 
-                      : "96%"
-                  }}
-                />
-              </div>
             </div>
           )}
 
-          {/* User-friendly Error Banner */}
+          {/* Error Banner */}
           {error && (
-            <div className="p-3.5 bg-[#eb5757]/10 border border-[#eb5757]/20 rounded-xl text-xs text-[#eb5757] flex items-start gap-2.5">
-              {error.includes("Server unreachable") || error.includes("Network connection") ? (
-                <WifiOff className="w-4 h-4 shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              )}
+            <div className="p-3 bg-[#ef4444]/10 border border-[#ef4444]/20 rounded-md text-xs text-[#ef4444] flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <div className="font-semibold">{error.includes("Server unreachable") || error.includes("Network") ? "Connection Error" : "Upload Failed"}</div>
-                <div className="text-[11px] text-[#eb5757]/90 leading-relaxed">{error}</div>
+                <div className="font-semibold">Upload Error</div>
+                <div className="text-[11px] text-[#ef4444]/90">{error}</div>
               </div>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-2">
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-2 pt-1">
             <Button
               type="button"
               variant="outline"
               disabled={loading}
               onClick={onClose}
-              className="h-10 px-4 rounded-full text-xs border-white/10 bg-[#18191c] text-[#8b909a] hover:text-[#f0f2f5]"
+              className="h-8 px-3 rounded-md text-xs border-[#22242a] bg-[#18191f] text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#22242a]"
             >
               Cancel
             </Button>
@@ -411,17 +433,17 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
               type="button"
               disabled={loading || !file || isQuotaExceeded}
               onClick={handleProcess}
-              className="h-10 px-6 rounded-full text-xs bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-semibold shadow-lg shadow-[#ff5c47]/25 transition-all"
+              className="h-8 px-4 rounded-md text-xs bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-medium shadow-sm transition-colors"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                  Processing Media ({elapsedSeconds}s)...
+                  <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                  Processing...
                 </>
               ) : isQuotaExceeded ? (
                 "Quota Limit Reached"
               ) : (
-                "Upload File"
+                "Process Recording"
               )}
             </Button>
           </div>

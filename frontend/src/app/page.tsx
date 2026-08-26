@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
-  Sparkles, 
   Upload, 
   AudioWaveform, 
   FileText, 
@@ -15,8 +14,9 @@ import {
   LogIn,
   Sliders,
   ArrowRight,
-  Lock,
-  Zap
+  Zap,
+  Plus,
+  Monitor
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/Sidebar";
@@ -24,9 +24,10 @@ import { UploadModal } from "@/components/UploadModal";
 import { AdminPortalModal } from "@/components/AdminPortalModal";
 import { MeetingView } from "@/components/MeetingView";
 import { AudioPlayer } from "@/components/AudioPlayer";
-import { fetchSessions } from "@/lib/api";
+import { fetchSessions, fetchSessionById } from "@/lib/api";
 import { MeetingSession } from "@/types/meeting";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function Home() {
   const router = useRouter();
@@ -53,7 +54,6 @@ export default function Home() {
       return;
     }
 
-    // 1. Instant local storage cache hydration so user never sees empty state on refresh
     try {
       const cached = localStorage.getItem(`recmap_sessions_${user.id}`);
       if (cached) {
@@ -77,7 +77,6 @@ export default function Home() {
       console.warn("Local storage hydration note:", e);
     }
 
-    // 2. Hydrate directly from Supabase Cloud Database
     fetchSessions(user.id, token || undefined).then((data) => {
       if (data && data.length > 0) {
         setSessions(data);
@@ -94,6 +93,32 @@ export default function Home() {
         });
       }
     });
+
+    const channel = supabase
+      .channel(`user-sessions-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sessions",
+        },
+        () => {
+          fetchSessions(user.id, token || undefined).then((data) => {
+            if (data && data.length > 0) {
+              setSessions(data);
+              try {
+                localStorage.setItem(`recmap_sessions_${user.id}`, JSON.stringify(data));
+              } catch (e) {}
+            }
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, token]);
 
   // Sync active session selection to local storage
@@ -104,6 +129,21 @@ export default function Home() {
       } catch (e) {}
     }
   }, [user, activeSession]);
+
+  // Fetch fresh session details and on-demand signed audio URL whenever active session ID changes
+  useEffect(() => {
+    if (activeSession?.id && user && token) {
+      let isMounted = true;
+      fetchSessionById(activeSession.id, token).then((full: MeetingSession | null) => {
+        if (isMounted && full && full.id === activeSession.id) {
+          setActiveSession((prev) => (prev && prev.id === full.id ? { ...prev, ...full } : prev));
+        }
+      });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [activeSession?.id, user, token]);
 
   const handleOpenUpload = () => {
     if (!user) {
@@ -130,6 +170,20 @@ export default function Home() {
     setActiveSession(newSession);
   };
 
+  const handleSessionUpdated = (updatedSession: MeetingSession) => {
+    setActiveSession(updatedSession);
+    setSessions((prev) => {
+      const next = prev.map((s) => (s.id === updatedSession.id ? updatedSession : s));
+      if (user && user.id) {
+        try {
+          localStorage.setItem(`recmap_sessions_${user.id}`, JSON.stringify(next));
+          localStorage.setItem(`recmap_active_session_${user.id}`, JSON.stringify(updatedSession));
+        } catch (e) {}
+      }
+      return next;
+    });
+  };
+
   const handleSeekAudio = (seconds: number) => {
     setAudioSeekTime(seconds);
   };
@@ -139,50 +193,49 @@ export default function Home() {
   const minutesRemaining = Math.max(0, Math.round(minutesLimit - minutesUsed));
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0A0B0F] text-[#f0f2f5] flex-col md:flex-row font-sans">
-      {/* Fixed Sticky Mobile Navigation Bar */}
-      <header className="md:hidden h-14 bg-[#0A0B0F]/90 backdrop-blur-md border-b border-white/[0.08] px-4 flex items-center justify-between shrink-0 sticky top-0 z-50">
+    <div className="flex h-screen overflow-hidden bg-[#0d0e11] text-[#f3f4f6] flex-col md:flex-row font-sans selection:bg-[#ff5c47]/30 selection:text-white">
+      {/* Mobile Top Header */}
+      <header className="md:hidden h-14 bg-[#121316] border-b border-[#22242a] px-4 flex items-center justify-between shrink-0 sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <Button
             size="icon"
             variant="ghost"
             onClick={() => setIsMobileDrawerOpen(true)}
-            className="w-9 h-9 text-[#8b909a] hover:text-[#f0f2f5] hover:bg-white/5 rounded-xl"
+            className="w-8 h-8 text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#18191f] rounded-md"
             aria-label="Open Navigation Menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4" />
           </Button>
 
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#ff5c47]/10 border border-[#ff5c47]/20 flex items-center justify-center text-[#ff5c47]">
-              <AudioWaveform className="w-4 h-4" />
+            <div className="w-6 h-6 rounded-md bg-[#ff5c47]/10 border border-[#ff5c47]/20 flex items-center justify-center text-[#ff5c47]">
+              <AudioWaveform className="w-3.5 h-3.5" />
             </div>
-            <span className="font-bold text-sm text-[#f0f2f5] font-heading tracking-tight">
+            <span className="font-semibold text-sm text-[#f3f4f6]">
               RecMap
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Dedicated Admin Console Button for Admins */}
           {isUserAdmin && (
             <Button
               size="sm"
               onClick={() => setIsAdminModalOpen(true)}
-              className="h-8 px-2.5 rounded-full bg-[#ff5c47]/15 hover:bg-[#ff5c47]/25 text-[#ff5c47] border border-[#ff5c47]/30 text-xs font-medium gap-1 shadow-sm"
+              className="h-7 px-2 rounded-md bg-[#18191f] text-[#ff5c47] border border-[#22242a] text-xs font-medium gap-1"
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
+              <ShieldCheck className="w-3 h-3" />
               <span>Admin</span>
             </Button>
           )}
 
           {user ? (
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-[#8b909a]">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#18191f] border border-[#22242a] text-[11px] font-mono text-[#9ca3af]">
                 <Zap className="w-3 h-3 text-[#ff5c47]" />
-                {minutesRemaining}m left
+                {minutesRemaining}m
               </span>
-              <div className="w-7 h-7 rounded-full bg-[#ff5c47]/20 border border-[#ff5c47]/30 flex items-center justify-center text-[11px] font-semibold text-[#ff5c47]">
+              <div className="w-6 h-6 rounded-md bg-[#22242a] flex items-center justify-center text-[11px] font-medium text-[#f3f4f6]">
                 {user.email ? user.email[0].toUpperCase() : "U"}
               </div>
             </div>
@@ -191,9 +244,9 @@ export default function Home() {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 px-3 rounded-full border-white/10 bg-white/5 text-[#f0f2f5] hover:border-[#ff5c47]/50 text-xs font-medium"
+                className="h-7 px-2.5 rounded-md border-[#22242a] bg-[#18191f] text-[#f3f4f6] text-xs font-medium"
               >
-                <LogIn className="w-3.5 h-3.5 mr-1.5 text-[#ff5c47]" />
+                <LogIn className="w-3 h-3 mr-1 text-[#ff5c47]" />
                 Sign In
               </Button>
             </Link>
@@ -201,13 +254,22 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Sidebar (Desktop Static & Mobile Slide-Over Drawer) */}
+      {/* Sidebar (Desktop Static & Mobile Drawer) */}
       <Sidebar
         sessions={sessions}
         activeSessionId={activeSession?.metadata?.session_id || activeSession?.id || null}
         onSelectSession={(s) => {
+          setAudioSeekTime(undefined);
           setActiveSession(s);
           setIsMobileDrawerOpen(false);
+          if (s.id) {
+            fetchSessionById(s.id, token || undefined).then((full: MeetingSession | null) => {
+              if (full) {
+                setActiveSession(full);
+                setSessions((prev) => prev.map((item) => (item.id === full.id ? full : item)));
+              }
+            });
+          }
         }}
         onOpenUpload={() => {
           setIsMobileDrawerOpen(false);
@@ -219,160 +281,160 @@ export default function Home() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 h-[calc(100vh-3.5rem)] md:h-screen overflow-y-auto overflow-x-hidden relative">
-        {/* Desktop Top Admin Bar when user is admin */}
+      <main className="flex-1 h-[calc(100vh-3.5rem)] md:h-screen overflow-y-auto overflow-x-hidden relative bg-[#0d0e11]">
+        {/* Desktop Admin Bar */}
         {isUserAdmin && (
-          <div className="hidden md:flex items-center justify-between px-6 py-2 bg-[#13151B]/80 border-b border-white/[0.08] text-xs">
-            <div className="flex items-center gap-2 text-[#8b909a]">
-              <ShieldCheck className="w-4 h-4 text-[#ff5c47]" />
-              <span>Admin Console • <span className="text-[#f0f2f5] font-mono">{user?.email}</span></span>
+          <div className="hidden md:flex items-center justify-between px-6 py-1.5 bg-[#0f1013] border-b border-[#22242a] text-xs">
+            <div className="flex items-center gap-2 text-[#9ca3af]">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#ff5c47]" />
+              <span>Admin Console • <span className="text-[#f3f4f6] font-mono">{user?.email}</span></span>
             </div>
             <Button
               size="sm"
               onClick={() => setIsAdminModalOpen(true)}
-              className="h-7 px-3 rounded-full bg-[#ff5c47]/15 hover:bg-[#ff5c47]/25 text-[#ff5c47] border border-[#ff5c47]/30 text-xs font-medium gap-1.5 shadow-[0_0_15px_rgba(255,92,71,0.15)]"
+              className="h-6 px-2.5 rounded-md bg-[#18191f] hover:bg-[#22242a] text-[#ff5c47] border border-[#22242a] text-[11px] font-medium gap-1"
             >
               <Sliders className="w-3 h-3" />
-              <span>Open Admin Management Portal</span>
+              <span>Manage Quotas & Users</span>
             </Button>
           </div>
         )}
 
         {activeSession ? (
           <>
-            <MeetingView session={activeSession} onSeekAudio={handleSeekAudio} />
+            <MeetingView
+              session={activeSession}
+              onSeekAudio={handleSeekAudio}
+              onSessionUpdated={handleSessionUpdated}
+            />
             <AudioPlayer
+              key={activeSession.id}
+              sessionId={activeSession.id}
               src={activeSession.metadata?.audio_url}
+              initialDuration={
+                typeof (activeSession as any).duration_seconds === "number" && (activeSession as any).duration_seconds > 0
+                  ? (activeSession as any).duration_seconds
+                  : (activeSession.metadata?.duration_seconds || (activeSession.duration_minutes ? activeSession.duration_minutes * 60 : 0))
+              }
               currentTime={audioSeekTime}
             />
           </>
         ) : (
-          /* Studio Workspace Ingestion & Landing View */
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12 pb-16 space-y-8 sm:space-y-12">
-            {/* Clean Hero Banner */}
-            <div className="space-y-4 text-center max-w-xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#ff5c47]/10 border border-[#ff5c47]/20 text-[#ff5c47] text-xs font-medium mx-auto">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Enterprise Speech & Audio Intelligence</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f0f2f5] font-heading leading-snug break-words">
-                Turn Voice & Meetings into Clear, Actionable Intelligence.
+          /* Studio Empty State / Workspace Landing */
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-16 space-y-8">
+            <div className="space-y-3 text-center max-w-lg mx-auto">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f3f4f6]">
+                Meeting Intelligence Workspace
               </h1>
-              <p className="text-xs sm:text-sm text-[#8b909a] leading-relaxed max-w-lg mx-auto">
-                Fast, secure audio transcription and intelligent breakdown powered by advanced AI models. Get instant executive summaries, mind maps, and structured action items.
+              <p className="text-xs sm:text-sm text-[#9ca3af] leading-relaxed">
+                Upload audio or video recordings to generate structured executive summaries, action items with assignees, interactive mind maps, and diarized transcripts.
               </p>
               
-              {/* Direct Ingestion Action Button */}
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              {/* Primary Action Button */}
+              <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-2.5">
                 <Button
                   onClick={handleOpenUpload}
-                  className="w-full sm:w-auto h-11 px-8 rounded-full bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-semibold text-xs shadow-lg shadow-[#ff5c47]/25 transition-all gap-2"
+                  className="w-full sm:w-auto h-9 px-5 rounded-md bg-[#ff5c47] hover:bg-[#ff5c47]/90 text-white font-medium text-xs shadow-sm gap-1.5 cursor-pointer"
                 >
-                  <Upload className="w-4 h-4" />
-                  Upload File
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Upload Recording</span>
                 </Button>
+
+                <Link href="/download" className="w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto h-9 px-4 rounded-md border-[#22242a] bg-[#131418] hover:bg-[#18191f] text-[#f3f4f6] text-xs font-medium gap-1.5 cursor-pointer"
+                  >
+                    <Monitor className="w-3.5 h-3.5 text-[#ff5c47]" />
+                    <span>Download Desktop App</span>
+                  </Button>
+                </Link>
 
                 {!user && (
                   <Link href="/login" className="w-full sm:w-auto">
                     <Button
                       variant="outline"
-                      className="w-full sm:w-auto h-11 px-6 rounded-full border-white/10 bg-[#13151B] hover:bg-[#18191c] text-[#f0f2f5] text-xs font-medium gap-1.5"
+                      className="w-full sm:w-auto h-9 px-4 rounded-md border-[#22242a] bg-[#131418] hover:bg-[#18191f] text-[#f3f4f6] text-xs font-medium gap-1.5 cursor-pointer"
                     >
                       <LogIn className="w-3.5 h-3.5 text-[#ff5c47]" />
-                      Sign In
+                      <span>Sign In</span>
                     </Button>
                   </Link>
                 )}
               </div>
             </div>
 
-            {/* Feature Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="bg-[#13151B] border border-white/[0.08] rounded-2xl p-5 space-y-2 shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-[#ff5c47]/10 flex items-center justify-center text-[#ff5c47]">
-                  <FileText className="w-4 h-4" />
+            {/* Clean Feature Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-[#131418] border border-[#22242a] rounded-lg p-4 space-y-1.5">
+                <div className="w-7 h-7 rounded-md bg-[#18191f] flex items-center justify-center text-[#ff5c47]">
+                  <FileText className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-sm font-semibold text-[#f0f2f5] font-heading">
+                <div className="text-xs font-semibold text-[#f3f4f6]">
                   Executive Summaries
                 </div>
-                <div className="text-xs text-[#8b909a] leading-relaxed">
-                  Clear, structured meeting overviews highlighting core decisions.
+                <div className="text-[11px] text-[#9ca3af] leading-relaxed">
+                  Structured meeting breakdowns with discussion topics and core decisions.
                 </div>
               </div>
 
-              <div className="bg-[#13151B] border border-white/[0.08] rounded-2xl p-5 space-y-2 shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-[#3ec98a]/10 flex items-center justify-center text-[#3ec98a]">
-                  <CheckSquare className="w-4 h-4" />
+              <div className="bg-[#131418] border border-[#22242a] rounded-lg p-4 space-y-1.5">
+                <div className="w-7 h-7 rounded-md bg-[#18191f] flex items-center justify-center text-[#10b981]">
+                  <CheckSquare className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-sm font-semibold text-[#f0f2f5] font-heading">
+                <div className="text-xs font-semibold text-[#f3f4f6]">
                   Action Items & Tasks
                 </div>
-                <div className="text-xs text-[#8b909a] leading-relaxed">
-                  Auto-extracted deliverables with accountable owners and deadlines.
+                <div className="text-[11px] text-[#9ca3af] leading-relaxed">
+                  Deliverables mapped with owners, priority tags, and due dates.
                 </div>
               </div>
 
-              <div className="bg-[#13151B] border border-white/[0.08] rounded-2xl p-5 space-y-2 shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-[#7cb0ff]/10 flex items-center justify-center text-[#7cb0ff]">
-                  <Network className="w-4 h-4" />
+              <div className="bg-[#131418] border border-[#22242a] rounded-lg p-4 space-y-1.5">
+                <div className="w-7 h-7 rounded-md bg-[#18191f] flex items-center justify-center text-[#60a5fa]">
+                  <Network className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-sm font-semibold text-[#f0f2f5] font-heading">
+                <div className="text-xs font-semibold text-[#f3f4f6]">
                   Interactive Mind Maps
                 </div>
-                <div className="text-xs text-[#8b909a] leading-relaxed">
-                  Visual concept and decision mapping for instant thematic clarity.
-                </div>
-              </div>
-
-              <div className="bg-[#13151B] border border-white/[0.08] rounded-2xl p-5 space-y-2 shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-[#b180ff]/10 flex items-center justify-center text-[#b180ff]">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <div className="text-sm font-semibold text-[#f0f2f5] font-heading">
-                  Enterprise-Grade Privacy
-                </div>
-                <div className="text-xs text-[#8b909a] leading-relaxed">
-                  Encrypted, private audio processing and dedicated user isolation.
+                <div className="text-[11px] text-[#9ca3af] leading-relaxed">
+                  Visual concept and decision mapping for instant structural clarity.
                 </div>
               </div>
             </div>
 
-            {/* Recent Workspaces List (Only rendered for authenticated users) */}
+            {/* Recent Workspaces List if user has meetings */}
             {user && sessions && sessions.length > 0 && (
-              <div className="space-y-3">
-                <div className="text-sm font-semibold text-[#f0f2f5] font-heading flex items-center justify-between">
-                  <span>Recent Workspaces</span>
-                  <span className="text-xs text-[#8b909a] font-normal font-sans">
-                    {sessions.length} total meetings
-                  </span>
+              <div className="space-y-2 pt-4 border-t border-[#22242a]">
+                <div className="text-xs font-semibold text-[#9ca3af] uppercase tracking-wider flex items-center justify-between px-1">
+                  <span>Recent Meetings</span>
+                  <span className="font-mono text-[11px] lowercase">{sessions.length} total</span>
                 </div>
 
-                <div className="space-y-2">
-                  {sessions.slice(0, 5).map((s, idx) => (
+                <div className="space-y-1.5">
+                  {sessions.slice(0, 4).map((s, idx) => (
                     <div
                       key={idx}
                       onClick={() => setActiveSession(s)}
-                      className="bg-[#13151B] border border-white/[0.08] hover:border-white/20 rounded-2xl p-3.5 sm:p-4 sm:px-5 flex items-center justify-between cursor-pointer transition-all hover:bg-[#18191c]"
+                      className="bg-[#131418] border border-[#22242a] hover:border-[#2e3238] rounded-lg p-3 px-4 flex items-center justify-between cursor-pointer transition-colors hover:bg-[#18191f]"
                     >
-                      <div className="space-y-1 truncate pr-3">
-                        <div className="text-sm font-semibold text-[#f0f2f5] truncate">
+                      <div className="space-y-0.5 truncate pr-3">
+                        <div className="text-xs font-medium text-[#f3f4f6] truncate">
                           {s.title || "Untitled Session"}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-[#8b909a]">
-                          <span>{s.metadata?.duration || `${s.duration_minutes || 0} min`}</span>
+                        <div className="flex items-center gap-2 text-[11px] text-[#9ca3af]">
+                          <span className="font-mono">{s.metadata?.duration || `${s.duration_minutes || 0}m`}</span>
                           <span>•</span>
                           <span>{s.meeting_date || "Recent"}</span>
-                          <span>•</span>
-                          <span>{(s.sections || []).length} Sections</span>
                         </div>
                       </div>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="rounded-full text-xs text-[#8b909a] hover:text-[#f0f2f5] hover:bg-white/5 shrink-0"
+                        className="h-7 px-2 text-xs text-[#9ca3af] hover:text-[#f3f4f6] shrink-0"
                       >
-                        <span className="hidden sm:inline mr-1">Open Workspace</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <span className="mr-1">Open</span>
+                        <ArrowRight className="w-3 h-3" />
                       </Button>
                     </div>
                   ))}

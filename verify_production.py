@@ -17,9 +17,10 @@ def test_full_pipeline():
     audio_bytes = buf.getvalue()
     
     # 2. Test Direct Groq Audio Transcription
+    groq_api_key = os.environ.get("GROQ_API_KEY", "")
     groq_res = requests.post(
         "https://api.groq.com/openai/v1/audio/transcriptions",
-        headers={"Authorization": "Bearer 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"},
+        headers={"Authorization": f"Bearer {groq_api_key}"},
         files={"file": ("test.wav", audio_bytes, "audio/wav")},
         data={"model": "whisper-large-v3"}
     )
