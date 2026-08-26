@@ -32,13 +32,13 @@ export const MarkdownMessage = memo(function MarkdownMessage({
   return (
     <div
       dir={isArabic ? "rtl" : "ltr"}
-      className="markdown-content text-xs leading-relaxed text-[#f0f2f5] break-words select-text font-sans space-y-2.5"
+      className="markdown-content text-xs sm:text-[13px] leading-[1.65] text-[#f0f2f5] break-words select-text font-sans space-y-2.5"
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 className="text-sm sm:text-base font-bold text-[#f0f2f5] font-heading mt-3.5 mb-1.5 pb-1 border-b border-[#232529]/60">
+            <h1 className="text-sm sm:text-base font-bold text-[#f0f2f5] font-heading mt-3.5 mb-1.5 pb-1 border-b border-[#22242a]">
               {children}
             </h1>
           ),
@@ -54,7 +54,7 @@ export const MarkdownMessage = memo(function MarkdownMessage({
             </h3>
           ),
           p: ({ children }) => (
-            <p className="text-xs text-[#d1d5db] leading-relaxed mb-2 last:mb-0">
+            <p className="text-xs sm:text-[13px] text-[#d1d5db] leading-[1.65] mb-2 last:mb-0">
               {children}
             </p>
           ),
@@ -79,12 +79,12 @@ export const MarkdownMessage = memo(function MarkdownMessage({
             </ol>
           ),
           li: ({ children }) => (
-            <li className="text-xs text-[#d1d5db] leading-relaxed">
+            <li className="text-xs sm:text-[13px] text-[#d1d5db] leading-[1.6]">
               {children}
             </li>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="my-2.5 p-2.5 px-3.5 bg-[#1f2126]/60 border-l-2 rtl:border-l-0 rtl:border-r-2 border-[#ff5c47] rounded-r-lg rtl:rounded-r-none rtl:rounded-l-lg text-xs text-[#cbd5e1] italic">
+            <blockquote className="my-2.5 p-2.5 px-3.5 bg-[#18191f] border-l-2 rtl:border-l-0 rtl:border-r-2 border-[#ff5c47] rounded-r-lg rtl:rounded-r-none rtl:rounded-l-lg text-xs sm:text-[12.5px] text-[#cbd5e1] italic">
               {children}
             </blockquote>
           ),
@@ -92,7 +92,7 @@ export const MarkdownMessage = memo(function MarkdownMessage({
             const isBlock = Boolean(className) || String(children).includes("\n");
             if (isBlock) {
               return (
-                <div className="my-2.5 rounded-xl bg-[#0e0f11] border border-[#232529] overflow-hidden">
+                <div className="my-2.5 rounded-xl bg-[#0e0f12] border border-[#22242a] overflow-hidden">
                   <pre className="p-3 text-[11px] font-mono text-[#f0f2f5] overflow-x-auto leading-relaxed">
                     <code>{children}</code>
                   </pre>
@@ -101,7 +101,7 @@ export const MarkdownMessage = memo(function MarkdownMessage({
             }
             return (
               <code
-                className="px-1.5 py-0.5 rounded-md bg-[#232529] font-mono text-[11px] text-[#ff8d7e] font-medium border border-[#2e3238]"
+                className="px-1.5 py-0.5 rounded-md bg-[#1c1e24] font-mono text-[11px] text-[#ff8d7e] font-medium border border-[#2a2c35]"
                 {...props}
               >
                 {children}
@@ -109,19 +109,19 @@ export const MarkdownMessage = memo(function MarkdownMessage({
             );
           },
           table: ({ children }) => (
-            <div className="my-3 overflow-x-auto rounded-xl border border-[#2e3238] bg-[#141517]/80 shadow-md">
-              <table className="w-full text-left rtl:text-right border-collapse text-[11px]">
+            <div className="my-3 overflow-x-auto rounded-lg border border-[#22242a] bg-[#111216] shadow-sm">
+              <table className="w-full text-left rtl:text-right border-collapse text-[11.5px] min-w-full">
                 {children}
               </table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-[#1e2024] text-[#f0f2f5] font-semibold border-b border-[#2e3238]">
+            <thead className="bg-[#18191f] text-[#f0f2f5] font-semibold border-b border-[#22242a]">
               {children}
             </thead>
           ),
           tbody: ({ children }) => (
-            <tbody className="divide-y divide-[#232529]/60">
+            <tbody className="divide-y divide-[#22242a]/60">
               {children}
             </tbody>
           ),

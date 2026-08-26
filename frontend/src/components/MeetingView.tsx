@@ -24,7 +24,8 @@ import {
   Cpu,
   CheckCircle2,
   Radio,
-  FileAudio
+  FileAudio,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -575,10 +576,10 @@ export function MeetingView({ session: initialSession, onSeekAudio, onSessionUpd
           {canAccessChat && (
             <TabsTrigger
               value="chat"
-              className="rounded-md text-xs px-3 py-1.5 data-[state=active]:bg-[#1e2027] data-[state=active]:text-[#f3f4f6] data-[state=active]:shadow-sm text-[#9ca3af] shrink-0 transition-all font-medium"
+              className="rounded-md text-xs px-3 py-1.5 data-[state=active]:bg-[#1e2027] data-[state=active]:text-[#f3f4f6] data-[state=active]:shadow-sm text-[#9ca3af] shrink-0 transition-all font-medium gap-1.5"
             >
-              <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
-              Chat
+              <Sparkles className="w-3.5 h-3.5 text-[#ff5c47]" />
+              <span>Meeting Q&A</span>
             </TabsTrigger>
           )}
         </TabsList>
@@ -900,7 +901,7 @@ export function MeetingView({ session: initialSession, onSeekAudio, onSessionUpd
           { id: "actions", label: "Actions", icon: CheckSquare, count: totalActions },
           { id: "mindmap", label: "Mind Map", icon: Network },
           { id: "transcript", label: "Transcript", icon: Clock },
-          ...(canAccessChat ? [{ id: "chat", label: "Chat", icon: MessageSquare }] : []),
+          ...(canAccessChat ? [{ id: "chat", label: "Q&A", icon: Sparkles }] : []),
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
